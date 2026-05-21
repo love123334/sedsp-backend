@@ -1,53 +1,75 @@
-HELP.md
-
+# =========================
 # Gradle
+# =========================
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
 
-# STS
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
+# =========================
 # IntelliJ IDEA
+# =========================
 .idea/
 *.iws
 *.iml
 *.ipr
 out/
-!**/src/main/**/out/
-!**/src/test/**/out/
 
+# =========================
+# VS Code / Cursor
+# =========================
+.vscode/
+
+# =========================
+# STS / Eclipse
+# =========================
+.apt_generated/
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+bin/
+
+# =========================
 # NetBeans
+# =========================
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 
-# VS Code
-.vscode/
-
+# =========================
 # Logs
+# =========================
+logs/
 *.log
 
-# Environment variables
+# =========================
+# Environment
+# =========================
 .env
+.env.*
 
+# =========================
+# Local Spring Profiles
+# =========================
+application-local.yml
+application-dev.yml
+
+# =========================
 # OS files
+# =========================
 .DS_Store
 Thumbs.db
 
-# Local config (optional)
-application-local.yml
-application-dev.yml
+# =========================
+# Java
+# =========================
+*.class
+
+# =========================
+# Docker
+# =========================
+postgres_data/

@@ -46,15 +46,19 @@ Analytics  : Power BI
 # 📂 Project Structure
 
 ```text
-src/main/java/com/example
-├── config          # Configuration classes
-├── controller      # REST API controllers
-├── service         # Business logic layer
-├── repository      # Data access layer
-├── entity          # JPA entities
-├── dto             # Data Transfer Objects
-├── security        # JWT & Spring Security
-└── util            # Utility classes
+src/main/java/com/example/secdsp
+│
+├── common/           # Shared utilities, exceptions, responses
+├── config/           # Spring configuration classes
+├── security/         # JWT & Spring Security
+├── infrastructure/   # External integrations (Redis, AI, etc.)
+├── modules/          # Business modules
+│   ├── auth/
+│   ├── user/
+│   ├── product/
+│   ├── inventory/
+│   ├── order/
+│   └── analytics/
 ```
 
 ---
@@ -127,16 +131,16 @@ gradlew.bat bootRun
 docker-compose up --build
 ```
 
-> Docker deployment is currently under development.
+> Docker Compose is provided for local development environments.
 
 ---
 
 # 📖 API Documentation
 
-After starting the application, access Swagger UI at:
+Swagger UI:
 
 ```text
-http://localhost:8080/swagger-ui.html
+http://localhost:8080/swagger-ui/index.html
 ```
 
 ---
@@ -148,6 +152,35 @@ The system implements:
 - JWT-based Authentication
 - Role-based Access Control (RBAC)
 - Secure REST APIs with Spring Security
+- Authentication flow:
+- JWT Access Token
+- Role-based authorization
+- Stateless REST API security
+
+---
+
+# 🧱 Architecture Principles
+
+The backend follows a modular layered architecture:
+
+- Feature-based modular structure
+- Separation of concerns
+- DTO-based API communication
+- RESTful API design
+- Flyway database migration strategy
+- JWT authentication & RBAC authorization
+- Clean and maintainable code organization
+
+---
+
+# 🛠️ Development Rules
+
+- Never modify existing Flyway migration files
+- Use DTOs for all API requests/responses
+- Keep controllers thin
+- Business logic belongs in services
+- Use constructor injection
+- Follow RESTful naming conventions
 
 ---
 
