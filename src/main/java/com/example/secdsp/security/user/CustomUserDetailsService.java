@@ -37,7 +37,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Transactional(readOnly = true)
     public UserDetails loadUserById(Long id) {
-        User user = userRepository.findById(id)
+        User user = userRepository.findWithRoleById(id)
             .orElseThrow(() ->
                              new UsernameNotFoundException("User not found"));
 
