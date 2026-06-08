@@ -17,8 +17,6 @@ import java.util.Date;
 @Component
 public class JwtProvider {
 
-    private static final String ROLE_CLAIM = "role";
-
     private final SecretKey secretKey;
     private final long expirationMs;
 
@@ -34,13 +32,12 @@ public class JwtProvider {
         this.expirationMs = expirationMs;
     }
 
-    public String generateAccessToken(Long userId, String role) {
+    public String generateAccessToken(Long userId) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
 
         return Jwts.builder()
                 .subject(String.valueOf(userId))
-                .claim(ROLE_CLAIM, role)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(secretKey)
@@ -61,10 +58,6 @@ public class JwtProvider {
 
     public Long getUserId(String token) {
         return Long.parseLong(parseClaims(token).getSubject());
-    }
-
-    public String getRole(String token) {
-        return parseClaims(token).get(ROLE_CLAIM, String.class);
     }
 
     private Claims parseClaims(String token) {
