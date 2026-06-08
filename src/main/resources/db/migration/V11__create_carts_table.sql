@@ -1,0 +1,10 @@
+CREATE TABLE carts
+(
+    id           BIGSERIAL PRIMARY KEY,
+
+    user_id      BIGINT NOT NULL UNIQUE
+        REFERENCES users(id),
+
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
