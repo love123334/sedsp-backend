@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: secdsp
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-this-secret-key-to-a-secure-256-bit-value-for-production-use}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
