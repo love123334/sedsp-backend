@@ -1,4 +1,4 @@
-package com.example.SECDSP;
+package com.example.secdsp;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
