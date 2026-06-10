@@ -1,13 +1,19 @@
 # =========================
+
 # Gradle
+
 # =========================
+
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 
 # =========================
+
 # IntelliJ IDEA
+
 # =========================
+
 .idea/
 *.iws
 *.iml
@@ -15,13 +21,19 @@ build/
 out/
 
 # =========================
+
 # VS Code / Cursor
+
 # =========================
+
 .vscode/
 
 # =========================
+
 # STS / Eclipse
+
 # =========================
+
 .apt_generated/
 .classpath
 .factorypath
@@ -32,8 +44,11 @@ out/
 bin/
 
 # =========================
+
 # NetBeans
+
 # =========================
+
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -41,35 +56,76 @@ bin/
 /.nb-gradle/
 
 # =========================
+
 # Logs
+
 # =========================
+
 logs/
 *.log
 
 # =========================
+
 # Environment
+
 # =========================
+
 .env
 .env.*
 
 # =========================
+
 # Local Spring Profiles
+
 # =========================
+
 application-local.yml
 application-dev.yml
 
 # =========================
+
 # OS files
+
 # =========================
+
 .DS_Store
 Thumbs.db
 
 # =========================
+
 # Java
+
 # =========================
+
 *.class
 
 # =========================
+
 # Docker
+
 # =========================
+
 postgres_data/
+
+# =========================
+
+# Python
+
+# =========================
+
+.venv/
+venv/
+**pycache**/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# =========================
+
+# Aider
+
+# =========================
+
+.aider*
