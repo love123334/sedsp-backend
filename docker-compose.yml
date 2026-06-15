@@ -24,10 +24,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sedsp
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: 123456
       SPRING_REDIS_HOST: redis
+      SPRING_PROFILES_ACTIVE: docker
 
 volumes:
   postgres_data:
