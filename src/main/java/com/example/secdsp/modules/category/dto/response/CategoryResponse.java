@@ -1,19 +1,19 @@
 package com.example.secdsp.modules.category.dto.response;
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class CategoryResponse {
-    private Long id;
-    private String name;
-    private String slug;
-    private Long parentId;
-    private String parentName;
-    private LocalDateTime createdAt;
+    Long id;
+    String name;
+    String slug;
+    Long parentId;
+    String parentName;
+    LocalDateTime createdAt;
 }
