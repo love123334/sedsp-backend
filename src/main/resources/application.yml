@@ -1,6 +1,8 @@
 spring:
   application:
     name: secdsp
+  profiles:
+    active: dev
 
 app:
   jwt:
