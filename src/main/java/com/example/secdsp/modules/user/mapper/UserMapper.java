@@ -9,11 +9,11 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface UserMapper {
 
-    @Mapping(target = "role", source = "role.name")
+    @Mapping(target = "role", expression = "java(user.getRole() != null ? user.getRole().name() : null)")
     @Mapping(target = "status", expression = "java(user.getStatus() != null ? user.getStatus().name() : null)")
     UserProfileResponse toProfileResponse(User user);
 
-    @Mapping(target = "role", source = "role.name")
+    @Mapping(target = "role", expression = "java(user.getRole() != null ? user.getRole().name() : null)")
     @Mapping(target = "status", expression = "java(user.getStatus() != null ? user.getStatus().name() : null)")
     UserSummaryResponse toSummaryResponse(User user);
 }
