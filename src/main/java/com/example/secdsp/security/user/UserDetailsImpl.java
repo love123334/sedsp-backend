@@ -1,6 +1,7 @@
 package com.example.secdsp.security.user;
 
 import com.example.secdsp.modules.user.entity.UserRole;
+import com.example.secdsp.modules.user.entity.UserStatus;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -18,16 +19,18 @@ public class UserDetailsImpl implements UserDetails {
     private final Long id;
     private final String email;
     private final UserRole role;
+    private final UserStatus status;
 
     @Getter(AccessLevel.NONE)
     private final String password;
 
-    public static UserDetailsImpl build(Long id, String email, String password, UserRole role) {
+    public static UserDetailsImpl build(Long id, String email, String password, UserRole role, UserStatus status) {
         return UserDetailsImpl.builder()
             .id(id)
             .email(email)
             .password(password)
             .role(role)
+            .status(status)
             .build();
     }
 
@@ -47,14 +50,22 @@ public class UserDetailsImpl implements UserDetails {
     }
 
     @Override
-    public boolean isAccountNonExpired() { return true; }
+    public boolean isAccountNonExpired() {
+        return true;
+    }
 
     @Override
-    public boolean isAccountNonLocked() { return true; }
+    public boolean isAccountNonLocked() {
+        return status != UserStatus.BLOCKED;
+    }
 
     @Override
-    public boolean isCredentialsNonExpired() { return true; }
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
 
     @Override
-    public boolean isEnabled() { return true; }
+    public boolean isEnabled() {
+        return status == UserStatus.ACTIVE;
+    }
 }
