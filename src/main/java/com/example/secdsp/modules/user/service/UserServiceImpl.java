@@ -79,7 +79,7 @@ public class UserServiceImpl implements UserService {
     }
 
     private User findActiveUser(Long id) {
-        return userRepository.findWithRoleByIdAndDeletedAtIsNull(id)
+        return userRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", id));
     }
 }

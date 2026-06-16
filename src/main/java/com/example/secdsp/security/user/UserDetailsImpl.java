@@ -1,5 +1,6 @@
 package com.example.secdsp.security.user;
 
+import com.example.secdsp.modules.user.entity.UserRole;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,23 +17,23 @@ public class UserDetailsImpl implements UserDetails {
 
     private final Long id;
     private final String email;
-    private final String role;
+    private final UserRole role;
 
     @Getter(AccessLevel.NONE)
     private final String password;
 
-    public static UserDetailsImpl build(Long id, String email, String password, String role) {
+    public static UserDetailsImpl build(Long id, String email, String password, UserRole role) {
         return UserDetailsImpl.builder()
-                .id(id)
-                .email(email)
-                .password(password)
-                .role(role)
-                .build();
+            .id(id)
+            .email(email)
+            .password(password)
+            .role(role)
+            .build();
     }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role));
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
     @Override
@@ -46,22 +47,14 @@ public class UserDetailsImpl implements UserDetails {
     }
 
     @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
+    public boolean isAccountNonExpired() { return true; }
 
     @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
+    public boolean isAccountNonLocked() { return true; }
 
     @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
+    public boolean isCredentialsNonExpired() { return true; }
 
     @Override
-    public boolean isEnabled() {
-        return true;
-    }
+    public boolean isEnabled() { return true; }
 }

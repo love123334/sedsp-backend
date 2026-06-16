@@ -1,18 +1,6 @@
 package com.example.secdsp.modules.user.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -49,12 +37,48 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false, columnDefinition = "user_status")
+    @Column(
+        name = "status",
+        nullable = false,
+        columnDefinition = "user_status"
+    )
     private UserStatus status = UserStatus.ACTIVE;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
+    private Customer customer;
+
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
+    private Seller seller;
+
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
+    private Manager manager;
+
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
+    private Admin admin;
+
+    @Transient
+    public UserRole getRole() {
+
+        int count = 0;
+
+        if (admin != null) count++;
+        if (manager != null) count++;
+        if (seller != null) count++;
+        if (customer != null) count++;
+
+        if (count > 1) {
+            throw new IllegalStateException(
+                "User " + id + " has multiple roles"
+            );
+        }
+
+        if (admin != null) return UserRole.ADMIN;
+        if (manager != null) return UserRole.MANAGER;
+        if (seller != null) return UserRole.SELLER;
+        if (customer != null) return UserRole.CUSTOMER;
+
+        return null;
+    }
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -68,12 +92,12 @@ public class User {
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
-        this.createdAt = now;
-        this.updatedAt = now;
+        createdAt = now;
+        updatedAt = now;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
 }

@@ -64,7 +64,7 @@ public class AuthServiceImpl implements AuthService {
     public MeResponse getCurrentUser() {
         Long userId = SecurityUtils.getCurrentUserId();
 
-        User user = userRepository.findWithRoleByIdAndDeletedAtIsNull(userId)
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
         return authMapper.toMeResponse(user);

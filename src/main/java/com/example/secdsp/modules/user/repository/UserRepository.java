@@ -12,11 +12,21 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    @EntityGraph(attributePaths = "role")
+    @EntityGraph(attributePaths = {
+        "customer",
+        "seller",
+        "manager",
+        "admin"
+    })
     Optional<User> findByEmailAndDeletedAtIsNull(String email);
 
-    @EntityGraph(attributePaths = "role")
-    Optional<User> findWithRoleByIdAndDeletedAtIsNull(Long id);
+    @EntityGraph(attributePaths = {
+        "customer",
+        "seller",
+        "manager",
+        "admin"
+    })
+    Optional<User> findByIdAndDeletedAtIsNull(Long id);
 
     boolean existsByPhoneAndIdNot(String phone, Long id);
 
@@ -28,6 +38,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
                  LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
                  LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')))
             """)
-    @EntityGraph(attributePaths = "role")
-    Page<User> searchUsers(@Param("keyword") String keyword, Pageable pageable);
+    @EntityGraph(attributePaths = {
+        "customer",
+        "seller",
+        "manager",
+        "admin"
+    })
+    Page<User> searchUsers(
+        @Param("keyword") String keyword,
+        Pageable pageable
+    );
 }
