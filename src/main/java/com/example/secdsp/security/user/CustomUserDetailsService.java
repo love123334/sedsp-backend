@@ -37,7 +37,8 @@ public class CustomUserDetailsService implements UserDetailsService {
             user.getId(),
             user.getEmail(),
             user.getPassword(),
-            role
+            role,
+            user.getStatus()
         );
     }
 
@@ -57,7 +58,8 @@ public class CustomUserDetailsService implements UserDetailsService {
             user.getId(),
             user.getEmail(),
             user.getPassword(),
-            role
+            role,
+            user.getStatus()
         );
     }
 }

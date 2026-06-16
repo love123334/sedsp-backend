@@ -1,38 +1,37 @@
 package com.example.secdsp.modules.user.entity;
 
+import com.example.secdsp.modules.common.entity.BaseEntity;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalDateTime;
+import lombok.experimental.FieldDefaults;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
+@FieldDefaults(level = AccessLevel.PRIVATE)
 @Table(name = "sellers")
-public class Seller {
+public class Seller extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    User user;
 
     @Column(name = "store_name")
-    private String storeName;
+    String storeName;
 
     @Column(name = "business_email")
-    private String businessEmail;
+    String businessEmail;
 
     @Column(name = "business_phone")
-    private String businessPhone;
+    String businessPhone;
 
-    private String description;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    String description;
 }
