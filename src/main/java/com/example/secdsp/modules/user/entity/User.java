@@ -1,39 +1,41 @@
 package com.example.secdsp.modules.user.entity;
 
+import com.example.secdsp.modules.common.entity.BaseEntity;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
+@FieldDefaults(level = AccessLevel.PRIVATE)
 @Table(name = "users")
-public class User {
+public class User extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    Long id;
 
     @Column(nullable = false, unique = true, length = 100)
-    private String username;
+    String username;
 
     @Column(nullable = false, unique = true, length = 150)
-    private String email;
+    String email;
 
     @Column(nullable = false)
-    private String password;
+    String password;
 
     @Column(name = "full_name", length = 150)
-    private String fullName;
+    String fullName;
 
     @Column(unique = true, length = 20)
-    private String phone;
+    String phone;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
@@ -42,19 +44,19 @@ public class User {
         nullable = false,
         columnDefinition = "user_status"
     )
-    private UserStatus status = UserStatus.ACTIVE;
+    UserStatus status = UserStatus.ACTIVE;
 
     @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
-    private Customer customer;
+    Customer customer;
 
     @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
-    private Seller seller;
+    Seller seller;
 
     @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
-    private Manager manager;
+    Manager manager;
 
     @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
-    private Admin admin;
+    Admin admin;
 
     @Transient
     public UserRole getRole() {
@@ -78,26 +80,5 @@ public class User {
         if (customer != null) return UserRole.CUSTOMER;
 
         return null;
-    }
-
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-        createdAt = now;
-        updatedAt = now;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
     }
 }
