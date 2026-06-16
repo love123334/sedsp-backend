@@ -8,8 +8,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 
-import java.time.LocalDateTime;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -28,7 +26,4 @@ public class Customer extends BaseEntity {
 
     @Column(name = "loyalty_points")
     Integer loyaltyPoints;
-
-    @Column(name = "created_at")
-    LocalDateTime createdAt;
 }
