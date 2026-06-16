@@ -1,6 +1,7 @@
 package com.example.secdsp.security.user;
 
 import com.example.secdsp.modules.user.entity.User;
+import com.example.secdsp.modules.user.entity.UserRole;
 import com.example.secdsp.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,26 +27,37 @@ public class CustomUserDetailsService implements UserDetailsService {
                 return new UsernameNotFoundException("User not found");
             });
 
+        UserRole role = user.getRole();
+        if (role == null) {
+            log.warn("User {} has no role assigned", email);
+            throw new UsernameNotFoundException("User has no role assigned");
+        }
 
         return UserDetailsImpl.build(
             user.getId(),
             user.getEmail(),
             user.getPassword(),
-            user.getRole().getName()
+            role
         );
     }
 
     @Transactional(readOnly = true)
     public UserDetails loadUserById(Long id) {
-        User user = userRepository.findWithRoleByIdAndDeletedAtIsNull(id)
-            .orElseThrow(() ->
-                             new UsernameNotFoundException("User not found"));
+
+        User user = userRepository.findByIdAndDeletedAtIsNull(id)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        UserRole role = user.getRole();
+
+        if (role == null) {
+            throw new UsernameNotFoundException("User has no role assigned");
+        }
 
         return UserDetailsImpl.build(
             user.getId(),
             user.getEmail(),
             user.getPassword(),
-            user.getRole().getName()
+            role
         );
     }
 }
