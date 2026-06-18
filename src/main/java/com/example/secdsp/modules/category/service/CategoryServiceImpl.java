@@ -17,10 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -134,6 +131,12 @@ public class CategoryServiceImpl implements CategoryService {
             }
         }
         return rootCategoryTreeResponses;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Category> findEntityById(Long id) {
+        return categoryRepository.findByIdAndDeletedAtIsNull(id);
     }
 
     private CategoryTreeResponse buildCategoryTree(Category category, Map<Long, Category> categoryMap) {
