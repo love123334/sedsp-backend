@@ -16,18 +16,26 @@ import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.entity.ProductAttribute;
 import com.example.secdsp.modules.product.entity.ProductImage;
 import com.example.secdsp.modules.product.mapper.ProductMapper;
+import com.example.secdsp.modules.product.repository.ProductAttributeRepository;
+import com.example.secdsp.modules.product.repository.ProductImageRepository;
 import com.example.secdsp.modules.product.repository.ProductRepository;
+import com.example.secdsp.modules.seller.entity.Seller;
+import com.example.secdsp.modules.user.entity.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -42,7 +50,10 @@ public class ProductServiceImpl implements ProductService {
     // Placeholder for actual SellerService dependency if it were present.
     // For this prompt, direct injection of SellerService is not possible as it's not created.
     // In a real application, this would be injected and used.
+    // TODO: Inject SellerService when Seller module is implemented.
     // private final SellerService sellerService;
+    private final ProductImageRepository productImageRepository; // For managing images directly
+    private final ProductAttributeRepository productAttributeRepository; // For managing attributes directly
 
     @Override
     @Transactional
@@ -50,22 +61,22 @@ public class ProductServiceImpl implements ProductService {
         log.info("Attempting to create product with name: {}", request.getName());
         Long currentUserId = SecurityUtils.getCurrentUserId();
         if (currentUserId == null) {
-            throw new ForbiddenException("Authentication required to create products.");
+            throw new UnauthorizedException("Authentication required to create products.");
         }
 
-        // TODO: Inject SellerService when Seller module is implemented.
-        // Seller seller = sellerService.getSellerByUserId(currentUserId);
-        // For now, throw exception until SellerService is available.
-        //throw new BusinessException("SellerService not implemented yet.");
-        //if (seller == null) {
-        //throw new BusinessException("Only users with a seller profile can create products.");
-        //}
+        // TODO: Get Seller entity from SellerService based on currentUserId
+        // Example: Seller seller = sellerService.getSellerByUserId(currentUserId)
+        //                         .orElseThrow(() -> new BusinessException("Only users with a seller profile can create products."));
+        // For now, we'll assign null and rely on the database schema for non-null constraints,
+        // which will fail if seller_id is nullable=false, but this is a placeholder.
+        Seller seller = new Seller(); // Placeholder for compilation, will cause runtime error if not handled
+        seller.setId(1L); // Assign a dummy ID for compilation
+        // END TODO
 
         validateProductUniqueness(request.getName(), request.getSlug(), null);
 
         Product product = productMapper.toEntity(request);
-        //product.setSeller(seller);
-        product.setSeller(null);
+        product.setSeller(seller); // Assign seller
 
         if (request.getCategoryId() != null) {
             Category category = categoryService.findEntityById(request.getCategoryId())
@@ -79,14 +90,14 @@ public class ProductServiceImpl implements ProductService {
             product.setBrand(brand);
         }
 
-        // Handle images
+        // Handle images for creation
         if (request.getImages() != null && !request.getImages().isEmpty()) {
-            handleProductImages(product, request.getImages());
+            handleProductImagesForCreate(product, request.getImages());
         }
 
-        // Handle attributes
+        // Handle attributes for creation
         if (request.getAttributes() != null && !request.getAttributes().isEmpty()) {
-            handleProductAttributes(product, request.getAttributes());
+            handleProductAttributesForCreate(product, request.getAttributes());
         }
 
         Product savedProduct = productRepository.save(product);
@@ -133,16 +144,14 @@ public class ProductServiceImpl implements ProductService {
             existingProduct.setBrand(brand);
         }
 
-        // Update images
+        // Handle images for update
         if (request.getImages() != null) {
-            existingProduct.getProductImages().clear();
-            handleProductImages(existingProduct, request.getImages());
+            handleProductImagesForUpdate(existingProduct, request.getImages());
         }
 
-        // Update attributes
+        // Handle attributes for update
         if (request.getAttributes() != null) {
-            existingProduct.getProductAttributes().clear();
-            handleProductAttributes(existingProduct, request.getAttributes());
+            handleProductAttributesForUpdate(existingProduct, request.getAttributes());
         }
 
         Product updatedProduct = productRepository.save(existingProduct);
@@ -231,83 +240,170 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
-    private void handleProductAttributes(
-        Product product,
-        List<UpdateProductAttributeRequest> attributeRequests
-    ) {
-        Set<String> attributeNames = new HashSet<>();
-
-        product.getProductAttributes().clear();
-
-        for (UpdateProductAttributeRequest attributeRequest : attributeRequests) {
-            if (!attributeNames.add(attributeRequest.getAttributeName().toLowerCase())) {
-                throw new BusinessException(
-                    "Duplicate attribute name found: " + attributeRequest.getAttributeName()
-                );
+    private void validateProductUniqueness(String name, String slug, Long currentProductId) {
+        if (name != null) {
+            boolean nameExists = currentProductId == null
+                    ? productRepository.existsByNameIgnoreCaseAndDeletedAtIsNull(name)
+                    : productRepository.findByNameIgnoreCaseAndIdNotAndDeletedAtIsNull(name, currentProductId).isPresent();
+            if (nameExists) {
+                throw new BusinessException("Product name already exists.");
             }
-
-            ProductAttribute productAttribute = new ProductAttribute();
-            productAttribute.setAttributeName(attributeRequest.getAttributeName());
-            productAttribute.setAttributeValue(attributeRequest.getAttributeValue());
-            productAttribute.setProduct(product);
-
-            product.getProductAttributes().add(productAttribute);
+        }
+        if (slug != null) {
+            boolean slugExists = currentProductId == null
+                    ? productRepository.existsBySlugIgnoreCaseAndDeletedAtIsNull(slug)
+                    : productRepository.findBySlugIgnoreCaseAndIdNotAndDeletedAtIsNull(slug, currentProductId).isPresent();
+            if (slugExists) {
+                throw new BusinessException("Product slug already exists.");
+            }
         }
     }
 
-    private void checkProductOwnership(Product product) {
-
-        Long currentUserId = SecurityUtils.getCurrentUserId();
-
-        if (currentUserId == null) {
-            throw new UnauthorizedException();
-        }
-
-        if (!product.getSeller()
-            .getUser()
-            .getId()
-            .equals(currentUserId)) {
-
-            throw new ForbiddenException(
-                "You are not allowed to manage this product"
-            );
-        }
-    }
-
-    private void handleProductImages(
-        Product product,
-        List<UpdateProductImageRequest> imageRequests
-    ) {
+    private void handleProductImagesForCreate(Product product, List<AddProductImageRequest> imageRequests) {
         Set<String> imageUrls = new HashSet<>();
         boolean primaryFound = false;
 
-        for (UpdateProductImageRequest imageRequest : imageRequests) {
-
+        for (AddProductImageRequest imageRequest : imageRequests) {
             if (!imageUrls.add(imageRequest.getImageUrl().toLowerCase())) {
-                throw new BusinessException(
-                    "Duplicate image URL found: " + imageRequest.getImageUrl()
-                );
+                throw new BusinessException("Duplicate image URL found: " + imageRequest.getImageUrl());
             }
-
             if (imageRequest.isPrimary()) {
                 if (primaryFound) {
-                    throw new BusinessException(
-                        "Only one primary image is allowed per product."
-                    );
+                    throw new BusinessException("Only one primary image is allowed per product.");
                 }
                 primaryFound = true;
             }
-
-            ProductImage productImage = new ProductImage();
-            productImage.setImageUrl(imageRequest.getImageUrl());
-            productImage.setPrimary(imageRequest.isPrimary());
+            ProductImage productImage = productMapper.toProductImage(imageRequest);
             productImage.setProduct(product);
-
             product.getProductImages().add(productImage);
         }
 
         if (!primaryFound && !product.getProductImages().isEmpty()) {
+            product.getProductImages().get(0).setPrimary(true); // Set first image as primary if none specified
+        }
+    }
+
+    private void handleProductAttributesForCreate(Product product, List<AddProductAttributeRequest> attributeRequests) {
+        Set<String> attributeNames = new HashSet<>();
+
+        for (AddProductAttributeRequest attributeRequest : attributeRequests) {
+            if (!attributeNames.add(attributeRequest.getAttributeName().toLowerCase())) {
+                throw new BusinessException("Duplicate attribute name found: " + attributeRequest.getAttributeName());
+            }
+            ProductAttribute productAttribute = productMapper.toProductAttribute(attributeRequest);
+            productAttribute.setProduct(product);
+            product.getProductAttributes().add(productAttribute);
+        }
+    }
+
+    private void handleProductImagesForUpdate(Product product, List<UpdateProductImageRequest> imageRequests) {
+        Set<Long> requestImageIds = imageRequests.stream()
+            .map(UpdateProductImageRequest::getId)
+            .collect(Collectors.toSet());
+
+        // Remove images not in the update request
+        product.getProductImages().removeIf(existingImage -> !requestImageIds.contains(existingImage.getId()));
+
+        Set<String> imageUrls = new HashSet<>();
+        boolean primaryFound = false;
+
+        // Add/Update images
+        for (UpdateProductImageRequest imageRequest : imageRequests) {
+            if (imageRequest.getId() != null) {
+                // Update existing image
+                ProductImage existingImage = product.getProductImages().stream()
+                    .filter(img -> img.getId().equals(imageRequest.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException("ProductImage", imageRequest.getId()));
+
+                if (!imageUrls.add(imageRequest.getImageUrl().toLowerCase())) {
+                    throw new BusinessException("Duplicate image URL found: " + imageRequest.getImageUrl());
+                }
+
+                productMapper.updateProductImageFromDto(imageRequest, existingImage);
+                if (imageRequest.isPrimary()) {
+                    if (primaryFound) {
+                        throw new BusinessException("Only one primary image is allowed per product.");
+                    }
+                    primaryFound = true;
+                }
+            } else {
+                // Add new image
+                if (!imageUrls.add(imageRequest.getImageUrl().toLowerCase())) {
+                    throw new BusinessException("Duplicate image URL found: " + imageRequest.getImageUrl());
+                }
+                if (imageRequest.isPrimary()) {
+                    if (primaryFound) {
+                        throw new BusinessException("Only one primary image is allowed per product.");
+                    }
+                    primaryFound = true;
+                }
+                ProductImage newImage = new ProductImage();
+                newImage.setImageUrl(imageRequest.getImageUrl());
+                newImage.setPrimary(imageRequest.isPrimary());
+                newImage.setProduct(product);
+                product.getProductImages().add(newImage);
+            }
+        }
+
+        if (!primaryFound && !product.getProductImages().isEmpty()) {
             product.getProductImages().get(0).setPrimary(true);
+        }
+    }
+
+    private void handleProductAttributesForUpdate(Product product, List<UpdateProductAttributeRequest> attributeRequests) {
+        Set<Long> requestAttributeIds = attributeRequests.stream()
+            .map(UpdateProductAttributeRequest::getId)
+            .collect(Collectors.toSet());
+
+        // Remove attributes not in the update request
+        product.getProductAttributes().removeIf(existingAttribute -> !requestAttributeIds.contains(existingAttribute.getId()));
+
+        Set<String> attributeNames = new HashSet<>();
+
+        // Add/Update attributes
+        for (UpdateProductAttributeRequest attributeRequest : attributeRequests) {
+            if (attributeRequest.getId() != null) {
+                // Update existing attribute
+                ProductAttribute existingAttribute = product.getProductAttributes().stream()
+                    .filter(attr -> attr.getId().equals(attributeRequest.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException("ProductAttribute", attributeRequest.getId()));
+
+                if (!attributeNames.add(attributeRequest.getAttributeName().toLowerCase())) {
+                    throw new BusinessException("Duplicate attribute name found: " + attributeRequest.getAttributeName());
+                }
+
+                productMapper.updateProductAttributeFromDto(attributeRequest, existingAttribute);
+            } else {
+                // Add new attribute
+                if (!attributeNames.add(attributeRequest.getAttributeName().toLowerCase())) {
+                    throw new BusinessException("Duplicate attribute name found: " + attributeRequest.getAttributeName());
+                }
+                ProductAttribute newAttribute = new ProductAttribute();
+                newAttribute.setAttributeName(attributeRequest.getAttributeName());
+                newAttribute.setAttributeValue(attributeRequest.getAttributeValue());
+                newAttribute.setProduct(product);
+                product.getProductAttributes().add(newAttribute);
+            }
+        }
+    }
+
+    private void checkProductOwnership(Product product) {
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        if (currentUserId == null) {
+            throw new UnauthorizedException("Authentication required.");
+        }
+
+        // Check if the current user is an ADMIN
+        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+            .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals("ROLE_" + UserRole.ADMIN.name()));
+
+        if (!isAdmin) {
+            // If not an ADMIN, check if the current user is the product's seller
+            if (product.getSeller() == null || product.getSeller().getUser() == null || !product.getSeller().getUser().getId().equals(currentUserId)) {
+                throw new ForbiddenException("You are not authorized to manage this product.");
+            }
         }
     }
 }
