@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -84,6 +85,12 @@ public class BrandServiceImpl implements BrandService {
         log.debug("Fetching brands with keyword: {} and pageable: {}", keyword, pageable);
         return brandRepository.searchBrands(keyword, pageable)
             .map(brandMapper::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Brand> findEntityById(Long id) {
+        return brandRepository.findByIdAndDeletedAtIsNull(id);
     }
 
     private void validateBrandUniqueness(String name, String slug, Long id) {

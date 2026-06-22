@@ -1,6 +1,7 @@
-package com.example.secdsp.modules.user.entity;
+package com.example.secdsp.modules.seller.entity;
 
 import com.example.secdsp.modules.common.entity.BaseEntity;
+import com.example.secdsp.modules.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
