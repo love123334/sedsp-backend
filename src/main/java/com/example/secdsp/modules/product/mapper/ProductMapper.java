@@ -1,9 +1,6 @@
 package com.example.secdsp.modules.product.mapper;
 
-import com.example.secdsp.modules.product.dto.request.AddProductAttributeRequest;
-import com.example.secdsp.modules.product.dto.request.AddProductImageRequest;
-import com.example.secdsp.modules.product.dto.request.CreateProductRequest;
-import com.example.secdsp.modules.product.dto.request.UpdateProductRequest;
+import com.example.secdsp.modules.product.dto.request.*;
 import com.example.secdsp.modules.product.dto.response.ProductAttributeResponse;
 import com.example.secdsp.modules.product.dto.response.ProductDetailResponse;
 import com.example.secdsp.modules.product.dto.response.ProductImageResponse;
@@ -22,9 +19,7 @@ public interface ProductMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deletedAt", ignore = true)
-    @Mapping(target = "seller", ignore = true) // Will be set in service
     @Mapping(target = "category", ignore = true) // Will be set in service
-    @Mapping(target = "brand", ignore = true) // Will be set in service
     @Mapping(target = "productImages", ignore = true) // Handled separately in service
     @Mapping(target = "productAttributes", ignore = true)
         // Handled separately in service
@@ -32,10 +27,6 @@ public interface ProductMapper {
 
     @Mapping(target = "categoryId", source = "category.id")
     @Mapping(target = "categoryName", source = "category.name")
-    @Mapping(target = "brandId", source = "brand.id")
-    @Mapping(target = "brandName", source = "brand.name")
-    @Mapping(target = "sellerId", source = "seller.id")
-    @Mapping(target = "sellerStoreName", source = "seller.storeName")
     ProductResponse toProductResponse(Product product);
 
     List<ProductResponse> toProductResponseList(List<Product> products);
@@ -43,10 +34,6 @@ public interface ProductMapper {
 
     @Mapping(target = "categoryId", source = "category.id")
     @Mapping(target = "categoryName", source = "category.name")
-    @Mapping(target = "brandId", source = "brand.id")
-    @Mapping(target = "brandName", source = "brand.name")
-    @Mapping(target = "sellerId", source = "seller.id")
-    @Mapping(target = "sellerStoreName", source = "seller.storeName")
     @Mapping(target = "images", source = "productImages")
     @Mapping(target = "attributes", source = "productAttributes")
     ProductDetailResponse toProductDetailResponse(Product product);
@@ -57,9 +44,7 @@ public interface ProductMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deletedAt", ignore = true)
-    @Mapping(target = "seller", ignore = true)
     @Mapping(target = "category", ignore = true)
-    @Mapping(target = "brand", ignore = true)
     @Mapping(target = "productImages", ignore = true) // Handled separately in service
     @Mapping(target = "productAttributes", ignore = true)
         // Handled separately in service
@@ -80,4 +65,15 @@ public interface ProductMapper {
     ProductAttributeResponse toProductAttributeResponse(ProductAttribute productAttribute);
 
     List<ProductAttributeResponse> toProductAttributeResponseList(List<ProductAttribute> productAttributes);
+
+    // Mappings for updating existing images/attributes (if they contain IDs)
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true) // ID is for locating, not updating itself from DTO
+    @Mapping(target = "product", ignore = true)
+    void updateProductImageFromDto(UpdateProductImageRequest request, @MappingTarget ProductImage productImage);
+
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true) // ID is for locating, not updating itself from DTO
+    @Mapping(target = "product", ignore = true)
+    void updateProductAttributeFromDto(UpdateProductAttributeRequest request, @MappingTarget ProductAttribute productAttribute);
 }
