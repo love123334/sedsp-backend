@@ -27,7 +27,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 return new UsernameNotFoundException("User not found");
             });
 
-        UserRole role = user.getRole();
+        UserRole role = null;
         if (role == null) {
             log.warn("User {} has no role assigned", email);
             throw new UsernameNotFoundException("User has no role assigned");
@@ -48,7 +48,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByIdAndDeletedAtIsNull(id)
             .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        UserRole role = user.getRole();
+        UserRole role = null;
 
         if (role == null) {
             throw new UsernameNotFoundException("User has no role assigned");
