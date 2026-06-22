@@ -1,13 +1,11 @@
 package com.example.secdsp.modules.user.entity;
 
-import com.example.secdsp.modules.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
-
 import java.time.LocalDateTime;
 
 @Getter
@@ -15,17 +13,19 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@Table(name = "admins")
-public class Admin extends BaseEntity {
+@Table(name = "roles")
+public class Role {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    User user;
+    @Column(nullable = false, unique = true, length = 50)
+    String name;
 
-    @Column(name = "admin_level")
-    Integer adminLevel;
+    @Column(columnDefinition = "TEXT")
+    String description;
+
+    @Column(name = "created_at", insertable = false, updatable = false)
+    LocalDateTime createdAt;
 }
