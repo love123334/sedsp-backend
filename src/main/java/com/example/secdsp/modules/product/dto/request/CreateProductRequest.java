@@ -38,11 +38,9 @@ public class CreateProductRequest {
 
     Long categoryId;
 
-    Long brandId;
+    @Valid
+    List<AddProductImageRequest> images;
 
     @Valid
-    List<UpdateProductImageRequest> images;
-
-    @Valid
-    List<UpdateProductAttributeRequest> attributes;
+    List<AddProductAttributeRequest> attributes;
 }

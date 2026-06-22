@@ -14,12 +14,11 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateProductImageRequest {
 
+    Long id; // Null for new images, not null for existing images to update
+
     @NotBlank(message = "Image URL cannot be blank")
-    @Pattern(
-        regexp = "^(http|https)://.*",
-        message = "Image URL must be a valid URL"
-    )
+    @Pattern(regexp = "^(http|https)://.*", message = "Image URL must be a valid URL")
     String imageUrl;
 
-    boolean isPrimary;
+    boolean isPrimary = false;
 }

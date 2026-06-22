@@ -14,6 +14,8 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateProductAttributeRequest {
 
+    Long id; // Null for new attributes, not null for existing attributes to update
+
     @NotBlank(message = "Attribute name cannot be blank")
     @Size(max = 100, message = "Attribute name must not exceed 100 characters")
     String attributeName;
