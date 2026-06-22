@@ -9,6 +9,7 @@ CREATE TABLE categories
         REFERENCES categories(id),
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP,
 
     CONSTRAINT chk_category_self_parent

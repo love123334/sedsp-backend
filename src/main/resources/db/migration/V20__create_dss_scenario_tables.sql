@@ -1,5 +1,5 @@
 -- =====================================================
--- V24__create_dss_scenario_tables.sql
+-- V20__create_dss_scenario_tables.sql
 -- DSS What-if Analysis & Recommendation Engine
 -- =====================================================
 

@@ -1,9 +1,7 @@
 package com.example.secdsp.modules.product.entity;
 
-import com.example.secdsp.modules.brand.entity.Brand;
 import com.example.secdsp.modules.category.entity.Category;
 import com.example.secdsp.modules.common.entity.BaseEntity;
-import com.example.secdsp.modules.seller.entity.Seller;
 import com.example.secdsp.modules.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -31,19 +29,15 @@ public class Product extends BaseEntity {
     Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "seller_id", nullable = false)
-    Seller seller;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     Category category;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "brand_id")
-    Brand brand;
-
     @Column(nullable = false, length = 255)
     String name;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "seller_id", nullable = false)
+    User seller;
 
     @Column(unique = true, length = 255)
     String slug;
@@ -68,15 +62,13 @@ public class Product extends BaseEntity {
 
     @OneToMany(
         mappedBy = "product",
-        cascade = CascadeType.ALL,
-        orphanRemoval = true
+        cascade = CascadeType.ALL
     )
     List<ProductImage> productImages = new ArrayList<>();
 
     @OneToMany(
         mappedBy = "product",
-        cascade = CascadeType.ALL,
-        orphanRemoval = true
+        cascade = CascadeType.ALL
     )
     List<ProductAttribute> productAttributes = new ArrayList<>();
 }

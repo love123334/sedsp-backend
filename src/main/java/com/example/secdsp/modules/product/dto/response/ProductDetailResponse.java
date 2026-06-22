@@ -27,8 +27,6 @@ public class ProductDetailResponse {
     ProductStatus status;
     Long categoryId;
     String categoryName;
-    Long brandId;
-    String brandName;
     Long sellerId;
     String sellerStoreName;
     LocalDateTime createdAt;

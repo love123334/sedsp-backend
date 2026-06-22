@@ -34,8 +34,6 @@ public class UpdateProductRequest {
 
     Long categoryId;
 
-    Long brandId;
-
     @Valid
     List<UpdateProductImageRequest> images;
 

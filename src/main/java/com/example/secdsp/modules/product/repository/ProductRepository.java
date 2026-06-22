@@ -12,13 +12,19 @@ import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    @EntityGraph(attributePaths = {"category", "brand", "seller"})
-    @Query("SELECT p FROM Product p WHERE p.deletedAt IS NULL AND p.id = :id")
+    @EntityGraph(attributePaths = {"category", "seller"})
+    @Query("""
+        SELECT p FROM Product p
+        WHERE p.deletedAt IS NULL
+        AND p.id = :id
+    """)
     Optional<Product> findByIdAndDeletedAtIsNull(@Param("id") Long id);
 
-    boolean existsBySlugIgnoreCaseAndDeletedAtIsNull(@Param("slug") String slug);
 
-    @EntityGraph(attributePaths = {"category", "brand", "seller"})
+    boolean existsBySlugIgnoreCaseAndDeletedAtIsNull(String slug);
+
+
+    @EntityGraph(attributePaths = {"category", "seller"})
     @Query("""
         SELECT p FROM Product p
         WHERE p.deletedAt IS NULL
@@ -27,27 +33,39 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             OR LOWER(p.slug) LIKE LOWER(CONCAT('%', :keyword, '%'))
             OR LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%')))
         AND (:categoryId IS NULL OR p.category.id = :categoryId)
-        AND (:brandId IS NULL OR p.brand.id = :brandId)
         AND (:sellerId IS NULL OR p.seller.id = :sellerId)
     """)
     Page<Product> searchProducts(
-            @Param("keyword") String keyword,
-            @Param("categoryId") Long categoryId,
-            @Param("brandId") Long brandId,
-            @Param("sellerId") Long sellerId,
-            Pageable pageable
-    );
-
-    @EntityGraph(attributePaths = {"category", "brand", "seller"})
-    @Query("SELECT p FROM Product p WHERE p.seller.id = :sellerId AND p.deletedAt IS NULL")
-    Page<Product> findBySellerIdAndDeletedAtIsNull(
-        Long sellerId,
+        @Param("keyword") String keyword,
+        @Param("categoryId") Long categoryId,
+        @Param("sellerId") Long sellerId,
         Pageable pageable
     );
 
-    Optional<Product> findByNameIgnoreCaseAndIdNotAndDeletedAtIsNull(@Param("name") String name, @Param("id") Long id);
 
-    Optional<Product> findBySlugIgnoreCaseAndIdNotAndDeletedAtIsNull(@Param("slug") String slug, @Param("id") Long id);
+    @EntityGraph(attributePaths = {"category", "seller"})
+    @Query("""
+        SELECT p FROM Product p
+        WHERE p.seller.id = :sellerId
+        AND p.deletedAt IS NULL
+    """)
+    Page<Product> findBySellerIdAndDeletedAtIsNull(
+        @Param("sellerId") Long sellerId,
+        Pageable pageable
+    );
 
-    boolean existsByNameIgnoreCaseAndDeletedAtIsNull(@Param("name") String name);
+
+    Optional<Product> findByNameIgnoreCaseAndIdNotAndDeletedAtIsNull(
+        String name,
+        Long id
+    );
+
+
+    Optional<Product> findBySlugIgnoreCaseAndIdNotAndDeletedAtIsNull(
+        String slug,
+        Long id
+    );
+
+
+    boolean existsByNameIgnoreCaseAndDeletedAtIsNull(String name);
 }

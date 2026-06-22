@@ -15,7 +15,6 @@ public interface ProductService {
     Page<ProductResponse> getProducts(
             String keyword,
             Long categoryId,
-            Long brandId,
             Long sellerId,
             Pageable pageable
     );

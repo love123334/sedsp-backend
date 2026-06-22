@@ -11,10 +11,10 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface AuthMapper {
 
-    @Mapping(target = "role", expression = "java(user.getRole() != null ? user.getRole().name() : null)")
+    @Mapping(target = "role", source = "role.name")
     CurrentUserSummary toCurrentUserSummary(User user);
 
-    @Mapping(target = "role", expression = "java(user.getRole() != null ? user.getRole().name() : null)")
+    @Mapping(target = "role", source = "role.name")
     MeResponse toMeResponse(User user);
 
     default LoginResponse toLoginResponse(String accessToken, long expiresInSeconds,

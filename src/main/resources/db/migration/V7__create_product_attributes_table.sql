@@ -7,7 +7,11 @@ CREATE TABLE product_attributes
             ON DELETE CASCADE,
 
     attribute_name    VARCHAR(100) NOT NULL,
-    attribute_value   VARCHAR(255) NOT NULL
+    attribute_value   VARCHAR(255) NOT NULL,
+
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at   TIMESTAMP
 );
 
 CREATE INDEX idx_product_attributes_product
