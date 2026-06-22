@@ -1,15 +1,19 @@
 CREATE TABLE product_images
 (
-    id           BIGSERIAL PRIMARY KEY,
+    id         BIGSERIAL PRIMARY KEY,
 
-    product_id   BIGINT NOT NULL
-        REFERENCES products(id)
+    product_id BIGINT NOT NULL
+        REFERENCES products (id)
             ON DELETE CASCADE,
 
-    image_url    TEXT NOT NULL,
+    image_url  TEXT   NOT NULL,
 
-    is_primary   BOOLEAN DEFAULT FALSE
+    is_primary BOOLEAN   DEFAULT FALSE,
+
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
 );
 
 CREATE INDEX idx_product_images_product
-    ON product_images(product_id);
+    ON product_images (product_id);
