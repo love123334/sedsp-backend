@@ -14,6 +14,11 @@ CREATE TABLE users
     role_id    BIGINT NOT NULL
         REFERENCES roles(id),
 
+    store_name VARCHAR(255),
+    business_email VARCHAR(150),
+    business_phone VARCHAR(20),
+    seller_description ,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
