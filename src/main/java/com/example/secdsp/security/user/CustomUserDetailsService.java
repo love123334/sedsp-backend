@@ -20,18 +20,20 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     @Transactional(readOnly = true)
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmailAndDeletedAtIsNull(email)
+    public UserDetails loadUserByUsername(String email) {
+
+        User user = userRepository.findByEmail(email)
             .orElseThrow(() -> {
-                log.warn("User not found with email: {}", email);
-                return new UsernameNotFoundException("User not found");
+                log.warn(
+                    "User not found with email: {}",
+                    email
+                );
+                return new UsernameNotFoundException(
+                    "User not found"
+                );
             });
 
-        UserRole role = null;
-        if (role == null) {
-            log.warn("User {} has no role assigned", email);
-            throw new UsernameNotFoundException("User has no role assigned");
-        }
+        UserRole role = getUserRole(user);
 
         return UserDetailsImpl.build(
             user.getId(),
@@ -45,14 +47,13 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Transactional(readOnly = true)
     public UserDetails loadUserById(Long id) {
 
-        User user = userRepository.findByIdAndDeletedAtIsNull(id)
-            .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        User user = userRepository.findById(id)
+            .orElseThrow(() ->
+                             new UsernameNotFoundException(
+                                 "User not found"
+                             ));
 
-        UserRole role = null;
-
-        if (role == null) {
-            throw new UsernameNotFoundException("User has no role assigned");
-        }
+        UserRole role = getUserRole(user);
 
         return UserDetailsImpl.build(
             user.getId(),
@@ -61,5 +62,33 @@ public class CustomUserDetailsService implements UserDetailsService {
             role,
             user.getStatus()
         );
+    }
+
+    private UserRole getUserRole(User user) {
+
+        if (user.getRole() == null) {
+            log.warn(
+                "User {} has no role assigned",
+                user.getEmail()
+            );
+            throw new UsernameNotFoundException(
+                "User has no role assigned"
+            );
+        }
+
+        try {
+            return UserRole.valueOf(
+                user.getRole().getName()
+            );
+        } catch (IllegalArgumentException ex) {
+            log.error(
+                "Invalid role '{}' for user {}",
+                user.getRole().getName(),
+                user.getEmail()
+            );
+            throw new UsernameNotFoundException(
+                "Invalid user role"
+            );
+        }
     }
 }
