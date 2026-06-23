@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.user.service;
 
+import com.example.secdsp.modules.user.dto.request.AssignRoleRequest;
 import com.example.secdsp.modules.user.dto.request.UpdateProfileRequest;
 import com.example.secdsp.modules.user.dto.response.UserProfileResponse;
 import com.example.secdsp.modules.user.dto.response.UserSummaryResponse;
@@ -15,4 +16,10 @@ public interface UserService {
     Page<UserSummaryResponse> getUsers(String keyword, Pageable pageable);
 
     UserProfileResponse getUserById(Long id);
+
+    void assignRole(Long userId, AssignRoleRequest request);
+
+    void activateUser(Long userId);
+
+    void deactivateUser(Long userId);
 }

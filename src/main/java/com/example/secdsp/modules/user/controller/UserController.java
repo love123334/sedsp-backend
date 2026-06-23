@@ -1,6 +1,7 @@
 package com.example.secdsp.modules.user.controller;
 
 import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.modules.user.dto.request.AssignRoleRequest;
 import com.example.secdsp.modules.user.dto.request.UpdateProfileRequest;
 import com.example.secdsp.modules.user.dto.response.UserProfileResponse;
 import com.example.secdsp.modules.user.dto.response.UserSummaryResponse;
@@ -12,13 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -54,5 +49,42 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserProfileResponse>> getUserById(@PathVariable Long id) {
         UserProfileResponse response = userService.getUserById(id);
         return ResponseEntity.ok(ApiResponse.success("User retrieved successfully", response));
+    }
+
+    @PutMapping("/{id}/role")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> assignRole(
+        @PathVariable Long id,
+        @Valid @RequestBody AssignRoleRequest request) {
+
+        userService.assignRole(id, request);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("Role updated successfully")
+        );
+    }
+
+    @PatchMapping("/{id}/activate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> activateUser(
+        @PathVariable Long id) {
+
+        userService.activateUser(id);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("User activated successfully")
+        );
+    }
+
+    @PatchMapping("/{id}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deactivateUser(
+        @PathVariable Long id) {
+
+        userService.deactivateUser(id);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("User deactivated successfully")
+        );
     }
 }
