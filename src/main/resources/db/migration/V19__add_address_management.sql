@@ -21,7 +21,7 @@ CREATE TABLE customer_addresses
     created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_customer_address_user
-        FOREIGN KEY (customer_id)
+        FOREIGN KEY (user_id)
             REFERENCES users (id)
             ON DELETE CASCADE
 );
