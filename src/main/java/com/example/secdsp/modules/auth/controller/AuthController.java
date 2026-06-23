@@ -2,11 +2,13 @@ package com.example.secdsp.modules.auth.controller;
 
 import com.example.secdsp.common.api.ApiResponse;
 import com.example.secdsp.modules.auth.dto.request.LoginRequest;
+import com.example.secdsp.modules.auth.dto.request.RegisterRequest;
 import com.example.secdsp.modules.auth.dto.response.LoginResponse;
 import com.example.secdsp.modules.auth.dto.response.MeResponse;
 import com.example.secdsp.modules.auth.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,5 +33,18 @@ public class AuthController {
     public ResponseEntity<ApiResponse<MeResponse>> getCurrentUser() {
         MeResponse response = authService.getCurrentUser();
         return ResponseEntity.ok(ApiResponse.success("Current user retrieved successfully", response));
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<Void>> register(
+        @Valid @RequestBody RegisterRequest request
+    ) {
+
+        authService.register(request);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.success(
+                "Registration successful"
+            ));
     }
 }
