@@ -21,9 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -47,26 +45,35 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
-        Authentication authentication;
         try {
-            authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+            Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                    request.getEmail(),
+                    request.getPassword()
+                )
+            );
+
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+            String accessToken = jwtProvider.generateAccessToken(userDetails.getId());
+
+            long expiresInSeconds = jwtExpirationMs / 1000;
+
+            return authMapper.toLoginResponse(
+                accessToken,
+                expiresInSeconds,
+                userDetails.getId(),
+                userDetails.getEmail(),
+                userDetails.getRole()
+            );
+
         } catch (BadCredentialsException ex) {
-            log.warn("Login failed for email: {}", request.getEmail());
             throw new UnauthorizedException("Invalid email or password");
+        } catch (DisabledException ex) {
+            throw new UnauthorizedException("Account is inactive");
+        } catch (LockedException ex) {
+            throw new UnauthorizedException("Account is blocked");
         }
-
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        String accessToken = jwtProvider.generateAccessToken(userDetails.getId());
-
-        long expiresInSeconds = jwtExpirationMs / 1000;
-        return authMapper.toLoginResponse(
-            accessToken,
-            expiresInSeconds,
-            userDetails.getId(),
-            userDetails.getEmail(),
-            userDetails.getRole()
-        );
     }
 
     @Override
