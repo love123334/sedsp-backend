@@ -4,6 +4,7 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.modules.category.dto.internal.CategoryInfo;
 import com.example.secdsp.modules.category.entity.Category;
 import com.example.secdsp.modules.category.service.CategoryService;
 import com.example.secdsp.modules.product.dto.request.*;
@@ -79,9 +80,14 @@ public class ProductServiceImpl implements ProductService {
 
         // Update category if provided
         if (request.getCategoryId() != null) {
-            Category category = categoryService.findEntityById(request.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Category", request.getCategoryId()));
-            existingProduct.setCategory(category);
+
+            CategoryInfo categoryInfo =
+                categoryService.getCategoryInfo(request.getCategoryId());
+
+            Category categoryRef = new Category();
+            categoryRef.setId(categoryInfo.id());
+
+            existingProduct.setCategory(categoryRef);
         } else if (request.getCategoryId() == null && request.getName() != null) {
             // If categoryId is explicitly set to null in request (and name is present implying a full update attempt),
             // then clear the category. This is an interpretation. If only some fields are sent, nulls are ignored.
