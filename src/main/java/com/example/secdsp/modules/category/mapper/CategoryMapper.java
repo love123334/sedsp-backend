@@ -8,10 +8,8 @@ import com.example.secdsp.modules.category.entity.Category;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
-import org.mapstruct.Named;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Mapper(componentModel = "spring")
 public interface CategoryMapper {
@@ -21,6 +19,7 @@ public interface CategoryMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "deletedAt", ignore = true)
     @Mapping(target = "children", ignore = true)
+    @Mapping(target = "slug", ignore = true)
     Category toEntity(CreateCategoryRequest request);
 
     @Mapping(target = "parentId", source = "parent.id")
@@ -34,19 +33,12 @@ public interface CategoryMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "deletedAt", ignore = true)
     @Mapping(target = "children", ignore = true)
-    void updateEntityFromDto(UpdateCategoryRequest request, @MappingTarget Category category);
+    @Mapping(target = "slug", ignore = true)
+    void updateEntityFromDto(
+        UpdateCategoryRequest request,
+        @MappingTarget Category category
+    );
 
-    @Mapping(target = "children", expression = "java(mapChildren(category.getChildren()))")
+    @Mapping(target = "children", ignore = true)
     CategoryTreeResponse toTreeResponse(Category category);
-
-    @Named("mapChildren")
-    default List<CategoryTreeResponse> mapChildren(List<Category> children) {
-        if (children == null || children.isEmpty()) {
-            return null;
-        }
-        return children.stream()
-                .filter(c -> c.getDeletedAt() == null) // Filter active children
-                .map(this::toTreeResponse)
-                .collect(Collectors.toList());
-    }
 }
