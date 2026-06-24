@@ -15,9 +15,5 @@ public class CreateCategoryRequest {
     @Size(max = 150, message = "Category name must not exceed 150 characters")
     private String name;
 
-    @NotBlank(message = "Category slug cannot be blank")
-    @Size(max = 150, message = "Category slug must not exceed 150 characters")
-    private String slug;
-
     private Long parentId;
 }

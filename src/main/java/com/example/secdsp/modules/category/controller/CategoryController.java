@@ -33,7 +33,10 @@ public class CategoryController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(@PathVariable Long id, @Valid @RequestBody UpdateCategoryRequest request) {
+    public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(
+        @PathVariable Long id,
+        @Valid @RequestBody UpdateCategoryRequest request
+    ) {
         CategoryResponse response = categoryService.updateCategory(id, request);
         return ResponseEntity.ok(ApiResponse.success("Category updated successfully", response));
     }
@@ -41,8 +44,12 @@ public class CategoryController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteCategory(@PathVariable Long id) {
+
         categoryService.deleteCategory(id);
-        return new ResponseEntity<>(ApiResponse.success("Category deleted successfully"), HttpStatus.NO_CONTENT);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("Category deleted successfully")
+        );
     }
 
     @GetMapping("/{id}")
@@ -53,8 +60,9 @@ public class CategoryController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<Page<CategoryResponse>>> getCategories(
-            @RequestParam(value = "keyword", required = false) String keyword,
-            Pageable pageable) {
+        @RequestParam(value = "keyword", required = false) String keyword,
+        Pageable pageable
+    ) {
         Page<CategoryResponse> responsePage = categoryService.getCategories(keyword, pageable);
         return ResponseEntity.ok(ApiResponse.success(responsePage));
     }

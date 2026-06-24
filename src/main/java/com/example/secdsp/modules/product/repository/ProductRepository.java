@@ -66,6 +66,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
         Long id
     );
 
-
     boolean existsByNameIgnoreCaseAndDeletedAtIsNull(String name);
+
+    boolean existsByCategory_Id(Long categoryId);
 }
