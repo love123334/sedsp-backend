@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "product_attributes")
@@ -14,6 +16,14 @@ import lombok.experimental.FieldDefaults;
 @Setter
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@SQLDelete(
+    sql = """
+        UPDATE product_attributes
+        SET deleted_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    """
+)
+@SQLRestriction("deleted_at IS NULL")
 public class ProductAttribute extends BaseEntity {
 
     @Id
