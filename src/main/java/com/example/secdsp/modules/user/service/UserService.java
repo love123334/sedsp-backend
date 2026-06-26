@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.user.service;
 
+import com.example.secdsp.modules.user.dto.internal.UserInfo;
 import com.example.secdsp.modules.user.dto.request.AssignRoleRequest;
 import com.example.secdsp.modules.user.dto.request.UpdateProfileRequest;
 import com.example.secdsp.modules.user.dto.response.UserProfileResponse;
@@ -22,4 +23,6 @@ public interface UserService {
     void activateUser(Long userId);
 
     void deactivateUser(Long userId);
+
+    UserInfo getUserInfo(Long id);
 }
