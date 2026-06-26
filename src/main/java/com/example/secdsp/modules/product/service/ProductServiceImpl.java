@@ -15,7 +15,12 @@ import com.example.secdsp.modules.product.entity.ProductAttribute;
 import com.example.secdsp.modules.product.entity.ProductImage;
 import com.example.secdsp.modules.product.mapper.ProductMapper;
 import com.example.secdsp.modules.product.repository.ProductRepository;
+import com.example.secdsp.modules.user.dto.internal.UserInfo;
+import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.user.entity.UserRole;
+import com.example.secdsp.modules.user.entity.UserStatus;
+import com.example.secdsp.modules.user.service.UserService;
+import com.github.slugify.Slugify;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -23,7 +28,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -39,41 +43,77 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
     private final CategoryService categoryService;
-
-    // TODO: Inject SellerService when Seller module is implemented and available as a dependency.
-    // private final SellerService sellerService;
+    private final UserService userService;
+    private final Slugify slugify;
 
     @Override
     @Transactional
     public ProductResponse createProduct(CreateProductRequest request) {
+
         log.info("Attempting to create product with name: {}", request.getName());
+
         Long currentUserId = SecurityUtils.getCurrentUserId();
+
         if (currentUserId == null) {
-            throw new UnauthorizedException("Authentication required to create products.");
+            throw new UnauthorizedException(
+                "Authentication required to create products."
+            );
         }
 
-        // TODO: Get Seller entity from SellerService based on currentUserId.
-        // This is crucial for setting the product's seller and for ownership checks.
-        // For now, this will bypass seller validation and assume a seller exists,
-        // which will likely cause a database constraint violation for seller_id if nullable=false.
-        // Example: Seller seller = sellerService.getSellerByUserId(currentUserId)
-        //                         .orElseThrow(() -> new BusinessException("Only users with a seller profile can create products."));
-        // product.setSeller(seller);
-        // Leaving as null for compilation with a clear TODO.
-        // TODO: Inject SellerService when available
-        throw new BusinessException("SellerService not implemented yet.");
+        UserInfo userInfo = userService.getUserInfo(currentUserId);
+
+        if (userInfo.status() != UserStatus.ACTIVE) {
+            throw new BusinessException("User account is not active.");
+        }
+
+        Product product = productMapper.toEntity(request);
+
+        product.setSlug(generateUniqueSlug(request.getName(), null));
+
+        User sellerRef = new User();
+        sellerRef.setId(userInfo.id());
+        product.setSeller(sellerRef);
+
+        if (request.getCategoryId() != null) {
+
+            CategoryInfo categoryInfo =
+                categoryService.getCategoryInfo(request.getCategoryId());
+
+            Category categoryRef = new Category();
+            categoryRef.setId(categoryInfo.id());
+
+            product.setCategory(categoryRef);
+        }
+
+        if (request.getImages() != null) {
+            handleProductImagesForCreate(product, request.getImages());
+        }
+
+        if (request.getAttributes() != null) {
+            handleProductAttributesForCreate(product, request.getAttributes());
+        }
+
+        Product saved = productRepository.save(product);
+        log.info("Product created successfully with ID: {}", saved.getId());
+        return productMapper.toProductResponse(saved);
     }
 
     @Transactional
     public ProductResponse updateProduct(Long id, UpdateProductRequest request) {
         log.info("Attempting to update product with ID: {}", id);
-        Product existingProduct = productRepository.findByIdAndDeletedAtIsNull(id)
+        Product existingProduct = productRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Product", id));
 
         // Check ownership
         checkProductOwnership(existingProduct);
 
-        validateProductUniqueness(request.getName(), request.getSlug(), id);
+        if (request.getName() != null &&
+            !request.getName().equals(existingProduct.getName())) {
+
+            existingProduct.setSlug(
+                generateUniqueSlug(request.getName(), id)
+            );
+        }
 
         // Update scalar fields
         productMapper.updateProductFromDto(request, existingProduct);
@@ -84,21 +124,13 @@ public class ProductServiceImpl implements ProductService {
             CategoryInfo categoryInfo =
                 categoryService.getCategoryInfo(request.getCategoryId());
 
-            Category categoryRef = new Category();
+            Category categoryRef =
+                new Category();
+
             categoryRef.setId(categoryInfo.id());
 
             existingProduct.setCategory(categoryRef);
-        } else if (request.getCategoryId() == null && request.getName() != null) {
-            // If categoryId is explicitly set to null in request (and name is present implying a full update attempt),
-            // then clear the category. This is an interpretation. If only some fields are sent, nulls are ignored.
-            // If the client explicitly sends categoryId: null, it means dissociate.
-            // Given MapStruct's NullValuePropertyMappingStrategy.IGNORE, if categoryId is null in request, it remains unchanged.
-            // To explicitly dissociate, the request would need a mechanism, e.g., categoryId = -1, or clearCategory: true.
-            // For this prompt, if categoryId is null in the request DTO, it is ignored by MapStruct, keeping existing category.
-            // To clear it, we'd need to explicitly set existingProduct.setCategory(null); if request.getCategoryId() is present and null.
-            // Let's assume `null` in `UpdateProductRequest` means "no change".
         }
-
 
         // Handle images for update
         if (request.getImages() != null) {
@@ -118,23 +150,25 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public void deleteProduct(Long id) {
-        log.info("Attempting to soft delete product with ID: {}", id);
-        Product product = productRepository.findByIdAndDeletedAtIsNull(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Product", id));
 
-        // Check ownership
+        log.info("Attempting to delete product with ID: {}", id);
+
+        Product product = productRepository.findById(id)
+            .orElseThrow(() ->
+                             new ResourceNotFoundException("Product", id));
+
         checkProductOwnership(product);
 
-        product.setDeletedAt(LocalDateTime.now());
-        productRepository.save(product);
-        log.info("Product with ID {} soft deleted successfully.", id);
+        productRepository.delete(product);
+
+        log.info("Product {} deleted successfully.", id);
     }
 
     @Override
     @Transactional(readOnly = true)
     public ProductDetailResponse getProductById(Long id) {
         log.debug("Fetching product by ID: {}", id);
-        Product product = productRepository.findByIdAndDeletedAtIsNull(id)
+        Product product = productRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Product", id));
         return productMapper.toProductDetailResponse(product);
     }
@@ -153,26 +187,6 @@ public class ProductServiceImpl implements ProductService {
         );
         return productRepository.searchProducts(keyword, categoryId, sellerId, pageable)
             .map(productMapper::toProductResponse);
-    }
-
-
-    private void validateProductUniqueness(String name, String slug, Long currentProductId) {
-        if (name != null) {
-            boolean nameExists = currentProductId == null
-                ? productRepository.existsByNameIgnoreCaseAndDeletedAtIsNull(name)
-                : productRepository.findByNameIgnoreCaseAndIdNotAndDeletedAtIsNull(name, currentProductId).isPresent();
-            if (nameExists) {
-                throw new BusinessException("Product name already exists.");
-            }
-        }
-        if (slug != null) {
-            boolean slugExists = currentProductId == null
-                ? productRepository.existsBySlugIgnoreCaseAndDeletedAtIsNull(slug)
-                : productRepository.findBySlugIgnoreCaseAndIdNotAndDeletedAtIsNull(slug, currentProductId).isPresent();
-            if (slugExists) {
-                throw new BusinessException("Product slug already exists.");
-            }
-        }
     }
 
     private void handleProductImagesForCreate(Product product, List<AddProductImageRequest> imageRequests) {
@@ -303,16 +317,38 @@ public class ProductServiceImpl implements ProductService {
             throw new UnauthorizedException("Authentication required.");
         }
 
-        boolean isAdmin = SecurityUtils.hasRole(UserRole.ADMIN);
+        if (SecurityUtils.hasRole(UserRole.ADMIN)) {
+            return;
+        }
 
-//        if (!isAdmin) {
-//
-//            if (product.getSeller() == null ||
-//                product.getSeller().getUser() == null ||
-//                !product.getSeller().getUser().getId().equals(currentUserId)) {
-//
-//                throw new ForbiddenException("You are not authorized to manage this product.");
-//            }
-//        }
+        if (product.getSeller() == null ||
+            !product.getSeller().getId().equals(currentUserId)) {
+
+            throw new UnauthorizedException(
+                "You are not allowed to manage this product."
+            );
+        }
+    }
+
+    private String generateUniqueSlug(String name, Long currentId) {
+
+        String baseSlug = slugify.slugify(name);
+        String slug = baseSlug;
+        int counter = 1;
+
+        while (true) {
+
+            boolean exists = (currentId == null)
+                ? productRepository.existsBySlugIgnoreCase(slug)
+                : productRepository
+                .findBySlugIgnoreCaseAndIdNot(slug, currentId)
+                .isPresent();
+
+            if (!exists) {
+                return slug;
+            }
+
+            slug = baseSlug + "-" + counter++;
+        }
     }
 }
