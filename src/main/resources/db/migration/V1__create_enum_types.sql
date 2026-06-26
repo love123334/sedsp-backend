@@ -31,3 +31,10 @@ CREATE TYPE payment_method_enum AS ENUM (
     'BANK',
     'COD'
 );
+
+CREATE TYPE inventory_log_reason AS ENUM (
+    'MANUAL_ADJUST',
+    'ORDER',
+    'ORDER_CANCEL',
+    'RETURN'
+);
