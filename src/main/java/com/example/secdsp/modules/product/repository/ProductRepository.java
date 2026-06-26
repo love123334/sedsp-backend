@@ -13,28 +13,21 @@ import java.util.Optional;
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @EntityGraph(attributePaths = {"category", "seller"})
-    @Query("""
-        SELECT p FROM Product p
-        WHERE p.deletedAt IS NULL
-        AND p.id = :id
-    """)
-    Optional<Product> findByIdAndDeletedAtIsNull(@Param("id") Long id);
+    Optional<Product> findById(Long id);
 
-
-    boolean existsBySlugIgnoreCaseAndDeletedAtIsNull(String slug);
-
+    boolean existsBySlugIgnoreCase(String slug);
 
     @EntityGraph(attributePaths = {"category", "seller"})
     @Query("""
-        SELECT p FROM Product p
-        WHERE p.deletedAt IS NULL
-        AND (:keyword IS NULL OR :keyword = ''
-            OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-            OR LOWER(p.slug) LIKE LOWER(CONCAT('%', :keyword, '%'))
-            OR LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%')))
-        AND (:categoryId IS NULL OR p.category.id = :categoryId)
-        AND (:sellerId IS NULL OR p.seller.id = :sellerId)
-    """)
+            SELECT p
+            FROM Product p
+            WHERE (:keyword IS NULL OR :keyword = ''
+                OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                OR LOWER(p.slug) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                OR LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            AND (:categoryId IS NULL OR p.category.id = :categoryId)
+            AND (:sellerId IS NULL OR p.seller.id = :sellerId)
+        """)
     Page<Product> searchProducts(
         @Param("keyword") String keyword,
         @Param("categoryId") Long categoryId,
@@ -44,29 +37,22 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
 
     @EntityGraph(attributePaths = {"category", "seller"})
-    @Query("""
-        SELECT p FROM Product p
-        WHERE p.seller.id = :sellerId
-        AND p.deletedAt IS NULL
-    """)
-    Page<Product> findBySellerIdAndDeletedAtIsNull(
-        @Param("sellerId") Long sellerId,
+    Page<Product> findBySeller_Id(
+        Long sellerId,
         Pageable pageable
     );
 
 
-    Optional<Product> findByNameIgnoreCaseAndIdNotAndDeletedAtIsNull(
+    Optional<Product> findByNameIgnoreCaseAndIdNot(
         String name,
         Long id
     );
 
 
-    Optional<Product> findBySlugIgnoreCaseAndIdNotAndDeletedAtIsNull(
+    Optional<Product> findBySlugIgnoreCaseAndIdNot(
         String slug,
         Long id
     );
-
-    boolean existsByNameIgnoreCaseAndDeletedAtIsNull(String name);
 
     boolean existsByCategory_Id(Long categoryId);
 }

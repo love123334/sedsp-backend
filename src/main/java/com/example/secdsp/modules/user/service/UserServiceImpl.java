@@ -4,6 +4,7 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.modules.user.dto.internal.UserInfo;
 import com.example.secdsp.modules.user.dto.request.AssignRoleRequest;
 import com.example.secdsp.modules.user.dto.request.UpdateProfileRequest;
 import com.example.secdsp.modules.user.dto.response.UserProfileResponse;
@@ -170,5 +171,11 @@ public class UserServiceImpl implements UserService {
         user.setStatus(UserStatus.INACTIVE);
 
         log.info("User {} deactivated", userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserInfo getUserInfo(Long id) {
+        return userMapper.toUserInfo(findActiveUser(id));
     }
 }
