@@ -225,7 +225,7 @@ public class ProductServiceImpl implements ProductService {
             product.getSeller() != null
                 ? product.getSeller().getId()
                 : null,
-            product.getName()
+            product.getStatus()
         );
     }
 
