@@ -3,6 +3,7 @@ package com.example.secdsp.modules.inventory.service;
 import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.modules.inventory.dto.internal.InventorySummaryInfo;
 import com.example.secdsp.modules.inventory.dto.request.UpdateInventoryRequest;
 import com.example.secdsp.modules.inventory.dto.response.InventoryResponse;
 import com.example.secdsp.modules.inventory.entity.Inventory;
@@ -10,6 +11,7 @@ import com.example.secdsp.modules.inventory.entity.InventoryLog;
 import com.example.secdsp.modules.inventory.mapper.InventoryMapper;
 import com.example.secdsp.modules.inventory.repository.InventoryLogRepository;
 import com.example.secdsp.modules.inventory.repository.InventoryRepository;
+import com.example.secdsp.modules.product.dto.internal.LowStockProductInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.service.ProductService;
 import com.example.secdsp.modules.user.entity.User;
@@ -18,6 +20,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Slf4j
 @Service
@@ -103,6 +107,40 @@ public class InventoryServiceImpl implements InventoryService {
         log.info("Inventory updated successfully for product {}", productId);
 
         return buildResponse(inventory);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InventorySummaryInfo getInventorySummary(Long sellerId) {
+
+        long lowStock =
+            inventoryRepository
+                .countLowStockBySeller(sellerId);
+
+        long outOfStock =
+            inventoryRepository
+                .countOutOfStockBySeller(sellerId);
+
+        return InventorySummaryInfo.builder()
+            .lowStockProducts(lowStock)
+            .outOfStockProducts(outOfStock)
+            .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LowStockProductInfo> getLowStockProducts(Long sellerId) {
+
+        return inventoryRepository
+            .findLowStockProductsBySeller(sellerId)
+            .stream()
+            .map(i -> LowStockProductInfo.builder()
+                .productId(i.getProduct().getId())
+                .productName(i.getProduct().getName())
+                .quantity(i.getAvailableQuantity())
+                .build()
+            )
+            .toList();
     }
 
     private InventoryResponse buildResponse(Inventory inventory) {
