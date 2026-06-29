@@ -3,10 +3,13 @@ package com.example.secdsp.modules.product.service;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.dto.request.CreateProductRequest;
 import com.example.secdsp.modules.product.dto.request.UpdateProductRequest;
+import com.example.secdsp.modules.product.dto.response.PriceHistoryResponse;
 import com.example.secdsp.modules.product.dto.response.ProductDetailResponse;
 import com.example.secdsp.modules.product.dto.response.ProductResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
+import java.util.List;
 
 public interface ProductService {
     ProductResponse createProduct(CreateProductRequest request);
@@ -20,4 +23,5 @@ public interface ProductService {
             Pageable pageable
     );
     ProductInfo getProductInfo(Long id);
+    List<PriceHistoryResponse> getPriceHistory(Long productId);
 }

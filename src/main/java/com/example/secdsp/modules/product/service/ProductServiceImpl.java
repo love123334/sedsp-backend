@@ -9,12 +9,16 @@ import com.example.secdsp.modules.category.entity.Category;
 import com.example.secdsp.modules.category.service.CategoryService;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.dto.request.*;
+import com.example.secdsp.modules.product.dto.response.PriceHistoryResponse;
 import com.example.secdsp.modules.product.dto.response.ProductDetailResponse;
 import com.example.secdsp.modules.product.dto.response.ProductResponse;
+import com.example.secdsp.modules.product.entity.PriceHistory;
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.entity.ProductAttribute;
 import com.example.secdsp.modules.product.entity.ProductImage;
+import com.example.secdsp.modules.product.mapper.PriceHistoryMapper;
 import com.example.secdsp.modules.product.mapper.ProductMapper;
+import com.example.secdsp.modules.product.repository.PriceHistoryRepository;
 import com.example.secdsp.modules.product.repository.ProductRepository;
 import com.example.secdsp.modules.user.dto.internal.UserInfo;
 import com.example.secdsp.modules.user.entity.User;
@@ -29,6 +33,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +47,9 @@ import java.util.stream.Collectors;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
+    private final PriceHistoryRepository priceHistoryRepository;
     private final ProductMapper productMapper;
+    private final PriceHistoryMapper priceHistoryMapper;
     private final CategoryService categoryService;
     private final UserService userService;
     private final Slugify slugify;
@@ -101,13 +108,41 @@ public class ProductServiceImpl implements ProductService {
 
     @Transactional
     public ProductResponse updateProduct(Long id, UpdateProductRequest request) {
+
         log.info("Attempting to update product with ID: {}", id);
+
         Product existingProduct = productRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Product", id));
 
-        // Check ownership
         checkProductOwnership(existingProduct);
 
+        if (request.getPrice() != null) {
+
+            if (request.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException(
+                    "Giá sản phẩm phải lớn hơn 0."
+                );
+            }
+
+            BigDecimal oldPrice = existingProduct.getPrice();
+            BigDecimal newPrice = request.getPrice();
+
+            if (oldPrice.compareTo(newPrice) != 0) {
+
+                PriceHistory history = PriceHistory.builder()
+                    .product(existingProduct)
+                    .oldPrice(oldPrice)
+                    .newPrice(newPrice)
+                    .changedBy(buildCurrentUserRef())
+                    .build();
+
+                priceHistoryRepository.save(history);
+
+                existingProduct.setPrice(newPrice);
+            }
+        }
+
+        // ✅ Slug update nếu name đổi
         if (request.getName() != null &&
             !request.getName().equals(existingProduct.getName())) {
 
@@ -116,35 +151,22 @@ public class ProductServiceImpl implements ProductService {
             );
         }
 
-        // Update scalar fields
         productMapper.updateProductFromDto(request, existingProduct);
 
-        // Update category if provided
         if (request.getCategoryId() != null) {
-
             CategoryInfo categoryInfo =
                 categoryService.getCategoryInfo(request.getCategoryId());
 
-            Category categoryRef =
-                new Category();
-
+            Category categoryRef = new Category();
             categoryRef.setId(categoryInfo.id());
 
             existingProduct.setCategory(categoryRef);
         }
 
-        // Handle images for update
-        if (request.getImages() != null) {
-            handleProductImagesForUpdate(existingProduct, request.getImages());
-        }
-
-        // Handle attributes for update
-        if (request.getAttributes() != null) {
-            handleProductAttributesForUpdate(existingProduct, request.getAttributes());
-        }
-
         Product updatedProduct = productRepository.save(existingProduct);
+
         log.info("Product updated successfully with ID: {}", updatedProduct.getId());
+
         return productMapper.toProductResponse(updatedProduct);
     }
 
@@ -205,6 +227,23 @@ public class ProductServiceImpl implements ProductService {
                 : null,
             product.getName()
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PriceHistoryResponse> getPriceHistory(Long productId) {
+
+        Product product = productRepository.findById(productId)
+            .orElseThrow(() ->
+                             new ResourceNotFoundException("Product", productId));
+
+        checkProductOwnership(product);
+
+        List<PriceHistory> histories =
+            priceHistoryRepository
+                .findByProduct_IdOrderByChangedAtDesc(productId);
+
+        return priceHistoryMapper.toResponse(histories);
     }
 
     private void handleProductImagesForCreate(Product product, List<AddProductImageRequest> imageRequests) {
@@ -368,5 +407,19 @@ public class ProductServiceImpl implements ProductService {
 
             slug = baseSlug + "-" + counter++;
         }
+    }
+
+    private User buildCurrentUserRef() {
+
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+
+        if (currentUserId == null) {
+            throw new UnauthorizedException("Authentication required.");
+        }
+
+        User user = new User();
+        user.setId(currentUserId);
+
+        return user;
     }
 }
