@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.product.service;
 
+import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.dto.request.CreateProductRequest;
 import com.example.secdsp.modules.product.dto.request.UpdateProductRequest;
 import com.example.secdsp.modules.product.dto.response.ProductDetailResponse;
@@ -18,4 +19,5 @@ public interface ProductService {
             Long sellerId,
             Pageable pageable
     );
+    ProductInfo getProductInfo(Long id);
 }
