@@ -1,6 +1,5 @@
 package com.example.secdsp.modules.user.repository;
 
-import com.example.secdsp.modules.user.entity.Role;
 import com.example.secdsp.modules.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

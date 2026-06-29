@@ -38,3 +38,14 @@ CREATE TYPE inventory_log_reason AS ENUM (
     'ORDER_CANCEL',
     'RETURN'
 );
+
+CREATE TYPE order_tracking_event AS ENUM (
+    'CREATED',
+    'CONFIRMED',
+    'SHIPPED',
+    'DELIVERED',
+    'CANCELLED_BY_USER',
+    'CANCELLED_BY_ADMIN',
+    'PAYMENT_FAILED',
+    'PAYMENT_SUCCESS'
+);
