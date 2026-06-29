@@ -3,6 +3,7 @@ package com.example.secdsp.modules.product.controller;
 import com.example.secdsp.common.api.ApiResponse;
 import com.example.secdsp.modules.product.dto.request.CreateProductRequest;
 import com.example.secdsp.modules.product.dto.request.UpdateProductRequest;
+import com.example.secdsp.modules.product.dto.response.PriceHistoryResponse;
 import com.example.secdsp.modules.product.dto.response.ProductDetailResponse;
 import com.example.secdsp.modules.product.dto.response.ProductResponse;
 import com.example.secdsp.modules.product.service.ProductService;
@@ -15,6 +16,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/products")
@@ -72,5 +75,17 @@ public class ProductController {
             pageable
         );
         return ResponseEntity.ok(ApiResponse.success(responsePage));
+    }
+
+    @GetMapping("/{id}/price-history")
+    @PreAuthorize("hasAnyRole('ADMIN','SELLER')")
+    public ResponseEntity<ApiResponse<List<PriceHistoryResponse>>>
+    getPriceHistory(@PathVariable Long id) {
+
+        return ResponseEntity.ok(
+            ApiResponse.success(
+                productService.getPriceHistory(id)
+            )
+        );
     }
 }
