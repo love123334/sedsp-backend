@@ -11,7 +11,7 @@ CREATE TABLE payments
 
     status              payment_status DEFAULT 'PENDING'::payment_status,
 
-    transaction_id      VARCHAR(255),
+    transaction_id      VARCHAR(255) UNIQUE,
 
     currency            VARCHAR(10) DEFAULT 'VND',
 
