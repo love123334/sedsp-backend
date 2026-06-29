@@ -9,6 +9,9 @@ CREATE TABLE order_items
     product_id                   BIGINT NOT NULL
         REFERENCES products(id),
 
+    seller_id                    BIGINT NOT NULL
+        REFERENCES users(id),
+
     product_name_at_purchase     VARCHAR(255) NOT NULL,
 
     quantity                     INTEGER NOT NULL,
@@ -32,3 +35,9 @@ CREATE INDEX idx_order_items_order
 
 CREATE INDEX idx_order_items_product
     ON order_items(product_id);
+
+CREATE INDEX idx_order_items_seller
+    ON order_items(seller_id);
+
+CREATE INDEX idx_order_items_seller_status
+    ON order_items(seller_id, order_id);
