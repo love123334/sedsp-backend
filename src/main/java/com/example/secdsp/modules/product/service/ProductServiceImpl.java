@@ -7,6 +7,7 @@ import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.category.dto.internal.CategoryInfo;
 import com.example.secdsp.modules.category.entity.Category;
 import com.example.secdsp.modules.category.service.CategoryService;
+import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.dto.request.*;
 import com.example.secdsp.modules.product.dto.response.ProductDetailResponse;
 import com.example.secdsp.modules.product.dto.response.ProductResponse;
@@ -187,6 +188,23 @@ public class ProductServiceImpl implements ProductService {
         );
         return productRepository.searchProducts(keyword, categoryId, sellerId, pageable)
             .map(productMapper::toProductResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProductInfo getProductInfo(Long id) {
+
+        Product product = productRepository.findById(id)
+            .orElseThrow(() ->
+                             new ResourceNotFoundException("Product", id));
+
+        return new ProductInfo(
+            product.getId(),
+            product.getSeller() != null
+                ? product.getSeller().getId()
+                : null,
+            product.getName()
+        );
     }
 
     private void handleProductImagesForCreate(Product product, List<AddProductImageRequest> imageRequests) {
