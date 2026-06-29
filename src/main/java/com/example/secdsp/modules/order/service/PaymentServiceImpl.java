@@ -1,0 +1,188 @@
+package com.example.secdsp.modules.order.service;
+
+import com.example.secdsp.common.exception.BusinessException;
+import com.example.secdsp.common.exception.ResourceNotFoundException;
+import com.example.secdsp.common.exception.UnauthorizedException;
+import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.modules.order.dto.request.PayOrderRequest;
+import com.example.secdsp.modules.order.dto.request.UpdatePaymentStatusRequest;
+import com.example.secdsp.modules.order.dto.response.PaymentResponse;
+import com.example.secdsp.modules.order.entity.*;
+import com.example.secdsp.modules.order.mapper.PaymentMapper;
+import com.example.secdsp.modules.order.repository.OrderRepository;
+import com.example.secdsp.modules.order.repository.OrderTrackingRepository;
+import com.example.secdsp.modules.order.repository.PaymentRepository;
+import com.example.secdsp.modules.user.entity.User;
+import com.example.secdsp.modules.user.entity.UserRole;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+
+@Service
+@Slf4j
+@RequiredArgsConstructor
+public class PaymentServiceImpl implements PaymentService {
+
+    private final PaymentRepository paymentRepository;
+    private final OrderRepository orderRepository;
+    private final OrderTrackingRepository orderTrackingRepository;
+    private final PaymentMapper paymentMapper;
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentResponse getPaymentByOrderId(Long orderId) {
+
+        Long userId = SecurityUtils.getCurrentUserId();
+
+        if (userId == null) {
+            throw new UnauthorizedException("Authentication required.");
+        }
+
+        Payment payment = paymentRepository.findByOrder_Id(orderId)
+            .orElseThrow(() ->
+                             new ResourceNotFoundException("Payment", orderId));
+
+        if (!payment.getOrder().getUser().getId().equals(userId)
+            && !SecurityUtils.hasRole(UserRole.ADMIN)) {
+
+            throw new UnauthorizedException(
+                "You are not allowed to view this payment."
+            );
+        }
+
+        return paymentMapper.toResponse(payment);
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse payOrder(
+        Long orderId,
+        PayOrderRequest request
+    ) {
+
+        Long userId = SecurityUtils.getCurrentUserId();
+
+        if (userId == null) {
+            throw new UnauthorizedException("Authentication required.");
+        }
+
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() ->
+                             new ResourceNotFoundException("Order", orderId));
+
+        if (!order.getUser().getId().equals(userId)) {
+            throw new UnauthorizedException(
+                "You cannot pay for this order."
+            );
+        }
+
+        Payment payment = paymentRepository.findByOrder_Id(orderId)
+            .orElseThrow(() ->
+                             new ResourceNotFoundException("Payment", orderId));
+
+        if (payment.getStatus() == PaymentStatus.SUCCESS) {
+            throw new BusinessException("Order already paid.");
+        }
+
+        payment.setPaymentMethod(request.getPaymentMethod());
+        payment.setStatus(PaymentStatus.PENDING);
+
+        // TODO: Call payment gateway here (VNPay, MoMo, etc.)
+        // After gateway callback → updatePaymentStatus()
+
+        return paymentMapper.toResponse(payment);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PaymentResponse> getMyPayments(Pageable pageable) {
+
+        Long userId = SecurityUtils.getCurrentUserId();
+
+        if (userId == null) {
+            throw new UnauthorizedException("Authentication required.");
+        }
+
+        Page<Payment> payments =
+            paymentRepository.findByOrder_User_Id(userId, pageable);
+
+        return payments.map(paymentMapper::toResponse);
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse updatePaymentStatus(
+        Long paymentId,
+        UpdatePaymentStatusRequest request
+    ) {
+
+        if (!SecurityUtils.hasRole(UserRole.ADMIN)) {
+            throw new UnauthorizedException(
+                "Only admin can update payment status."
+            );
+        }
+
+        Payment payment = paymentRepository.findById(paymentId)
+            .orElseThrow(() ->
+                             new ResourceNotFoundException("Payment", paymentId));
+
+        if (request.getTransactionId() != null) {
+
+            if (paymentRepository.existsByTransactionId(
+                request.getTransactionId())) {
+
+                throw new BusinessException(
+                    "Duplicate transaction ID."
+                );
+            }
+
+            payment.setTransactionId(request.getTransactionId());
+        }
+
+        payment.setGatewayResponse(request.getGatewayResponse());
+        payment.setStatus(request.getStatus());
+
+        if (request.getStatus() == PaymentStatus.SUCCESS) {
+
+            payment.setPaidAt(LocalDateTime.now());
+
+            Order order = payment.getOrder();
+            order.setStatus(OrderStatus.PAID);
+
+            insertTracking(order,
+                           OrderTrackingEvent.PAYMENT_SUCCESS);
+
+        } else if (request.getStatus() == PaymentStatus.FAILED) {
+
+            Order order = payment.getOrder();
+            order.setStatus(OrderStatus.CANCELLED);
+
+            insertTracking(order,
+                           OrderTrackingEvent.PAYMENT_FAILED);
+        }
+
+        return paymentMapper.toResponse(payment);
+    }
+
+    private void insertTracking(
+        Order order,
+        OrderTrackingEvent event
+    ) {
+
+        OrderTracking tracking = new OrderTracking();
+        tracking.setOrder(order);
+        tracking.setEvent(event);
+
+        User admin = new User();
+        admin.setId(SecurityUtils.getCurrentUserId());
+
+        tracking.setUpdatedBy(admin);
+
+        orderTrackingRepository.save(tracking);
+    }
+}
