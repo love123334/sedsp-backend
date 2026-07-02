@@ -39,7 +39,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
+    @PreAuthorize("hasAnyRole('SELLER')")
     public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
         @PathVariable Long id,
         @Valid @RequestBody UpdateProductRequest request
