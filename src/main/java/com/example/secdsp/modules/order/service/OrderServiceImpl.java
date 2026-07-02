@@ -10,6 +10,8 @@ import com.example.secdsp.modules.cart.repository.CartItemRepository;
 import com.example.secdsp.modules.cart.repository.CartRepository;
 import com.example.secdsp.modules.cart.service.CartService;
 import com.example.secdsp.modules.inventory.service.InventoryInternalService;
+import com.example.secdsp.modules.order.dto.internal.OrderDashboardInfo;
+import com.example.secdsp.modules.order.dto.internal.RecentOrderInfo;
 import com.example.secdsp.modules.order.dto.request.CreateOrderRequest;
 import com.example.secdsp.modules.order.dto.response.OrderDetailResponse;
 import com.example.secdsp.modules.order.dto.response.OrderItemResponse;
@@ -56,123 +58,23 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request) {
 
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = requireCurrentUserId();
 
-        if (userId == null) {
-            throw new UnauthorizedException("Authentication required.");
-        }
+        Cart cart = getUserCartOrThrow(userId);
 
-        Cart cart = cartRepository.findByUser_Id(userId)
-            .orElseThrow(() -> new BusinessException("Cart is empty."));
+        List<CartItem> cartItems = getCartItemsOrThrow(cart);
 
-        List<CartItem> cartItems =
-            cartItemRepository.findByCart_Id(cart.getId());
+        BigDecimal subtotal = calculateSubtotal(cartItems);
 
-        if (cartItems.isEmpty()) {
-            throw new BusinessException("Cart is empty.");
-        }
+        Order order = createOrderEntity(userId, request, subtotal);
 
-        BigDecimal subtotal = BigDecimal.ZERO;
+        createOrderItemsAndReserveInventory(order, cartItems);
 
-        for (CartItem item : cartItems) {
+        createTracking(order, userId);
 
-            ProductInfo product =
-                productService.getProductInfo(item.getProduct().getId());
+        createPayment(order, request.getPaymentMethod());
 
-            if (product.status() != ProductStatus.ACTIVE) {
-                throw new BusinessException(
-                    "Product is no longer available."
-                );
-            }
-
-            if (product.price() == null) {
-                throw new BusinessException("Invalid product price.");
-            }
-
-            subtotal = subtotal.add(
-                product.price().multiply(
-                    BigDecimal.valueOf(item.getQuantity())
-                )
-            );
-        }
-
-        BigDecimal shippingFee = BigDecimal.ZERO;
-        BigDecimal discount = BigDecimal.ZERO;
-        BigDecimal total =
-            subtotal.add(shippingFee).subtract(discount);
-
-        Order order = new Order();
-
-        User userRef = new User();
-        userRef.setId(userId);
-
-        order.setUser(userRef);
-        order.setSubtotalAmount(subtotal);
-        order.setShippingFee(shippingFee);
-        order.setDiscountAmount(discount);
-        order.setTotalAmount(total);
-        order.setStatus(OrderStatus.PENDING);
-        order.setShippingAddress(request.getShippingAddress());
-
-        orderRepository.save(order);
-
-        for (CartItem item : cartItems) {
-
-            ProductInfo product =
-                productService.getProductInfo(item.getProduct().getId());
-
-            OrderItem orderItem = new OrderItem();
-            orderItem.setOrder(order);
-
-            Product productRef = new Product();
-            productRef.setId(product.id());
-
-            orderItem.setProduct(productRef);
-            orderItem.setProductNameAtPurchase(product.name());
-            orderItem.setQuantity(item.getQuantity());
-            orderItem.setUnitPriceAtPurchase(product.price());
-
-            BigDecimal itemSubtotal =
-                product.price().multiply(
-                    BigDecimal.valueOf(item.getQuantity())
-                );
-
-            orderItem.setSubtotal(itemSubtotal);
-
-            orderItemRepository.save(orderItem);
-
-            // ✅ Reserve inventory (available--, reserved++)
-            inventoryInternalService.reserveForOrder(
-                product.id(),
-                item.getQuantity()
-            );
-        }
-
-        // Tracking CREATED
-        OrderTracking tracking = new OrderTracking();
-        tracking.setOrder(order);
-        tracking.setEvent(OrderTrackingEvent.CREATED);
-        tracking.setNote("Order created.");
-
-        User updatedBy = new User();
-        updatedBy.setId(userId);
-        tracking.setUpdatedBy(updatedBy);
-
-        orderTrackingRepository.save(tracking);
-
-        // Payment
-        Payment payment = new Payment();
-        payment.setOrder(order);
-        payment.setPaymentMethod(request.getPaymentMethod());
-        payment.setAmount(total);
-        payment.setStatus(PaymentStatus.PENDING);
-        payment.setCurrency("VND");
-
-        paymentRepository.save(payment);
-
-        // TODO: Integrate payment gateway here (VNPay, MoMo, etc.)
-
-        cartItemRepository.deleteAllByCart_Id(cart.getId());
+        clearCart(cart);
 
         return buildOrderResponse(order);
     }
@@ -303,6 +205,63 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public OrderDashboardInfo getSellerOrderSummary(Long sellerId) {
+
+        long pending =
+            orderItemRepository.countBySeller_IdAndOrder_Status(
+                sellerId,
+                OrderStatus.PENDING
+            );
+
+        long processing =
+            orderItemRepository.countBySeller_IdAndOrder_Status(
+                sellerId,
+                OrderStatus.PROCESSING
+            );
+
+        long shipping =
+            orderItemRepository.countBySeller_IdAndOrder_Status(
+                sellerId,
+                OrderStatus.SHIPPING
+            );
+
+        long delivered =
+            orderItemRepository.countBySeller_IdAndOrder_Status(
+                sellerId,
+                OrderStatus.DELIVERED
+            );
+
+        return OrderDashboardInfo.builder()
+            .pending(pending)
+            .processing(processing)
+            .shipping(shipping)
+            .delivered(delivered)
+            .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RecentOrderInfo> getRecentOrders(Long sellerId) {
+
+        return orderItemRepository
+            .findTop5BySeller_IdOrderByOrder_CreatedAtDesc(sellerId)
+            .stream()
+            .map(item ->
+                     RecentOrderInfo.builder()
+                         .orderId(item.getOrder().getId())
+                         .customer(
+                             item.getOrder()
+                                 .getUser()
+                                 .getUsername()
+                         )
+                         .total(item.getOrder().getTotalAmount())
+                         .status(item.getOrder().getStatus())
+                         .createdAt(item.getOrder().getCreatedAt())
+                         .build()
+            ).toList();
+    }
 
     private OrderResponse buildOrderResponse(Order order) {
 
@@ -330,5 +289,167 @@ public class OrderServiceImpl implements OrderService {
             .createdAt(order.getCreatedAt())
             .items(itemResponses)
             .build();
+    }
+
+    private Long requireCurrentUserId() {
+
+        Long userId = SecurityUtils.getCurrentUserId();
+
+        if (userId == null) {
+            throw new UnauthorizedException("Authentication required.");
+        }
+
+        return userId;
+    }
+
+    private Cart getUserCartOrThrow(Long userId) {
+
+        return cartRepository.findByUser_Id(userId)
+            .orElseThrow(() ->
+                             new BusinessException("Cart is empty."));
+    }
+
+    private List<CartItem> getCartItemsOrThrow(Cart cart) {
+
+        List<CartItem> items =
+            cartItemRepository.findByCart_Id(cart.getId());
+
+        if (items.isEmpty()) {
+            throw new BusinessException("Cart is empty.");
+        }
+
+        return items;
+    }
+
+    private BigDecimal calculateSubtotal(List<CartItem> cartItems) {
+
+        BigDecimal subtotal = BigDecimal.ZERO;
+
+        for (CartItem item : cartItems) {
+
+            ProductInfo product =
+                productService.getProductInfo(item.getProduct().getId());
+
+            if (product.status() != ProductStatus.ACTIVE) {
+                throw new BusinessException(
+                    "Product is no longer available."
+                );
+            }
+
+            if (product.price() == null) {
+                throw new BusinessException(
+                    "Invalid product price."
+                );
+            }
+
+            subtotal = subtotal.add(
+                product.price().multiply(
+                    BigDecimal.valueOf(item.getQuantity())
+                )
+            );
+        }
+
+        return subtotal;
+    }
+
+    private Order createOrderEntity(
+        Long userId,
+        CreateOrderRequest request,
+        BigDecimal subtotal
+    ) {
+
+        BigDecimal shippingFee = BigDecimal.ZERO;
+        BigDecimal discount = BigDecimal.ZERO;
+        BigDecimal total =
+            subtotal.add(shippingFee).subtract(discount);
+
+        Order order = new Order();
+
+        User userRef = new User();
+        userRef.setId(userId);
+
+        order.setUser(userRef);
+        order.setSubtotalAmount(subtotal);
+        order.setShippingFee(shippingFee);
+        order.setDiscountAmount(discount);
+        order.setTotalAmount(total);
+        order.setStatus(OrderStatus.PENDING);
+        order.setShippingAddress(request.getShippingAddress());
+
+        return orderRepository.save(order);
+    }
+
+    private void createOrderItemsAndReserveInventory(
+        Order order,
+        List<CartItem> cartItems
+    ) {
+
+        for (CartItem item : cartItems) {
+
+            ProductInfo product =
+                productService.getProductInfo(item.getProduct().getId());
+
+            OrderItem orderItem = new OrderItem();
+            orderItem.setOrder(order);
+
+            Product productRef = new Product();
+            productRef.setId(product.id());
+
+            orderItem.setProduct(productRef);
+            orderItem.setProductNameAtPurchase(product.name());
+            orderItem.setQuantity(item.getQuantity());
+            orderItem.setUnitPriceAtPurchase(product.price());
+
+            BigDecimal itemSubtotal =
+                product.price().multiply(
+                    BigDecimal.valueOf(item.getQuantity())
+                );
+
+            orderItem.setSubtotal(itemSubtotal);
+
+            orderItemRepository.save(orderItem);
+
+            inventoryInternalService.reserveForOrder(
+                product.id(),
+                item.getQuantity()
+            );
+        }
+    }
+
+    private void createTracking(Order order, Long userId) {
+
+        OrderTracking tracking = new OrderTracking();
+        tracking.setOrder(order);
+        tracking.setEvent(OrderTrackingEvent.CREATED);
+        tracking.setNote("Order created.");
+
+        User updatedBy = new User();
+        updatedBy.setId(userId);
+
+        tracking.setUpdatedBy(updatedBy);
+
+        orderTrackingRepository.save(tracking);
+    }
+
+    private void createPayment(
+        Order order,
+        PaymentMethod method
+    ) {
+
+        Payment payment = new Payment();
+        payment.setOrder(order);
+        payment.setPaymentMethod(method);
+        payment.setAmount(order.getTotalAmount());
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setCurrency("VND");
+
+        paymentRepository.save(payment);
+
+        // TODO: Integrate payment gateway here
+    }
+
+    private void clearCart(Cart cart) {
+
+        cartItemRepository.deleteAllByCart_Id(cart.getId());
     }
 }

@@ -1,6 +1,7 @@
 package com.example.secdsp.modules.order.entity;
 
 import com.example.secdsp.modules.product.entity.Product;
+import com.example.secdsp.modules.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -26,6 +27,10 @@ public class OrderItem {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     Product product;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "seller_id", nullable = false)
+    User seller;
 
     @Column(name = "product_name_at_purchase", nullable = false)
     String productNameAtPurchase;

@@ -1,6 +1,7 @@
 package com.example.secdsp.modules.product.repository;
 
 import com.example.secdsp.modules.product.entity.Product;
+import com.example.secdsp.modules.product.entity.ProductStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -8,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
@@ -55,4 +57,17 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     );
 
     boolean existsByCategory_Id(Long categoryId);
+
+    long countBySeller_Id(Long sellerId);
+
+    long countBySeller_IdAndStatus(Long sellerId, ProductStatus status);
+
+    @Query("""
+        select p
+        from Product p
+        join Inventory i on i.product.id = p.id
+        where p.seller.id = :sellerId
+        and i.availableQuantity <= 5
+        """)
+    List<Product> findLowStockProductsBySeller(Long sellerId);
 }

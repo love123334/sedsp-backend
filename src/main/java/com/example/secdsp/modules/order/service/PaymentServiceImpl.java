@@ -4,11 +4,13 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.modules.order.dto.internal.RevenueInfo;
 import com.example.secdsp.modules.order.dto.request.PayOrderRequest;
 import com.example.secdsp.modules.order.dto.request.UpdatePaymentStatusRequest;
 import com.example.secdsp.modules.order.dto.response.PaymentResponse;
 import com.example.secdsp.modules.order.entity.*;
 import com.example.secdsp.modules.order.mapper.PaymentMapper;
+import com.example.secdsp.modules.order.repository.OrderItemRepository;
 import com.example.secdsp.modules.order.repository.OrderRepository;
 import com.example.secdsp.modules.order.repository.OrderTrackingRepository;
 import com.example.secdsp.modules.order.repository.PaymentRepository;
@@ -21,6 +23,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Service
@@ -30,6 +33,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
     private final OrderTrackingRepository orderTrackingRepository;
     private final PaymentMapper paymentMapper;
 
@@ -167,6 +171,28 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         return paymentMapper.toResponse(payment);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RevenueInfo getRevenue(Long sellerId) {
+
+        BigDecimal totalRevenue =
+            orderItemRepository
+                .calculateSellerRevenue(sellerId);
+
+        long completedOrders =
+            orderItemRepository
+                .countCompletedOrdersBySeller(sellerId);
+
+        return RevenueInfo.builder()
+            .totalRevenue(
+                totalRevenue != null
+                    ? totalRevenue
+                    : BigDecimal.ZERO
+            )
+            .completedOrders(completedOrders)
+            .build();
     }
 
     private void insertTracking(
