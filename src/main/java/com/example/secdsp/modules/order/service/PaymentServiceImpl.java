@@ -4,7 +4,9 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.modules.order.dto.internal.MonthlyRevenueInfo;
 import com.example.secdsp.modules.order.dto.internal.RevenueInfo;
+import com.example.secdsp.modules.order.dto.internal.SalesSummaryInfo;
 import com.example.secdsp.modules.order.dto.request.PayOrderRequest;
 import com.example.secdsp.modules.order.dto.request.UpdatePaymentStatusRequest;
 import com.example.secdsp.modules.order.dto.response.PaymentResponse;
@@ -24,7 +26,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @Slf4j
@@ -195,6 +199,59 @@ public class PaymentServiceImpl implements PaymentService {
             .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public SalesSummaryInfo getSalesSummary(Long sellerId) {
+
+        BigDecimal totalRevenue =
+            orderItemRepository.calculateSellerRevenue(sellerId);
+
+        Long completedOrders =
+            orderItemRepository.countCompletedOrdersBySeller(sellerId);
+
+        if (totalRevenue == null) {
+            totalRevenue = BigDecimal.ZERO;
+        }
+
+        BigDecimal averageOrderValue =
+            completedOrders == 0
+                ? BigDecimal.ZERO
+                : totalRevenue.divide(
+                BigDecimal.valueOf(completedOrders),
+                0,
+                RoundingMode.HALF_UP
+            );
+
+        return SalesSummaryInfo.builder()
+            .totalRevenue(totalRevenue)
+            .completedOrders(completedOrders)
+            .averageOrderValue(averageOrderValue)
+            .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MonthlyRevenueInfo> getMonthlyRevenue(Long sellerId) {
+
+        List<Object[]> results =
+            orderItemRepository.calculateMonthlyRevenue(sellerId);
+
+        return results.stream()
+            .map(row -> {
+
+                String month = (String) row[0];
+                BigDecimal revenue =
+                    row[1] != null
+                        ? (BigDecimal) row[1]
+                        : BigDecimal.ZERO;
+
+                return MonthlyRevenueInfo.builder()
+                    .month(month)
+                    .revenue(revenue)
+                    .build();
+            })
+            .toList();
+    }
     private void insertTracking(
         Order order,
         OrderTrackingEvent event
