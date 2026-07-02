@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.order.service;
 
+import com.example.secdsp.modules.order.dto.internal.RevenueInfo;
 import com.example.secdsp.modules.order.dto.request.PayOrderRequest;
 import com.example.secdsp.modules.order.dto.request.UpdatePaymentStatusRequest;
 import com.example.secdsp.modules.order.dto.response.PaymentResponse;
@@ -22,5 +23,5 @@ public interface PaymentService {
         UpdatePaymentStatusRequest request
     );
 
-
+    RevenueInfo getRevenue(Long sellerId);
 }
