@@ -53,18 +53,15 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<ProductDetailResponse>> getProductById(@PathVariable Long id) {
         ProductDetailResponse response = productService.getProductById(id);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Page<ProductResponse>>> getProducts(
         @RequestParam(value = "keyword", required = false) String keyword,
         @RequestParam(value = "categoryId", required = false) Long categoryId,
-        @RequestParam(value = "brandId", required = false) Long brandId,
         @RequestParam(value = "sellerId", required = false) Long sellerId,
         @PageableDefault(size = 10) Pageable pageable
     ) {

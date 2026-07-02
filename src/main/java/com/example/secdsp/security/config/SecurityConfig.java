@@ -46,13 +46,24 @@ public class SecurityConfig {
                     "/api/v1/auth/refresh"
                 )
                 .permitAll()
+
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/products",
+                    "/api/v1/products/**"
+                )
+                .permitAll()
+
                 .requestMatchers(
                     "/swagger-ui/**",
                     "/swagger-ui.html",
                     "/v3/api-docs/**"
                 )
                 .permitAll()
-                .anyRequest().authenticated())
+
+                .anyRequest()
+                .authenticated()
+            )
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authenticationEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler))
