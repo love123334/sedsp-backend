@@ -49,7 +49,7 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
+    @PreAuthorize("hasAnyRole('SELLER')")
     public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable Long id) {
         productService.deleteProduct(id);
         return new ResponseEntity<>(ApiResponse.success("Product deleted successfully"), HttpStatus.NO_CONTENT);
