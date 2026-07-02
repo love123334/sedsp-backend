@@ -12,6 +12,7 @@ import com.example.secdsp.modules.cart.service.CartService;
 import com.example.secdsp.modules.inventory.service.InventoryInternalService;
 import com.example.secdsp.modules.order.dto.internal.OrderDashboardInfo;
 import com.example.secdsp.modules.order.dto.internal.RecentOrderInfo;
+import com.example.secdsp.modules.order.dto.internal.TopProductSalesInfo;
 import com.example.secdsp.modules.order.dto.request.CreateOrderRequest;
 import com.example.secdsp.modules.order.dto.response.OrderDetailResponse;
 import com.example.secdsp.modules.order.dto.response.OrderItemResponse;
@@ -261,6 +262,24 @@ public class OrderServiceImpl implements OrderService {
                          .createdAt(item.getOrder().getCreatedAt())
                          .build()
             ).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TopProductSalesInfo> getTopSellingProducts(Long sellerId) {
+
+        List<Object[]> results =
+            orderItemRepository.findTopSellingProducts(sellerId);
+
+        return results.stream()
+            .map(row -> TopProductSalesInfo.builder()
+                .productId((Long) row[0])
+                .productName((String) row[1])
+                .quantitySold((Long) row[2])
+                .revenue((BigDecimal) row[3])
+                .build()
+            )
+            .toList();
     }
 
     private OrderResponse buildOrderResponse(Order order) {

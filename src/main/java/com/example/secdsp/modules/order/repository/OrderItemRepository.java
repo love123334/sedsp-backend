@@ -35,4 +35,28 @@ public interface OrderItemRepository
         and oi.order.status = 'DELIVERED'
         """)
     long countCompletedOrdersBySeller(Long sellerId);
+
+    @Query("""
+        select to_char(oi.order.createdAt, 'YYYY-MM') as month,
+               sum(oi.subtotal)
+        from OrderItem oi
+        where oi.seller.id = :sellerId
+        and oi.order.status = 'DELIVERED'
+        group by month
+        order by month
+        """)
+    List<Object[]> calculateMonthlyRevenue(Long sellerId);
+
+    @Query("""
+        select oi.product.id,
+               oi.productNameAtPurchase,
+               sum(oi.quantity),
+               sum(oi.subtotal)
+        from OrderItem oi
+        where oi.seller.id = :sellerId
+        and oi.order.status = 'DELIVERED'
+        group by oi.product.id, oi.productNameAtPurchase
+        order by sum(oi.quantity) desc
+        """)
+    List<Object[]> findTopSellingProducts(Long sellerId);
 }

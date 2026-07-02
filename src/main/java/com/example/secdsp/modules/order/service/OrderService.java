@@ -2,6 +2,7 @@ package com.example.secdsp.modules.order.service;
 
 import com.example.secdsp.modules.order.dto.internal.OrderDashboardInfo;
 import com.example.secdsp.modules.order.dto.internal.RecentOrderInfo;
+import com.example.secdsp.modules.order.dto.internal.TopProductSalesInfo;
 import com.example.secdsp.modules.order.dto.request.CreateOrderRequest;
 import com.example.secdsp.modules.order.dto.response.OrderDetailResponse;
 import com.example.secdsp.modules.order.dto.response.OrderResponse;
@@ -23,4 +24,6 @@ public interface OrderService {
     OrderDashboardInfo getSellerOrderSummary(Long sellerId);
 
     List<RecentOrderInfo> getRecentOrders(Long sellerId);
+
+    List<TopProductSalesInfo> getTopSellingProducts(Long sellerId);
 }
