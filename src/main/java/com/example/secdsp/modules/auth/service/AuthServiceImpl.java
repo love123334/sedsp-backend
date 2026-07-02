@@ -45,10 +45,15 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
+
+        String email = request.getEmail()
+            .trim()
+            .toLowerCase();
+
         try {
             Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                    request.getEmail(),
+                    email,
                     request.getPassword()
                 )
             );
@@ -91,23 +96,25 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void register(RegisterRequest request) {
 
-        if (!request.getPassword()
-            .equals(request.getConfirmPassword())) {
+        String email = request.getEmail()
+            .trim()
+            .toLowerCase();
+
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new BusinessException(
                 "Password confirmation does not match",
                 HttpStatus.BAD_REQUEST
             );
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(email)) {
             throw new BusinessException(
                 "Email already exists",
                 HttpStatus.CONFLICT
             );
         }
 
-        Role customerRole = roleRepository.findByName(
-                UserRole.CUSTOMER.name())
+        Role customerRole = roleRepository.findByName(UserRole.CUSTOMER.name())
             .orElseThrow(() ->
                              new ResourceNotFoundException(
                                  "Role",
@@ -116,19 +123,9 @@ public class AuthServiceImpl implements AuthService {
 
         User user = new User();
         user.setFullName(request.getFullName());
-
-        String email = request.getEmail().trim().toLowerCase();
-
         user.setEmail(email);
-
         user.setUsername(email);
-
-        user.setPassword(
-            passwordEncoder.encode(
-                request.getPassword()
-            )
-        );
-
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(customerRole);
         user.setStatus(UserStatus.ACTIVE);
 
