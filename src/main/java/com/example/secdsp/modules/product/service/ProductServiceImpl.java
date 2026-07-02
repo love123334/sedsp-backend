@@ -7,15 +7,14 @@ import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.category.dto.internal.CategoryInfo;
 import com.example.secdsp.modules.category.entity.Category;
 import com.example.secdsp.modules.category.service.CategoryService;
+import com.example.secdsp.modules.product.dto.internal.LowStockProductInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
+import com.example.secdsp.modules.product.dto.internal.ProductSummaryInfo;
 import com.example.secdsp.modules.product.dto.request.*;
 import com.example.secdsp.modules.product.dto.response.PriceHistoryResponse;
 import com.example.secdsp.modules.product.dto.response.ProductDetailResponse;
 import com.example.secdsp.modules.product.dto.response.ProductResponse;
-import com.example.secdsp.modules.product.entity.PriceHistory;
-import com.example.secdsp.modules.product.entity.Product;
-import com.example.secdsp.modules.product.entity.ProductAttribute;
-import com.example.secdsp.modules.product.entity.ProductImage;
+import com.example.secdsp.modules.product.entity.*;
 import com.example.secdsp.modules.product.mapper.PriceHistoryMapper;
 import com.example.secdsp.modules.product.mapper.ProductMapper;
 import com.example.secdsp.modules.product.repository.PriceHistoryRepository;
@@ -246,6 +245,23 @@ public class ProductServiceImpl implements ProductService {
                 .findByProduct_IdOrderByChangedAtDesc(productId);
 
         return priceHistoryMapper.toResponse(histories);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProductSummaryInfo getSellerProductSummary(Long sellerId) {
+
+        long total = productRepository.countBySeller_Id(sellerId);
+        long active = productRepository
+            .countBySeller_IdAndStatus(
+                sellerId,
+                ProductStatus.ACTIVE
+            );
+
+        return ProductSummaryInfo.builder()
+            .totalProducts(total)
+            .activeProducts(active)
+            .build();
     }
 
     private void handleProductImagesForCreate(Product product, List<AddProductImageRequest> imageRequests) {
