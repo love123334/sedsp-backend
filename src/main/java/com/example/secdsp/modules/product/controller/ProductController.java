@@ -30,7 +30,7 @@ public class ProductController {
     private final ProductService productService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
+    @PreAuthorize("hasAnyRole('SELLER')")
     public ResponseEntity<ApiResponse<ProductResponse>> createProduct(
         @Valid @RequestBody CreateProductRequest request
     ) {
