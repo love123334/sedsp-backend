@@ -20,6 +20,25 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendOtp(String toEmail, String otp) {
 
+        sendHtmlEmail(
+            toEmail,
+            "🔐 Email Verification - SECDSP",
+            buildOtpTemplate(otp)
+        );
+    }
+
+    @Override
+    public void sendResetPasswordOtp(String toEmail, String otp) {
+
+        sendHtmlEmail(
+            toEmail,
+            "🔑 Reset Password - SECDSP",
+            buildResetPasswordTemplate(otp)
+        );
+    }
+
+    private void sendHtmlEmail(String toEmail, String subject, String content) {
+
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper =
@@ -27,11 +46,9 @@ public class EmailServiceImpl implements EmailService {
 
             helper.setFrom(mailProperties.getFrom());
             helper.setTo(toEmail);
-            helper.setSubject("🔐 Email Verification - SECDSP");
+            helper.setSubject(subject);
+            helper.setText(content, true);
 
-            helper.setText(buildOtpTemplate(otp), true);
-
-            // Load logo từ config
             ClassPathResource logo =
                 new ClassPathResource(mailProperties.getLogoPath());
 
@@ -39,10 +56,10 @@ public class EmailServiceImpl implements EmailService {
 
             mailSender.send(message);
 
-            log.info("OTP email sent successfully to {}", toEmail);
+            log.info("Email sent successfully to {}", toEmail);
 
         } catch (Exception e) {
-            log.error("Error sending OTP email to {}", toEmail, e);
+            log.error("Error sending email to {}", toEmail, e);
             throw new RuntimeException("Unable to send email at the moment");
         }
     }
@@ -90,6 +107,54 @@ public class EmailServiceImpl implements EmailService {
                         
                         <p style="font-size:12px; color:#aaa;">
                             If you did not request this email, please ignore it.
+                        </p>
+                        
+                    </div>
+                
+                </div>
+                """
+            .formatted(otp, mailProperties.getOtpExpirationMinutes());
+    }
+
+    private String buildResetPasswordTemplate(String otp) {
+
+        return """
+                <div style="font-family: Arial, sans-serif; background:#f4f6f8; padding:40px;">
+                
+                    <div style="max-width:520px; margin:auto; background:white; 
+                                padding:35px; border-radius:12px; text-align:center;
+                                box-shadow:0 5px 15px rgba(0,0,0,0.08);">
+                        
+                        <img src='cid:logoImage' width="130" style="margin-bottom:25px"/>
+                        
+                        <h2 style="color:#e74c3c; margin-bottom:10px;">
+                            Reset Password
+                        </h2>
+                        
+                        <p style="color:#555; font-size:15px;">
+                            We received a request to reset your password.
+                        </p>
+                        
+                        <div style="
+                            font-size:32px;
+                            font-weight:bold;
+                            letter-spacing:8px;
+                            background:#f1f3f5;
+                            padding:18px;
+                            margin:25px 0;
+                            border-radius:10px;
+                            color:#e74c3c;">
+                            %s
+                        </div>
+                        
+                        <p style="color:#888; font-size:14px;">
+                            This OTP will expire in %d minutes.
+                        </p>
+                        
+                        <hr style="margin:25px 0; border:none; border-top:1px solid #eee"/>
+                        
+                        <p style="font-size:12px; color:#aaa;">
+                            If you did not request this, please secure your account.
                         </p>
                         
                     </div>
