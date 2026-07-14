@@ -3,6 +3,8 @@ spring:
     name: secdsp
   profiles:
     active: dev
+
+  # --- Cấu hình Mail ---
   mail:
     host: smtp.gmail.com
     port: 587
@@ -15,6 +17,18 @@ spring:
           starttls:
             enable: true
 
+  # --- Bổ sung cấu hình OAuth2 Client ở đây ---
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:your_google_client_id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:your_google_client_secret}
+            scope:
+              - email
+              - profile
+
 app:
   jwt:
     secret: ${JWT_SECRET:change-this-secret-key-to-a-secure-256-bit-value-for-production-use}
@@ -26,3 +40,7 @@ app:
     otp-expiration-minutes: ${MAIL_OTP_EXPIRATION:5}
     resend-cooldown-seconds: ${MAIL_RESEND_COOLDOWN:60}
     max-resend-attempts: ${MAIL_MAX_RESEND_ATTEMPTS:5}
+
+  # --- Bổ sung cấu hình Redirect sau khi Login thành công ---
+  oauth2:
+    redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2-success}
