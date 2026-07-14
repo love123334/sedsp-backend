@@ -18,42 +18,40 @@ repositories {
 }
 
 dependencies {
-
-    implementation("org.mapstruct:mapstruct:1.6.3")
-
-    compileOnly("org.projectlombok:lombok")
-
-    annotationProcessor("org.projectlombok:lombok")
-    annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
-    annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
-
+    // --- Spring Boot Starters ---
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-mail")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-client") // <-- Đã thêm OAuth2 Client ở đây
 
+    // --- Database & Migration ---
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
+    runtimeOnly("org.postgresql:postgresql")
+
+    // --- Lombok & MapStruct ---
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
+
     implementation("org.mapstruct:mapstruct:1.6.3")
     annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
+    annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
 
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.16")
-    implementation("com.github.slugify:slugify:3.0.4")
-
+    // --- Security & JWT ---
     implementation("io.jsonwebtoken:jjwt-api:0.12.5")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.5")
 
-    runtimeOnly("org.postgresql:postgresql")
+    // --- Utilities & Documentation ---
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.16")
+    implementation("com.github.slugify:slugify:3.0.4")
 
-    compileOnly("org.projectlombok:lombok")
-    annotationProcessor("org.projectlombok:lombok")
-
+    // --- Testing ---
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
-
-    annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
 }
 
 tasks.withType<Test> {
