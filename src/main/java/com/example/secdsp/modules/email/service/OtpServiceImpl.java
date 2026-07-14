@@ -73,6 +73,7 @@ public class OtpServiceImpl implements OtpService {
         latestOtp.setCreatedAt(LocalDateTime.now());
         latestOtp.setResendCount(latestOtp.getResendCount() + 1);
         latestOtp.setUsed(false);
+        latestOtp.setVerified(false);
 
         emailOtpRepository.save(latestOtp);
 
@@ -100,6 +101,7 @@ public class OtpServiceImpl implements OtpService {
         }
 
         emailOtp.setUsed(true);
+        emailOtp.setVerified(true);
         emailOtpRepository.save(emailOtp);
     }
 
