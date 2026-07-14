@@ -12,4 +12,6 @@ public interface AuthService {
     MeResponse getCurrentUser();
 
     void register(RegisterRequest request);
+
+    void resendOtp(String email);
 }

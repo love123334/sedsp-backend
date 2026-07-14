@@ -9,6 +9,8 @@ import com.example.secdsp.modules.auth.dto.request.RegisterRequest;
 import com.example.secdsp.modules.auth.dto.response.LoginResponse;
 import com.example.secdsp.modules.auth.dto.response.MeResponse;
 import com.example.secdsp.modules.auth.mapper.AuthMapper;
+import com.example.secdsp.modules.email.service.EmailService;
+import com.example.secdsp.modules.email.service.OtpService;
 import com.example.secdsp.modules.user.entity.Role;
 import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.user.entity.UserRole;
@@ -38,6 +40,8 @@ public class AuthServiceImpl implements AuthService {
     private final AuthMapper authMapper;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OtpService otpService;
+    private final EmailService emailService;
 
     @Value("${app.jwt.expiration-ms}")
     private long jwtExpirationMs;
@@ -54,6 +58,13 @@ public class AuthServiceImpl implements AuthService {
             );
 
             UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+            User user = userRepository.findById(userDetails.getId())
+                .orElseThrow();
+
+            if (user.getStatus() == UserStatus.PENDING) {
+                throw new UnauthorizedException("Please verify your email first");
+            }
 
             String accessToken = jwtProvider.generateAccessToken(userDetails.getId());
 
@@ -130,10 +141,35 @@ public class AuthServiceImpl implements AuthService {
         );
 
         user.setRole(customerRole);
-        user.setStatus(UserStatus.ACTIVE);
+        user.setStatus(UserStatus.PENDING);
 
         userRepository.save(user);
 
+        String otp = otpService.generateOtp(email);
+        emailService.sendOtp(email, otp);
+
         log.info("New customer registered: {}", email);
+    }
+
+    @Override
+    @Transactional
+    public void resendOtp(String email) {
+
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new BusinessException(
+                "Invalid request",
+                HttpStatus.BAD_REQUEST
+            ));
+
+        if (user.getStatus() != UserStatus.PENDING) {
+            throw new BusinessException(
+                "Email already verified or account not eligible for OTP resend",
+                HttpStatus.BAD_REQUEST
+            );
+        }
+
+        String otp = otpService.resendOtp(email);
+
+        emailService.sendOtp(email, otp);
     }
 }
