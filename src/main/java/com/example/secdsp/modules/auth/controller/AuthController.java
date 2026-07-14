@@ -6,6 +6,8 @@ import com.example.secdsp.modules.auth.dto.request.RegisterRequest;
 import com.example.secdsp.modules.auth.dto.response.LoginResponse;
 import com.example.secdsp.modules.auth.dto.response.MeResponse;
 import com.example.secdsp.modules.auth.service.AuthService;
+import com.example.secdsp.modules.email.dto.request.UpdatePasswordRequest;
+import com.example.secdsp.modules.email.dto.request.VerifyOtpRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -52,5 +54,38 @@ public class AuthController {
 
         return ResponseEntity.ok(
             ApiResponse.success("OTP resent successfully"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+        @RequestParam String email) {
+
+        authService.forgotPassword(email);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("OTP sent if email exists")
+        );
+    }
+
+    @PostMapping("/verify-reset-otp")
+    public ResponseEntity<ApiResponse<Void>> verifyResetOtp(
+        @RequestBody VerifyOtpRequest request) {
+
+        authService.verifyResetOtp(request);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("OTP verified successfully")
+        );
+    }
+
+    @PostMapping("/update-password")
+    public ResponseEntity<ApiResponse<Void>> updatePassword(
+        @RequestBody UpdatePasswordRequest request) {
+
+        authService.updatePassword(request);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("Password updated successfully")
+        );
     }
 }
