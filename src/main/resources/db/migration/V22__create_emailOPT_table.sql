@@ -15,3 +15,6 @@ ALTER TABLE email_otps
 
 ALTER TABLE email_otps
     ADD COLUMN resend_count INT NOT NULL DEFAULT 0;
+
+ALTER TABLE email_otps
+    ADD COLUMN verified BOOLEAN NOT NULL DEFAULT FALSE;
