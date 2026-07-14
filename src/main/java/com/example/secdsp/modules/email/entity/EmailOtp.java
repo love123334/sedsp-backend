@@ -32,4 +32,7 @@ public class EmailOtp {
 
     @Column(nullable = false)
     int resendCount;
+
+    @Column(nullable = false)
+    boolean verified;
 }
