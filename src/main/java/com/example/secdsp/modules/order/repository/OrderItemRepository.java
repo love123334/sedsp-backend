@@ -59,4 +59,10 @@ public interface OrderItemRepository
         order by sum(oi.quantity) desc
         """)
     List<Object[]> findTopSellingProducts(Long sellerId);
+
+    boolean existsByOrder_User_IdAndProduct_IdAndOrder_Status(
+        Long userId,
+        Long productId,
+        OrderStatus status
+    );
 }
