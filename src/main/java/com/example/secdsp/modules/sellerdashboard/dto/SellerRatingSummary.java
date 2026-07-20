@@ -7,31 +7,10 @@ import lombok.Builder;
 import java.util.List;
 
 @Builder
-public record SellerDashboardResponse(
-
-    RevenueSummary revenue,
-
-    OrderSummary orders,
-
-    ProductSummary products,
-
-    InventorySummary inventory,
-
-    List<RecentOrderResponse> recentOrders,
-
-    List<LowStockProductResponse> lowStockProducts,
-
-    List<String> recommendations,
-
+public record SellerRatingSummary(
     Double averageRating,
-
     Long totalReviews,
-
     List<RatingBreakdownItem> ratingBreakdown,
-
     List<RecentReviewResponse> recentReviews,
-
-    String ratingWarning,
-
-    SellerRatingSummary rating
+    String warning
 ) {}
