@@ -4,10 +4,10 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.infrastructure.cloudinary.CloudinaryService;
 import com.example.secdsp.modules.category.dto.internal.CategoryInfo;
 import com.example.secdsp.modules.category.entity.Category;
 import com.example.secdsp.modules.category.service.CategoryService;
-import com.example.secdsp.modules.product.dto.internal.LowStockProductInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductSummaryInfo;
 import com.example.secdsp.modules.product.dto.request.*;
@@ -31,12 +31,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -52,6 +51,9 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryService categoryService;
     private final UserService userService;
     private final Slugify slugify;
+    private final CloudinaryService cloudinaryService;
+
+    private static final int MAX_PRODUCT_IMAGES = 5;
 
     @Override
     @Transactional
@@ -176,12 +178,32 @@ public class ProductServiceImpl implements ProductService {
         log.info("Attempting to delete product with ID: {}", id);
 
         Product product = productRepository.findById(id)
-            .orElseThrow(() ->
-                             new ResourceNotFoundException("Product", id));
+            .orElseThrow(() -> new ResourceNotFoundException("Product", id));
 
         checkProductOwnership(product);
 
+        List<String> publicIds = product.getProductImages().stream()
+            .map(ProductImage::getPublicId)
+            .filter(Objects::nonNull)
+            .toList();
+
         productRepository.delete(product);
+
+        if (!publicIds.isEmpty()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        try {
+                            cloudinaryService.deleteImagesBulk(publicIds);
+                            log.info("Bulk deleted Cloudinary images: {}", publicIds);
+                        } catch (Exception e) {
+                            log.error("Failed to bulk delete Cloudinary images", e);
+                        }
+                    }
+                }
+            );
+        }
 
         log.info("Product {} deleted successfully.", id);
     }
@@ -264,27 +286,39 @@ public class ProductServiceImpl implements ProductService {
             .build();
     }
 
-    private void handleProductImagesForCreate(Product product, List<AddProductImageRequest> imageRequests) {
+    private void handleProductImagesForCreate(
+        Product product,
+        List<AddProductImageRequest> imageRequests
+    ) {
+
+        if (imageRequests.size() > MAX_PRODUCT_IMAGES) {
+            throw new BusinessException("Maximum 5 images allowed per product.");
+        }
+
         Set<String> imageUrls = new HashSet<>();
         boolean primaryFound = false;
 
         for (AddProductImageRequest imageRequest : imageRequests) {
+
             if (!imageUrls.add(imageRequest.getImageUrl().toLowerCase())) {
                 throw new BusinessException("Duplicate image URL found: " + imageRequest.getImageUrl());
             }
+
             if (imageRequest.isPrimary()) {
                 if (primaryFound) {
                     throw new BusinessException("Only one primary image is allowed per product.");
                 }
                 primaryFound = true;
             }
+
             ProductImage productImage = productMapper.toProductImage(imageRequest);
             productImage.setProduct(product);
+
             product.getProductImages().add(productImage);
         }
 
         if (!primaryFound && !product.getProductImages().isEmpty()) {
-            product.getProductImages().get(0).setPrimary(true); // Set first image as primary if none specified
+            product.getProductImages().get(0).setPrimary(true);
         }
     }
 
@@ -301,18 +335,34 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
-    private void handleProductImagesForUpdate(Product product, List<UpdateProductImageRequest> imageRequests) {
+    private void handleProductImagesForUpdate(
+        Product product,
+        List<UpdateProductImageRequest> imageRequests
+    ) {
+
+        if (imageRequests.size() > MAX_PRODUCT_IMAGES) {
+            throw new BusinessException("Maximum 5 images allowed per product.");
+        }
+
         Set<String> imageUrls = new HashSet<>();
         boolean primaryFound = false;
 
-        // Collect existing images into a map for efficient lookup
-        Map<Long, ProductImage> existingImagesMap = product.getProductImages().stream()
-            .collect(Collectors.toMap(ProductImage::getId, Function.identity()));
+        // Existing images
+        Map<Long, ProductImage> existingImagesMap =
+            product.getProductImages().stream()
+                .collect(Collectors.toMap(ProductImage::getId, Function.identity()));
 
-        // Clear existing collection and rebuild it to correctly manage orphanRemoval
+        Set<String> oldPublicIds =
+            product.getProductImages().stream()
+                .map(ProductImage::getPublicId)
+                .collect(Collectors.toSet());
+
         product.getProductImages().clear();
 
+        Set<String> newPublicIds = new HashSet<>();
+
         for (UpdateProductImageRequest imageRequest : imageRequests) {
+
             if (!imageUrls.add(imageRequest.getImageUrl().toLowerCase())) {
                 throw new BusinessException("Duplicate image URL found: " + imageRequest.getImageUrl());
             }
@@ -325,25 +375,50 @@ public class ProductServiceImpl implements ProductService {
             }
 
             ProductImage imageToPersist;
+
             if (imageRequest.getId() != null) {
-                // Update existing image
                 imageToPersist = existingImagesMap.get(imageRequest.getId());
+
                 if (imageToPersist == null) {
                     throw new ResourceNotFoundException("ProductImage", imageRequest.getId());
                 }
-                productMapper.updateProductImageFromDto(imageRequest, imageToPersist);
+
             } else {
-                // Add new image
                 imageToPersist = new ProductImage();
-                imageToPersist.setImageUrl(imageRequest.getImageUrl());
-                imageToPersist.setPrimary(imageRequest.isPrimary());
             }
+
+            imageToPersist.setImageUrl(imageRequest.getImageUrl());
+            imageToPersist.setPublicId(imageRequest.getPublicId());
+            imageToPersist.setPrimary(imageRequest.isPrimary());
             imageToPersist.setProduct(product);
+
+            newPublicIds.add(imageRequest.getPublicId());
+
             product.getProductImages().add(imageToPersist);
         }
 
         if (!primaryFound && !product.getProductImages().isEmpty()) {
-            product.getProductImages().get(0).setPrimary(true); // Set first image as primary if none specified
+            product.getProductImages().get(0).setPrimary(true);
+        }
+
+        // ✅ Find removed images
+        Set<String> removedPublicIds = new HashSet<>(oldPublicIds);
+        removedPublicIds.removeAll(newPublicIds);
+
+        if (!removedPublicIds.isEmpty()) {
+
+            TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        try {
+                            cloudinaryService.deleteImagesBulk(removedPublicIds);
+                        } catch (Exception e) {
+                            log.error("Failed to bulk delete images", e);
+                        }
+                    }
+                }
+            );
         }
     }
 

@@ -17,6 +17,11 @@ repositories {
     mavenCentral()
 }
 
+// Version management
+val mapstructVersion = "1.6.3"
+val lombokMapstructBindingVersion = "0.2.0"
+val jjwtVersion = "0.12.5"
+
 dependencies {
     // --- Spring Boot Starters ---
     implementation("org.springframework.boot:spring-boot-starter-web")
@@ -25,29 +30,30 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-mail")
-    implementation("org.springframework.boot:spring-boot-starter-oauth2-client") // <-- Đã thêm OAuth2 Client ở đây
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
 
     // --- Database & Migration ---
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 
-    // --- Lombok & MapStruct ---
-    compileOnly("org.projectlombok:lombok")
-    annotationProcessor("org.projectlombok:lombok")
-
-    implementation("org.mapstruct:mapstruct:1.6.3")
-    annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
-    annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
-
     // --- Security & JWT ---
-    implementation("io.jsonwebtoken:jjwt-api:0.12.5")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.5")
+    implementation("io.jsonwebtoken:jjwt-api:$jjwtVersion")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:$jjwtVersion")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:$jjwtVersion")
 
     // --- Utilities & Documentation ---
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.16")
     implementation("com.github.slugify:slugify:3.0.4")
+    implementation("com.cloudinary:cloudinary-http44:1.39.0") // Thư viện Upload ảnh sản phẩm
+
+    // --- Lombok & MapStruct ---
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
+
+    implementation("org.mapstruct:mapstruct:$mapstructVersion")
+    annotationProcessor("org.mapstruct:mapstruct-processor:$mapstructVersion")
+    annotationProcessor("org.projectlombok:lombok-mapstruct-binding:$lombokMapstructBindingVersion")
 
     // --- Testing ---
     testImplementation("org.springframework.boot:spring-boot-starter-test")

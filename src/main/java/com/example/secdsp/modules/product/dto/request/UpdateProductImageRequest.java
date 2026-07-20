@@ -20,5 +20,8 @@ public class UpdateProductImageRequest {
     @Pattern(regexp = "^(http|https)://.*", message = "Image URL must be a valid URL")
     String imageUrl;
 
+    @NotBlank(message = "Public ID is required")
+    String publicId;
+
     boolean isPrimary = false;
 }
