@@ -4,10 +4,10 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.infrastructure.cloudinary.CloudinaryService;
 import com.example.secdsp.modules.category.dto.internal.CategoryInfo;
 import com.example.secdsp.modules.category.entity.Category;
 import com.example.secdsp.modules.category.service.CategoryService;
-import com.example.secdsp.modules.product.dto.internal.LowStockProductInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductSummaryInfo;
 import com.example.secdsp.modules.product.dto.request.*;
@@ -31,12 +31,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -52,6 +51,7 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryService categoryService;
     private final UserService userService;
     private final Slugify slugify;
+    private final CloudinaryService cloudinaryService;
 
     @Override
     @Transactional
@@ -176,12 +176,32 @@ public class ProductServiceImpl implements ProductService {
         log.info("Attempting to delete product with ID: {}", id);
 
         Product product = productRepository.findById(id)
-            .orElseThrow(() ->
-                             new ResourceNotFoundException("Product", id));
+            .orElseThrow(() -> new ResourceNotFoundException("Product", id));
 
         checkProductOwnership(product);
 
+        List<String> publicIds = product.getProductImages().stream()
+            .map(ProductImage::getPublicId)
+            .filter(Objects::nonNull)
+            .toList();
+
         productRepository.delete(product);
+
+        if (!publicIds.isEmpty()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    publicIds.forEach(publicId -> {
+                        try {
+                            cloudinaryService.deleteImage(publicId);
+                            log.info("Successfully deleted Cloudinary image: {}", publicId);
+                        } catch (Exception e) {
+                            log.error("Failed to delete Cloudinary image with publicId: {}", publicId, e);
+                        }
+                    });
+                }
+            });
+        }
 
         log.info("Product {} deleted successfully.", id);
     }
@@ -305,11 +325,23 @@ public class ProductServiceImpl implements ProductService {
         Set<String> imageUrls = new HashSet<>();
         boolean primaryFound = false;
 
-        // Collect existing images into a map for efficient lookup
+        // 1. Tạo Map lưu trữ danh sách ảnh hiện tại để tiện tra cứu
         Map<Long, ProductImage> existingImagesMap = product.getProductImages().stream()
             .collect(Collectors.toMap(ProductImage::getId, Function.identity()));
 
-        // Clear existing collection and rebuild it to correctly manage orphanRemoval
+        // 2. Tìm danh sách publicId của các ảnh CŨ bị người dùng xóa bỏ khỏi danh sách mới
+        Set<Long> incomingImageIds = imageRequests.stream()
+            .map(UpdateProductImageRequest::getId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+
+        List<String> removedPublicIds = existingImagesMap.entrySet().stream()
+            .filter(entry -> !incomingImageIds.contains(entry.getKey()))
+            .map(entry -> entry.getValue().getPublicId())
+            .filter(Objects::nonNull)
+            .toList();
+
+        // 3. Clear danh sách cũ để hibernate quản lý orphanRemoval
         product.getProductImages().clear();
 
         for (UpdateProductImageRequest imageRequest : imageRequests) {
@@ -326,24 +358,41 @@ public class ProductServiceImpl implements ProductService {
 
             ProductImage imageToPersist;
             if (imageRequest.getId() != null) {
-                // Update existing image
+                // Update ảnh hiện có
                 imageToPersist = existingImagesMap.get(imageRequest.getId());
                 if (imageToPersist == null) {
                     throw new ResourceNotFoundException("ProductImage", imageRequest.getId());
                 }
                 productMapper.updateProductImageFromDto(imageRequest, imageToPersist);
             } else {
-                // Add new image
                 imageToPersist = new ProductImage();
                 imageToPersist.setImageUrl(imageRequest.getImageUrl());
+                imageToPersist.setPublicId(imageRequest.getPublicId()); // <-- THÊM DÒNG NÀY
                 imageToPersist.setPrimary(imageRequest.isPrimary());
             }
+
             imageToPersist.setProduct(product);
             product.getProductImages().add(imageToPersist);
         }
 
         if (!primaryFound && !product.getProductImages().isEmpty()) {
-            product.getProductImages().get(0).setPrimary(true); // Set first image as primary if none specified
+            product.getProductImages().get(0).setPrimary(true);
+        }
+
+        if (!removedPublicIds.isEmpty()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    removedPublicIds.forEach(publicId -> {
+                        try {
+                            cloudinaryService.deleteImage(publicId);
+                            log.info("Successfully deleted removed Cloudinary image on update: {}", publicId);
+                        } catch (Exception e) {
+                            log.error("Failed to delete Cloudinary image: {}", publicId, e);
+                        }
+                    });
+                }
+            });
         }
     }
 
