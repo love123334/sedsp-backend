@@ -4,6 +4,7 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.modules.inventory.service.InventoryInternalService;
 import com.example.secdsp.modules.order.dto.internal.MonthlyRevenueInfo;
 import com.example.secdsp.modules.order.dto.internal.RevenueInfo;
 import com.example.secdsp.modules.order.dto.internal.SalesSummaryInfo;
@@ -40,6 +41,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final OrderItemRepository orderItemRepository;
     private final OrderTrackingRepository orderTrackingRepository;
     private final PaymentMapper paymentMapper;
+    private final InventoryInternalService inventoryInternalService;
 
     @Override
     @Transactional(readOnly = true)
@@ -169,6 +171,14 @@ public class PaymentServiceImpl implements PaymentService {
 
             Order order = payment.getOrder();
             order.setStatus(OrderStatus.CANCELLED);
+
+            List<OrderItem> items = orderItemRepository.findByOrder_Id(order.getId());
+            for (OrderItem item : items) {
+                inventoryInternalService.releaseForCancel(
+                    item.getProduct().getId(),
+                    item.getQuantity()
+                );
+            }
 
             insertTracking(order,
                            OrderTrackingEvent.PAYMENT_FAILED);
