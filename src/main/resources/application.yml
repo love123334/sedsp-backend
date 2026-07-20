@@ -8,3 +8,7 @@ app:
   jwt:
     secret: ${JWT_SECRET:change-this-secret-key-to-a-secure-256-bit-value-for-production-use}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:your_cloud_name}
+    api-key: ${CLOUDINARY_API_KEY:your_api_key}
+    api-secret: ${CLOUDINARY_API_SECRET:your_api_secret}
