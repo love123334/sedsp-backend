@@ -39,4 +39,7 @@ public class ProductImage extends BaseEntity {
 
     @Column(name = "is_primary", nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
     boolean isPrimary;
+
+    @Column(nullable = false)
+    private String publicId;
 }
