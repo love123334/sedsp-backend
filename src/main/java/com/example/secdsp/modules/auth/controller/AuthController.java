@@ -6,15 +6,13 @@ import com.example.secdsp.modules.auth.dto.request.RegisterRequest;
 import com.example.secdsp.modules.auth.dto.response.LoginResponse;
 import com.example.secdsp.modules.auth.dto.response.MeResponse;
 import com.example.secdsp.modules.auth.service.AuthService;
+import com.example.secdsp.modules.email.dto.request.UpdatePasswordRequest;
+import com.example.secdsp.modules.email.dto.request.VerifyOtpRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -46,5 +44,48 @@ public class AuthController {
             .body(ApiResponse.success(
                 "Registration successful"
             ));
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<ApiResponse<Void>> resendOtp(
+        @RequestParam String email) {
+
+        authService.resendOtp(email);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("OTP resent successfully"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+        @RequestParam String email) {
+
+        authService.forgotPassword(email);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("OTP sent if email exists")
+        );
+    }
+
+    @PostMapping("/verify-reset-otp")
+    public ResponseEntity<ApiResponse<Void>> verifyResetOtp(
+        @RequestBody VerifyOtpRequest request) {
+
+        authService.verifyResetOtp(request);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("OTP verified successfully")
+        );
+    }
+
+    @PostMapping("/update-password")
+    public ResponseEntity<ApiResponse<Void>> updatePassword(
+        @RequestBody UpdatePasswordRequest request) {
+
+        authService.updatePassword(request);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("Password updated successfully")
+        );
     }
 }

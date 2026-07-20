@@ -3,6 +3,7 @@ package com.example.secdsp.security.config;
 import com.example.secdsp.security.handler.RestAccessDeniedHandler;
 import com.example.secdsp.security.handler.RestAuthenticationEntryPoint;
 import com.example.secdsp.security.jwt.JwtAuthenticationFilter;
+import com.example.secdsp.security.oauth2.OAuth2LoginSuccessHandler;
 import com.example.secdsp.security.user.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -31,6 +32,7 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
     private final CustomUserDetailsService customUserDetailsService;
+    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -49,10 +51,14 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/swagger-ui/**",
                     "/swagger-ui.html",
-                    "/v3/api-docs/**"
+                    "/v3/api-docs/**",
+                    "/oauth2/**"
                 )
                 .permitAll()
                 .anyRequest().authenticated())
+            .oauth2Login(oauth -> oauth
+                .successHandler(oAuth2LoginSuccessHandler)
+            )
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authenticationEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler))
@@ -64,13 +70,9 @@ public class SecurityConfig {
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
-
-        DaoAuthenticationProvider provider =
-            new DaoAuthenticationProvider();
-
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(customUserDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
-
         return provider;
     }
 
