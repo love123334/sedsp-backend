@@ -41,21 +41,32 @@ public class SecurityConfig {
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // 1. Auth public endpoints
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/v1/auth/login",
                     "/api/v1/auth/register",
                     "/api/v1/auth/refresh"
-                )
-                .permitAll()
+                ).permitAll()
+
+                // 2. Public Read Endpoints (Cho phép khách xem sản phẩm, danh mục,...)
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/products/**",
+                    "/api/v1/categories/**"
+                ).permitAll()
+
+                // 3. Swagger & OAuth2 endpoints
                 .requestMatchers(
                     "/swagger-ui/**",
                     "/swagger-ui.html",
                     "/v3/api-docs/**",
                     "/oauth2/**"
-                )
-                .permitAll()
-                .anyRequest().authenticated())
+                ).permitAll()
+
+                // 4. Các request còn lại bắt buộc cần Authentication
+                .anyRequest().authenticated()
+            )
             .oauth2Login(oauth -> oauth
                 .successHandler(oAuth2LoginSuccessHandler)
             )

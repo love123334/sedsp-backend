@@ -14,8 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class InventoryInternalServiceImpl
-    implements InventoryInternalService {
+public class InventoryInternalServiceImpl implements InventoryInternalService {
 
     private final InventoryRepository inventoryRepository;
     private final InventoryLogRepository inventoryLogRepository;
@@ -25,31 +24,22 @@ public class InventoryInternalServiceImpl
     public void reserveForOrder(Long productId, int quantity) {
 
         if (quantity <= 0) {
-            throw new BusinessException(
-                "Quantity must be greater than 0."
-            );
+            throw new BusinessException("Quantity must be greater than 0.");
         }
 
         Inventory inventory = inventoryRepository
-            .findByProduct_Id(productId)
-            .orElseThrow(() ->
-                             new BusinessException(
-                                 "Inventory not found for product " + productId));
+            .findByProduct_IdForUpdate(productId)
+            .orElseThrow(() -> new BusinessException("Inventory not found for product " + productId));
 
         if (inventory.getAvailableQuantity() < quantity) {
-            throw new BusinessException("Insufficient stock.");
+            throw new BusinessException("Insufficient stock for product ID: " + productId);
         }
 
         int previousAvailable = inventory.getAvailableQuantity();
         int previousReserved = inventory.getReservedQuantity();
 
-        inventory.setAvailableQuantity(
-            previousAvailable - quantity
-        );
-
-        inventory.setReservedQuantity(
-            previousReserved + quantity
-        );
+        inventory.setAvailableQuantity(previousAvailable - quantity);
+        inventory.setReservedQuantity(previousReserved + quantity);
 
         insertLog(
             inventory,
@@ -59,11 +49,7 @@ public class InventoryInternalServiceImpl
             InventoryLogReason.ORDER
         );
 
-        log.info(
-            "Reserved {} units for product {}",
-            quantity,
-            productId
-        );
+        log.info("Reserved {} units for product {}", quantity, productId);
     }
 
     @Override
@@ -71,33 +57,22 @@ public class InventoryInternalServiceImpl
     public void releaseForCancel(Long productId, int quantity) {
 
         if (quantity <= 0) {
-            throw new BusinessException(
-                "Quantity must be greater than 0."
-            );
+            throw new BusinessException("Quantity must be greater than 0.");
         }
 
         Inventory inventory = inventoryRepository
-            .findByProduct_Id(productId)
-            .orElseThrow(() ->
-                             new BusinessException(
-                                 "Inventory not found for product " + productId));
+            .findByProduct_IdForUpdate(productId)
+            .orElseThrow(() -> new BusinessException("Inventory not found for product " + productId));
 
         int previousAvailable = inventory.getAvailableQuantity();
         int previousReserved = inventory.getReservedQuantity();
 
         if (previousReserved < quantity) {
-            throw new BusinessException(
-                "Reserved quantity inconsistent."
-            );
+            throw new BusinessException("Reserved quantity inconsistent.");
         }
 
-        inventory.setAvailableQuantity(
-            previousAvailable + quantity
-        );
-
-        inventory.setReservedQuantity(
-            previousReserved - quantity
-        );
+        inventory.setAvailableQuantity(previousAvailable + quantity);
+        inventory.setReservedQuantity(previousReserved - quantity);
 
         insertLog(
             inventory,
@@ -107,11 +82,7 @@ public class InventoryInternalServiceImpl
             InventoryLogReason.ORDER_CANCEL
         );
 
-        log.info(
-            "Released {} units for product {}",
-            quantity,
-            productId
-        );
+        log.info("Released {} units for product {}", quantity, productId);
     }
 
     private void insertLog(

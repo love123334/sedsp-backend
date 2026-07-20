@@ -76,10 +76,8 @@ public class InventoryServiceImpl implements InventoryService {
         }
 
         Inventory inventory = inventoryRepository
-            .findByProduct_Id(productId)
-            .orElseThrow(() ->
-                             new ResourceNotFoundException(
-                                 "Inventory for product", productId));
+            .findByProduct_IdForUpdate(productId)
+            .orElseThrow(() -> new ResourceNotFoundException("Inventory for product", productId));
 
         int previous = inventory.getAvailableQuantity();
         int adjustment = request.getAdjustmentQuantity();

@@ -36,6 +36,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -65,16 +66,22 @@ public class OrderServiceImpl implements OrderService {
 
         List<CartItem> cartItems = getCartItemsOrThrow(cart);
 
+        // 1. Tính tổng tiền & Kiểm tra trạng thái/giá sản phẩm
         BigDecimal subtotal = calculateSubtotal(cartItems);
 
+        // 2. Tạo đơn hàng PENDING
         Order order = createOrderEntity(userId, request, subtotal);
 
+        // 3. Tạo các OrderItem (Snapshot Giá & Tên) + Giữ chỗ tồn kho Atomically
         createOrderItemsAndReserveInventory(order, cartItems);
 
+        // 4. Tạo lịch sử theo dõi (Order Tracking)
         createTracking(order, userId);
 
+        // 5. Tạo thông tin thanh toán (Payment)
         createPayment(order, request.getPaymentMethod());
 
+        // 6. Xóa giỏ hàng
         clearCart(cart);
 
         return buildOrderResponse(order);
@@ -402,11 +409,16 @@ public class OrderServiceImpl implements OrderService {
         Order order,
         List<CartItem> cartItems
     ) {
+        List<OrderItem> orderItemsToSave = new ArrayList<>();
 
         for (CartItem item : cartItems) {
 
-            ProductInfo product =
-                productService.getProductInfo(item.getProduct().getId());
+            ProductInfo product = productService.getProductInfo(item.getProduct().getId());
+
+            inventoryInternalService.reserveForOrder(
+                product.id(),
+                item.getQuantity()
+            );
 
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
@@ -416,23 +428,18 @@ public class OrderServiceImpl implements OrderService {
 
             orderItem.setProduct(productRef);
             orderItem.setProductNameAtPurchase(product.name());
-            orderItem.setQuantity(item.getQuantity());
             orderItem.setUnitPriceAtPurchase(product.price());
+            orderItem.setQuantity(item.getQuantity());
 
-            BigDecimal itemSubtotal =
-                product.price().multiply(
-                    BigDecimal.valueOf(item.getQuantity())
-                );
-
+            BigDecimal itemSubtotal = product.price().multiply(
+                BigDecimal.valueOf(item.getQuantity())
+            );
             orderItem.setSubtotal(itemSubtotal);
 
-            orderItemRepository.save(orderItem);
-
-            inventoryInternalService.reserveForOrder(
-                product.id(),
-                item.getQuantity()
-            );
+            orderItemsToSave.add(orderItem);
         }
+
+        orderItemRepository.saveAll(orderItemsToSave);
     }
 
     private void createTracking(Order order, Long userId) {
