@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
 
 @Service
@@ -45,6 +46,21 @@ public class CloudinaryServiceImpl implements CloudinaryService {
             cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
         } catch (IOException e) {
             throw new RuntimeException("Failed to delete image", e);
+        }
+    }
+
+    @Override
+    public void deleteImagesBulk(Collection<String> publicIds) {
+
+        try {
+
+            cloudinary.api().deleteResources(
+                publicIds,
+                ObjectUtils.emptyMap()
+            );
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to bulk delete images", e);
         }
     }
 }
