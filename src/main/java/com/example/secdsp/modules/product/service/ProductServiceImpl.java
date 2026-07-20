@@ -53,6 +53,8 @@ public class ProductServiceImpl implements ProductService {
     private final Slugify slugify;
     private final CloudinaryService cloudinaryService;
 
+    private static final int MAX_PRODUCT_IMAGES = 5;
+
     @Override
     @Transactional
     public ProductResponse createProduct(CreateProductRequest request) {
@@ -188,19 +190,19 @@ public class ProductServiceImpl implements ProductService {
         productRepository.delete(product);
 
         if (!publicIds.isEmpty()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    publicIds.forEach(publicId -> {
+            TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
                         try {
-                            cloudinaryService.deleteImage(publicId);
-                            log.info("Successfully deleted Cloudinary image: {}", publicId);
+                            cloudinaryService.deleteImagesBulk(publicIds);
+                            log.info("Bulk deleted Cloudinary images: {}", publicIds);
                         } catch (Exception e) {
-                            log.error("Failed to delete Cloudinary image with publicId: {}", publicId, e);
+                            log.error("Failed to bulk delete Cloudinary images", e);
                         }
-                    });
+                    }
                 }
-            });
+            );
         }
 
         log.info("Product {} deleted successfully.", id);
@@ -284,27 +286,39 @@ public class ProductServiceImpl implements ProductService {
             .build();
     }
 
-    private void handleProductImagesForCreate(Product product, List<AddProductImageRequest> imageRequests) {
+    private void handleProductImagesForCreate(
+        Product product,
+        List<AddProductImageRequest> imageRequests
+    ) {
+
+        if (imageRequests.size() > MAX_PRODUCT_IMAGES) {
+            throw new BusinessException("Maximum 5 images allowed per product.");
+        }
+
         Set<String> imageUrls = new HashSet<>();
         boolean primaryFound = false;
 
         for (AddProductImageRequest imageRequest : imageRequests) {
+
             if (!imageUrls.add(imageRequest.getImageUrl().toLowerCase())) {
                 throw new BusinessException("Duplicate image URL found: " + imageRequest.getImageUrl());
             }
+
             if (imageRequest.isPrimary()) {
                 if (primaryFound) {
                     throw new BusinessException("Only one primary image is allowed per product.");
                 }
                 primaryFound = true;
             }
+
             ProductImage productImage = productMapper.toProductImage(imageRequest);
             productImage.setProduct(product);
+
             product.getProductImages().add(productImage);
         }
 
         if (!primaryFound && !product.getProductImages().isEmpty()) {
-            product.getProductImages().get(0).setPrimary(true); // Set first image as primary if none specified
+            product.getProductImages().get(0).setPrimary(true);
         }
     }
 
@@ -321,30 +335,34 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
-    private void handleProductImagesForUpdate(Product product, List<UpdateProductImageRequest> imageRequests) {
+    private void handleProductImagesForUpdate(
+        Product product,
+        List<UpdateProductImageRequest> imageRequests
+    ) {
+
+        if (imageRequests.size() > MAX_PRODUCT_IMAGES) {
+            throw new BusinessException("Maximum 5 images allowed per product.");
+        }
+
         Set<String> imageUrls = new HashSet<>();
         boolean primaryFound = false;
 
-        // 1. Tạo Map lưu trữ danh sách ảnh hiện tại để tiện tra cứu
-        Map<Long, ProductImage> existingImagesMap = product.getProductImages().stream()
-            .collect(Collectors.toMap(ProductImage::getId, Function.identity()));
+        // Existing images
+        Map<Long, ProductImage> existingImagesMap =
+            product.getProductImages().stream()
+                .collect(Collectors.toMap(ProductImage::getId, Function.identity()));
 
-        // 2. Tìm danh sách publicId của các ảnh CŨ bị người dùng xóa bỏ khỏi danh sách mới
-        Set<Long> incomingImageIds = imageRequests.stream()
-            .map(UpdateProductImageRequest::getId)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toSet());
+        Set<String> oldPublicIds =
+            product.getProductImages().stream()
+                .map(ProductImage::getPublicId)
+                .collect(Collectors.toSet());
 
-        List<String> removedPublicIds = existingImagesMap.entrySet().stream()
-            .filter(entry -> !incomingImageIds.contains(entry.getKey()))
-            .map(entry -> entry.getValue().getPublicId())
-            .filter(Objects::nonNull)
-            .toList();
-
-        // 3. Clear danh sách cũ để hibernate quản lý orphanRemoval
         product.getProductImages().clear();
 
+        Set<String> newPublicIds = new HashSet<>();
+
         for (UpdateProductImageRequest imageRequest : imageRequests) {
+
             if (!imageUrls.add(imageRequest.getImageUrl().toLowerCase())) {
                 throw new BusinessException("Duplicate image URL found: " + imageRequest.getImageUrl());
             }
@@ -357,21 +375,25 @@ public class ProductServiceImpl implements ProductService {
             }
 
             ProductImage imageToPersist;
+
             if (imageRequest.getId() != null) {
-                // Update ảnh hiện có
                 imageToPersist = existingImagesMap.get(imageRequest.getId());
+
                 if (imageToPersist == null) {
                     throw new ResourceNotFoundException("ProductImage", imageRequest.getId());
                 }
-                productMapper.updateProductImageFromDto(imageRequest, imageToPersist);
+
             } else {
                 imageToPersist = new ProductImage();
-                imageToPersist.setImageUrl(imageRequest.getImageUrl());
-                imageToPersist.setPublicId(imageRequest.getPublicId()); // <-- THÊM DÒNG NÀY
-                imageToPersist.setPrimary(imageRequest.isPrimary());
             }
 
+            imageToPersist.setImageUrl(imageRequest.getImageUrl());
+            imageToPersist.setPublicId(imageRequest.getPublicId());
+            imageToPersist.setPrimary(imageRequest.isPrimary());
             imageToPersist.setProduct(product);
+
+            newPublicIds.add(imageRequest.getPublicId());
+
             product.getProductImages().add(imageToPersist);
         }
 
@@ -379,20 +401,24 @@ public class ProductServiceImpl implements ProductService {
             product.getProductImages().get(0).setPrimary(true);
         }
 
+        // ✅ Find removed images
+        Set<String> removedPublicIds = new HashSet<>(oldPublicIds);
+        removedPublicIds.removeAll(newPublicIds);
+
         if (!removedPublicIds.isEmpty()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    removedPublicIds.forEach(publicId -> {
+
+            TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
                         try {
-                            cloudinaryService.deleteImage(publicId);
-                            log.info("Successfully deleted removed Cloudinary image on update: {}", publicId);
+                            cloudinaryService.deleteImagesBulk(removedPublicIds);
                         } catch (Exception e) {
-                            log.error("Failed to delete Cloudinary image: {}", publicId, e);
+                            log.error("Failed to bulk delete images", e);
                         }
-                    });
+                    }
                 }
-            });
+            );
         }
     }
 
