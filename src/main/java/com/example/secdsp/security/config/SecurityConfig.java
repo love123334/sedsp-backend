@@ -62,7 +62,7 @@ public class SecurityConfig {
                     "/api/v1/categories/**"
                 ).permitAll()
 
-                // 3. Swagger, OAuth2, health (Railway)
+                // 3. Swagger, OAuth2, health (Railway liveness/readiness)
                 .requestMatchers(
                     "/swagger-ui/**",
                     "/swagger-ui.html",

@@ -64,3 +64,8 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+// Only the Boot fat JAR (avoids cp *.jar picking *-plain.jar in Docker)
+tasks.named<Jar>("jar") {
+    enabled = false
+}

@@ -10,6 +10,7 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
+      connection-timeout: 20000
 
   data:
     redis:
@@ -49,8 +50,19 @@ management:
     health:
       probes:
         enabled: true
+      show-details: always
+      group:
+        # Railway healthcheck — do NOT require DB (otherwise 503 during deploy)
+        liveness:
+          include: ping
+        readiness:
+          include: ping
   health:
     redis:
+      enabled: false
+    db:
+      enabled: false
+    diskspace:
       enabled: false
 
 logging:
@@ -58,3 +70,4 @@ logging:
     root: INFO
     com.example.secdsp: INFO
     org.hibernate.SQL: WARN
+    com.zaxxer.hikari: INFO

@@ -83,6 +83,8 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
         String host = firstEnv(environment, "PGHOST", "POSTGRES_HOST", "DB_HOST");
         if (!StringUtils.hasText(host)) {
             System.out.println("[datasource] WARN: no DATABASE_URL / DATABASE_PUBLIC_URL / PGHOST found");
+            System.out.println("[datasource] On Railway API service: Variables → Reference sedsp-db.DATABASE_PUBLIC_URL");
+            excludeRedisIfMissing(environment);
             return;
         }
         String port = firstEnv(environment, "PGPORT", "POSTGRES_PORT", "DB_PORT");
@@ -154,10 +156,32 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
         String redis = firstEnv(environment, "REDIS_URL", "REDIS_PRIVATE_URL", "REDIS_PUBLIC_URL", "SPRING_DATA_REDIS_URL");
         if (StringUtils.hasText(redis)) {
             map.put("spring.data.redis.url", redis.trim());
+            System.out.println("[datasource] Redis URL configured");
+        } else {
+            putRedisExclude(map);
+            System.out.println("[datasource] No REDIS_URL — excluding Redis auto-config");
         }
         environment.getPropertySources().addFirst(new MapPropertySource(SOURCE, map));
         String safe = url.replaceAll("//[^@]+@", "//***@");
         System.out.println("[datasource] spring.datasource.url=" + safe);
+    }
+
+    private void excludeRedisIfMissing(ConfigurableEnvironment environment) {
+        String redis = firstEnv(environment, "REDIS_URL", "REDIS_PRIVATE_URL", "REDIS_PUBLIC_URL", "SPRING_DATA_REDIS_URL");
+        if (StringUtils.hasText(redis)) {
+            return;
+        }
+        Map<String, Object> map = new HashMap<>();
+        putRedisExclude(map);
+        environment.getPropertySources().addFirst(new MapPropertySource(SOURCE + "RedisExclude", map));
+        System.out.println("[datasource] No REDIS_URL — excluding Redis auto-config");
+    }
+
+    private static void putRedisExclude(Map<String, Object> map) {
+        map.put(
+                "spring.autoconfigure.exclude",
+                "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,"
+                        + "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration");
     }
 
     private static String firstEnv(ConfigurableEnvironment environment, String... keys) {
