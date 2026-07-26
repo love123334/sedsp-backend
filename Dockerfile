@@ -21,13 +21,14 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /build/app.jar /app/app.jar
+COPY start.sh /app/start.sh
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV PORT=8080
 EXPOSE 8080
 
-# Liveness only — full /actuator/health is 503 while DB is DOWN (Railway would fail deploy).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=8 \
   CMD curl -fsS "http://127.0.0.1:${PORT}/actuator/health/liveness" || exit 1
 
-ENTRYPOINT ["sh", "-c", "echo \"[boot] PORT=${PORT:-8080} PROFILE=${SPRING_PROFILES_ACTIVE:-}\"; echo \"[boot] DB keys:\"; env | awk -F= '/^(DATABASE|POSTGRES|PG|REDIS|SPRING_DATASOURCE|SPRING_PROFILES)/ {print $1}'; exec java ${JAVA_OPTS:-} -Dserver.port=${PORT:-8080} -jar /app/app.jar"]
+ENTRYPOINT ["/app/start.sh"]

@@ -1,6 +1,5 @@
 package com.example.secdsp.config;
 
-import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -14,8 +13,7 @@ import org.springframework.core.env.MapPropertySource;
 import org.springframework.util.StringUtils;
 
 /**
- * Railway / PaaS: map postgres:// DATABASE_* URLs into spring.datasource.*.
- * Prefer PUBLIC URL when private networking URL is empty.
+ * Map Railway/Render postgres URLs → spring.datasource.* before DataSource auto-config.
  */
 public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProcessor, Ordered {
 
@@ -34,16 +32,19 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+        System.out.println("[datasource] EnvironmentPostProcessor running");
+
         for (String key : URL_KEYS) {
             String raw = firstEnv(environment, key);
             if (!StringUtils.hasText(raw)) {
                 continue;
             }
             raw = raw.trim();
-            System.out.println("[datasource] Using " + key + " (len=" + raw.length() + ")");
+            System.out.println("[datasource] Trying " + key + " len=" + raw.length());
             if (raw.startsWith("jdbc:postgresql://")) {
-                apply(environment, raw, firstEnv(environment, "SPRING_DATASOURCE_USERNAME"),
-                        firstEnv(environment, "SPRING_DATASOURCE_PASSWORD"));
+                apply(environment, raw,
+                        firstEnv(environment, "SPRING_DATASOURCE_USERNAME", "PGUSER", "DATABASE_USER"),
+                        firstEnv(environment, "SPRING_DATASOURCE_PASSWORD", "PGPASSWORD", "DATABASE_PASSWORD"));
                 return;
             }
             if (raw.startsWith("postgres://") || raw.startsWith("postgresql://")) {
@@ -51,12 +52,8 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
                     return;
                 }
             }
-            if (raw.startsWith("${{") || raw.startsWith("${")) {
-                System.out.println("[datasource] WARN " + key + " looks unresolved: " + raw);
-            }
         }
 
-        // Scan all env for any postgres:// (custom Railway variable names)
         Map<String, String> env = System.getenv();
         if (env != null) {
             for (Map.Entry<String, String> e : env.entrySet()) {
@@ -67,64 +64,79 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
                 }
                 String v = val.trim();
                 if (v.startsWith("postgres://") || v.startsWith("postgresql://")) {
-                    System.out.println("[datasource] Found postgres URL in " + name);
+                    System.out.println("[datasource] Scan hit " + name);
                     if (applyParsed(environment, v)) {
                         return;
                     }
                 }
                 if (v.startsWith("jdbc:postgresql://")) {
-                    System.out.println("[datasource] Found JDBC URL in " + name);
                     apply(environment, v, null, null);
                     return;
                 }
             }
         }
 
-        String host = firstEnv(environment, "PGHOST", "POSTGRES_HOST", "DB_HOST");
+        String host = firstEnv(environment, "PGHOST", "POSTGRES_HOST", "DB_HOST", "DATABASE_HOST");
         if (!StringUtils.hasText(host)) {
-            System.out.println("[datasource] WARN: no DATABASE_URL / DATABASE_PUBLIC_URL / PGHOST found");
-            System.out.println("[datasource] On Railway API service: Variables → Reference sedsp-db.DATABASE_PUBLIC_URL");
+            System.out.println("[datasource] WARN: no DB URL/PGHOST — app will fail DataSource config");
+            System.out.println("[datasource] Add Variable Reference: DATABASE_PUBLIC_URL from Postgres service");
             excludeRedisIfMissing(environment);
             return;
         }
-        String port = firstEnv(environment, "PGPORT", "POSTGRES_PORT", "DB_PORT");
-        if (!StringUtils.hasText(port)) {
-            port = "5432";
-        }
-        String db = firstEnv(environment, "PGDATABASE", "POSTGRES_DB", "POSTGRES_DATABASE", "DB_NAME");
-        if (!StringUtils.hasText(db)) {
-            db = "railway";
-        }
-        String user = firstEnv(environment, "PGUSER", "POSTGRES_USER", "DB_USER");
-        String pass = firstEnv(environment, "PGPASSWORD", "POSTGRES_PASSWORD", "DB_PASSWORD");
+        String port = firstNonBlank(firstEnv(environment, "PGPORT", "POSTGRES_PORT", "DB_PORT", "DATABASE_PORT"), "5432");
+        String db = firstNonBlank(firstEnv(environment, "PGDATABASE", "POSTGRES_DB", "DATABASE_NAME", "DB_NAME"), "railway");
+        String user = firstEnv(environment, "PGUSER", "POSTGRES_USER", "DATABASE_USER", "DB_USER");
+        String pass = firstEnv(environment, "PGPASSWORD", "POSTGRES_PASSWORD", "DATABASE_PASSWORD", "DB_PASSWORD");
         String ssl = host.contains("railway.internal") ? "prefer" : "require";
-        String jdbc = "jdbc:postgresql://" + host + ":" + port + "/" + db + "?sslmode=" + ssl;
-        System.out.println("[datasource] Built JDBC from PGHOST=" + host);
-        apply(environment, jdbc, user, pass);
+        apply(environment, "jdbc:postgresql://" + host + ":" + port + "/" + db + "?sslmode=" + ssl, user, pass);
     }
 
     private boolean applyParsed(ConfigurableEnvironment environment, String raw) {
         try {
-            String normalized = raw.replace("postgres://", "postgresql://");
-            URI uri = URI.create(normalized);
-            if (uri.getHost() == null || uri.getUserInfo() == null) {
+            String rest = raw.contains("://") ? raw.substring(raw.indexOf("://") + 3) : raw;
+            // lastIndexOf: password may contain '@' if poorly encoded
+            int at = rest.lastIndexOf('@');
+            if (at < 0) {
+                System.out.println("[datasource] parse fail: no @ in URL");
                 return false;
             }
-            String userInfo = uri.getUserInfo();
-            int colon = userInfo.indexOf(':');
-            String user = colon >= 0 ? userInfo.substring(0, colon) : userInfo;
-            String pass = colon >= 0 ? userInfo.substring(colon + 1) : "";
+            String userpass = rest.substring(0, at);
+            String hostdb = rest.substring(at + 1);
+            int colon = userpass.indexOf(':');
+            String user = colon >= 0 ? userpass.substring(0, colon) : userpass;
+            String pass = colon >= 0 ? userpass.substring(colon + 1) : "";
             pass = URLDecoder.decode(pass, StandardCharsets.UTF_8);
+            user = URLDecoder.decode(user, StandardCharsets.UTF_8);
 
-            String host = uri.getHost();
-            int port = uri.getPort() > 0 ? uri.getPort() : 5432;
-            String path = uri.getPath() == null ? "" : uri.getPath();
-            String db = path.startsWith("/") ? path.substring(1) : path;
-            int q = db.indexOf('?');
+            String hostPortDb = hostdb;
+            String query = null;
+            int q = hostdb.indexOf('?');
             if (q >= 0) {
-                db = db.substring(0, q);
+                query = hostdb.substring(q + 1);
+                hostPortDb = hostdb.substring(0, q);
             }
-            String query = uri.getQuery();
+            String host;
+            int port = 5432;
+            String db;
+            int slash = hostPortDb.indexOf('/');
+            String hostPort = slash >= 0 ? hostPortDb.substring(0, slash) : hostPortDb;
+            db = slash >= 0 ? hostPortDb.substring(slash + 1) : "railway";
+            if (hostPort.startsWith("[")) {
+                int end = hostPort.indexOf(']');
+                host = hostPort.substring(1, end);
+                if (end + 1 < hostPort.length() && hostPort.charAt(end + 1) == ':') {
+                    port = Integer.parseInt(hostPort.substring(end + 2));
+                }
+            } else {
+                int hc = hostPort.lastIndexOf(':');
+                if (hc >= 0) {
+                    host = hostPort.substring(0, hc);
+                    port = Integer.parseInt(hostPort.substring(hc + 1));
+                } else {
+                    host = hostPort;
+                }
+            }
+
             StringBuilder jdbc = new StringBuilder("jdbc:postgresql://")
                     .append(host).append(':').append(port).append('/').append(db);
             boolean hasSsl = query != null && query.contains("sslmode=");
@@ -162,19 +174,16 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
             System.out.println("[datasource] No REDIS_URL — excluding Redis auto-config");
         }
         environment.getPropertySources().addFirst(new MapPropertySource(SOURCE, map));
-        String safe = url.replaceAll("//[^@]+@", "//***@");
-        System.out.println("[datasource] spring.datasource.url=" + safe);
+        System.out.println("[datasource] OK url=" + url.replaceAll("//[^@]+@", "//***@"));
     }
 
     private void excludeRedisIfMissing(ConfigurableEnvironment environment) {
-        String redis = firstEnv(environment, "REDIS_URL", "REDIS_PRIVATE_URL", "REDIS_PUBLIC_URL", "SPRING_DATA_REDIS_URL");
-        if (StringUtils.hasText(redis)) {
+        if (StringUtils.hasText(firstEnv(environment, "REDIS_URL", "REDIS_PRIVATE_URL", "REDIS_PUBLIC_URL"))) {
             return;
         }
         Map<String, Object> map = new HashMap<>();
         putRedisExclude(map);
         environment.getPropertySources().addFirst(new MapPropertySource(SOURCE + "RedisExclude", map));
-        System.out.println("[datasource] No REDIS_URL — excluding Redis auto-config");
     }
 
     private static void putRedisExclude(Map<String, Object> map) {
@@ -196,6 +205,10 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
             }
         }
         return null;
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        return StringUtils.hasText(a) ? a : b;
     }
 
     @Override

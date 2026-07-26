@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    # Filled by DatabaseUrlEnvironmentPostProcessor from DATABASE_PUBLIC_URL / DATABASE_URL / PG*
+    # Filled by DatabaseUrlEnvironmentPostProcessor / start.sh from DATABASE_PUBLIC_URL
     url: ${SPRING_DATASOURCE_URL:}
     username: ${SPRING_DATASOURCE_USERNAME:${PGUSER:}}
     password: ${SPRING_DATASOURCE_PASSWORD:${PGPASSWORD:}}
@@ -11,6 +11,12 @@ spring:
     hikari:
       maximum-pool-size: 5
       connection-timeout: 20000
+
+  # Redis starter is unused (OTP is DB-backed). Exclude so missing REDIS_URL cannot break boot.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
 
   data:
     redis:
