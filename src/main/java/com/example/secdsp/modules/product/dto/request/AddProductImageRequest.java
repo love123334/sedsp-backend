@@ -18,5 +18,8 @@ public class AddProductImageRequest {
     @Pattern(regexp = "^(http|https)://.*", message = "Image URL must be a valid URL")
     String imageUrl;
 
+    /** Cloudinary public_id — nếu thiếu sẽ tự sinh khi lưu */
+    String publicId;
+
     boolean isPrimary = false;
 }

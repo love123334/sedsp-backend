@@ -56,6 +56,17 @@ public class AuthController {
             ApiResponse.success("OTP resent successfully"));
     }
 
+    @PostMapping("/verify-email")
+    public ResponseEntity<ApiResponse<Void>> verifyEmail(
+        @Valid @RequestBody VerifyOtpRequest request) {
+
+        authService.verifyEmail(request);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("Email verified successfully. You can log in now.")
+        );
+    }
+
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(
         @RequestParam String email) {

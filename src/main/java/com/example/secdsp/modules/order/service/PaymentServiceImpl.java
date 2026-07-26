@@ -42,6 +42,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final OrderTrackingRepository orderTrackingRepository;
     private final PaymentMapper paymentMapper;
     private final InventoryInternalService inventoryInternalService;
+    private final OrderNotificationService orderNotificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -167,6 +168,8 @@ public class PaymentServiceImpl implements PaymentService {
             insertTracking(order,
                            OrderTrackingEvent.PAYMENT_SUCCESS);
 
+            orderNotificationService.notifyStatusChanged(order, OrderStatus.PAID);
+
         } else if (request.getStatus() == PaymentStatus.FAILED) {
 
             Order order = payment.getOrder();
@@ -182,6 +185,8 @@ public class PaymentServiceImpl implements PaymentService {
 
             insertTracking(order,
                            OrderTrackingEvent.PAYMENT_FAILED);
+
+            orderNotificationService.notifyCancelled(order, "Thanh toan that bai — don da huy.");
         }
 
         return paymentMapper.toResponse(payment);

@@ -46,7 +46,12 @@ public class SecurityConfig {
                     HttpMethod.POST,
                     "/api/v1/auth/login",
                     "/api/v1/auth/register",
-                    "/api/v1/auth/refresh"
+                    "/api/v1/auth/refresh",
+                    "/api/v1/auth/resend-otp",
+                    "/api/v1/auth/verify-email",
+                    "/api/v1/auth/forgot-password",
+                    "/api/v1/auth/verify-reset-otp",
+                    "/api/v1/auth/update-password"
                 ).permitAll()
 
                 // 2. Public Read Endpoints (Cho phép khách xem sản phẩm, danh mục,...)

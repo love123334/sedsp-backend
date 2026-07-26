@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -27,7 +29,8 @@ public class OrderTracking {
     Order order;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "event", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "event", nullable = false, columnDefinition = "order_tracking_event")
     OrderTrackingEvent event;
 
     @Column(columnDefinition = "TEXT")

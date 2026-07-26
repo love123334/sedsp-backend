@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CartItemResponse {
 
+    Long id;
     Long productId;
     String productName;
     BigDecimal price;

@@ -4,6 +4,7 @@ import com.example.secdsp.modules.order.dto.internal.OrderDashboardInfo;
 import com.example.secdsp.modules.order.dto.internal.RecentOrderInfo;
 import com.example.secdsp.modules.order.dto.internal.TopProductSalesInfo;
 import com.example.secdsp.modules.order.dto.request.CreateOrderRequest;
+import com.example.secdsp.modules.order.dto.request.UpdateOrderStatusRequest;
 import com.example.secdsp.modules.order.dto.response.OrderDetailResponse;
 import com.example.secdsp.modules.order.dto.response.OrderResponse;
 import org.springframework.data.domain.Page;
@@ -19,7 +20,11 @@ public interface OrderService {
 
     Page<OrderResponse> getMyOrders(Pageable pageable);
 
+    Page<OrderResponse> getSellerOrders(Pageable pageable);
+
     void cancelOrder(Long id);
+
+    OrderResponse updateOrderStatus(Long id, UpdateOrderStatusRequest request);
 
     OrderDashboardInfo getSellerOrderSummary(Long sellerId);
 

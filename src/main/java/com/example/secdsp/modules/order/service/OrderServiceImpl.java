@@ -14,6 +14,7 @@ import com.example.secdsp.modules.order.dto.internal.OrderDashboardInfo;
 import com.example.secdsp.modules.order.dto.internal.RecentOrderInfo;
 import com.example.secdsp.modules.order.dto.internal.TopProductSalesInfo;
 import com.example.secdsp.modules.order.dto.request.CreateOrderRequest;
+import com.example.secdsp.modules.order.dto.request.UpdateOrderStatusRequest;
 import com.example.secdsp.modules.order.dto.response.OrderDetailResponse;
 import com.example.secdsp.modules.order.dto.response.OrderItemResponse;
 import com.example.secdsp.modules.order.dto.response.OrderResponse;
@@ -55,6 +56,7 @@ public class OrderServiceImpl implements OrderService {
 
     private final InventoryInternalService inventoryInternalService;
     private final ProductService productService;
+    private final OrderNotificationService orderNotificationService;
 
     @Override
     @Transactional
@@ -84,6 +86,8 @@ public class OrderServiceImpl implements OrderService {
         // 6. Xóa giỏ hàng
         clearCart(cart);
 
+        orderNotificationService.notifyOrderCreated(order);
+
         return buildOrderResponse(order);
     }
 
@@ -102,10 +106,16 @@ public class OrderServiceImpl implements OrderService {
                              new ResourceNotFoundException("Order", id));
 
         if (!order.getUser().getId().equals(userId)
-            && !SecurityUtils.hasRole(UserRole.ADMIN)) {
-            throw new UnauthorizedException(
-                "You are not allowed to view this order."
-            );
+            && !SecurityUtils.hasRole(UserRole.ADMIN)
+            && !SecurityUtils.hasRole(UserRole.MANAGER)) {
+
+            boolean sellerOwns = orderItemRepository.findByOrder_Id(id).stream()
+                .anyMatch(i -> i.getSeller() != null && userId.equals(i.getSeller().getId()));
+            if (!sellerOwns) {
+                throw new UnauthorizedException(
+                    "You are not allowed to view this order."
+                );
+            }
         }
 
         OrderResponse orderResponse = buildOrderResponse(order);
@@ -149,6 +159,113 @@ public class OrderServiceImpl implements OrderService {
             orderRepository.findByUser_Id(userId, pageable);
 
         return orders.map(this::buildOrderResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> getSellerOrders(Pageable pageable) {
+        Long sellerId = SecurityUtils.getCurrentUserId();
+        if (sellerId == null) {
+            throw new UnauthorizedException("Authentication required.");
+        }
+        if (SecurityUtils.hasRole(UserRole.ADMIN)
+            || SecurityUtils.hasRole(UserRole.MANAGER)) {
+            return orderRepository.findAll(pageable).map(this::buildOrderResponse);
+        }
+        if (!SecurityUtils.hasRole(UserRole.SELLER)) {
+            throw new UnauthorizedException("Only sellers can view seller orders.");
+        }
+        return orderRepository
+            .findDistinctBySellerId(sellerId, pageable)
+            .map(this::buildOrderResponse);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse updateOrderStatus(Long id, UpdateOrderStatusRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        if (userId == null) {
+            throw new UnauthorizedException("Authentication required.");
+        }
+
+        Order order = orderRepository.findWithItemsById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Order", id));
+
+        boolean isAdminOrManager =
+            SecurityUtils.hasRole(UserRole.ADMIN)
+                || SecurityUtils.hasRole(UserRole.MANAGER);
+        boolean isSellerOwner = order.getItems().stream()
+            .anyMatch(i -> i.getSeller() != null && userId.equals(i.getSeller().getId()));
+
+        if (!isAdminOrManager && !isSellerOwner) {
+            throw new UnauthorizedException("You cannot update this order.");
+        }
+
+        OrderStatus current = order.getStatus();
+        OrderStatus next = request.getStatus();
+        if (current == next) {
+            return buildOrderResponse(order);
+        }
+
+        validateStatusTransition(current, next);
+
+        order.setStatus(next);
+
+        OrderTracking tracking = new OrderTracking();
+        tracking.setOrder(order);
+        tracking.setEvent(mapTrackingEvent(next));
+        tracking.setNote(
+            request.getNote() != null && !request.getNote().isBlank()
+                ? request.getNote()
+                : "Status updated to " + next
+        );
+        User actor = new User();
+        actor.setId(userId);
+        tracking.setUpdatedBy(actor);
+        orderTrackingRepository.save(tracking);
+
+        if (next == OrderStatus.CANCELLED && current == OrderStatus.PENDING) {
+            for (OrderItem item : order.getItems()) {
+                inventoryInternalService.releaseForCancel(
+                    item.getProduct().getId(),
+                    item.getQuantity()
+                );
+            }
+        }
+
+        orderRepository.save(order);
+        log.info("Order {} status {} -> {} by user {}", id, current, next, userId);
+        if (next == OrderStatus.CANCELLED) {
+            orderNotificationService.notifyCancelled(order, "Don hang da bi huy boi shop/quan ly.");
+        } else {
+            orderNotificationService.notifyStatusChanged(order, next);
+        }
+        return buildOrderResponse(order);
+    }
+
+    private void validateStatusTransition(OrderStatus current, OrderStatus next) {
+        boolean ok = switch (current) {
+            case PENDING -> next == OrderStatus.PROCESSING || next == OrderStatus.CANCELLED;
+            case PAID -> next == OrderStatus.PROCESSING || next == OrderStatus.CANCELLED;
+            case PROCESSING -> next == OrderStatus.SHIPPING || next == OrderStatus.CANCELLED;
+            case SHIPPING -> next == OrderStatus.DELIVERED;
+            default -> false;
+        };
+        if (!ok) {
+            throw new BusinessException(
+                "Invalid status transition: " + current + " -> " + next
+            );
+        }
+    }
+
+    private OrderTrackingEvent mapTrackingEvent(OrderStatus status) {
+        return switch (status) {
+            case PROCESSING, PAID -> OrderTrackingEvent.CONFIRMED;
+            case SHIPPING -> OrderTrackingEvent.SHIPPED;
+            case DELIVERED -> OrderTrackingEvent.DELIVERED;
+            case CANCELLED -> OrderTrackingEvent.CANCELLED_BY_ADMIN;
+            default -> OrderTrackingEvent.CONFIRMED;
+        };
     }
 
     @Override
@@ -211,6 +328,8 @@ public class OrderServiceImpl implements OrderService {
         if (payment != null) {
             payment.setStatus(PaymentStatus.FAILED);
         }
+
+        orderNotificationService.notifyCancelled(order, "Don hang da bi huy boi nguoi mua.");
     }
 
     @Override
@@ -431,6 +550,15 @@ public class OrderServiceImpl implements OrderService {
             orderItem.setUnitPriceAtPurchase(product.price());
             orderItem.setQuantity(item.getQuantity());
 
+            if (product.sellerId() == null) {
+                throw new BusinessException(
+                    "Product " + product.id() + " has no seller assigned."
+                );
+            }
+            User sellerRef = new User();
+            sellerRef.setId(product.sellerId());
+            orderItem.setSeller(sellerRef);
+
             BigDecimal itemSubtotal = product.price().multiply(
                 BigDecimal.valueOf(item.getQuantity())
             );
@@ -476,6 +604,6 @@ public class OrderServiceImpl implements OrderService {
 
     private void clearCart(Cart cart) {
 
-        cartItemRepository.deleteAllByCart_Id(cart.getId());
+        cartItemRepository.hardDeleteAllByCartId(cart.getId());
     }
 }

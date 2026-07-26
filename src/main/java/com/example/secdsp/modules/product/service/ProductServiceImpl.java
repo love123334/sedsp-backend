@@ -19,6 +19,8 @@ import com.example.secdsp.modules.product.mapper.PriceHistoryMapper;
 import com.example.secdsp.modules.product.mapper.ProductMapper;
 import com.example.secdsp.modules.product.repository.PriceHistoryRepository;
 import com.example.secdsp.modules.product.repository.ProductRepository;
+import com.example.secdsp.modules.inventory.entity.Inventory;
+import com.example.secdsp.modules.inventory.repository.InventoryRepository;
 import com.example.secdsp.modules.user.dto.internal.UserInfo;
 import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.user.entity.UserRole;
@@ -46,6 +48,7 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final PriceHistoryRepository priceHistoryRepository;
+    private final InventoryRepository inventoryRepository;
     private final ProductMapper productMapper;
     private final PriceHistoryMapper priceHistoryMapper;
     private final CategoryService categoryService;
@@ -103,6 +106,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         Product saved = productRepository.save(product);
+        ensureInventoryRow(saved);
         log.info("Product created successfully with ID: {}", saved.getId());
         return productMapper.toProductResponse(saved);
     }
@@ -313,6 +317,13 @@ public class ProductServiceImpl implements ProductService {
 
             ProductImage productImage = productMapper.toProductImage(imageRequest);
             productImage.setProduct(product);
+            if (productImage.getPublicId() == null || productImage.getPublicId().isBlank()) {
+                String fallbackId = imageRequest.getPublicId();
+                if (fallbackId == null || fallbackId.isBlank()) {
+                    fallbackId = "ext-" + UUID.randomUUID();
+                }
+                productImage.setPublicId(fallbackId);
+            }
 
             product.getProductImages().add(productImage);
         }
@@ -514,5 +525,20 @@ public class ProductServiceImpl implements ProductService {
         user.setId(currentUserId);
 
         return user;
+    }
+
+    /** Tạo dòng inventory mặc định để seller có thể chỉnh tồn ngay sau khi tạo SP */
+    private void ensureInventoryRow(Product product) {
+        if (inventoryRepository.findByProduct_Id(product.getId()).isPresent()) {
+            return;
+        }
+        Inventory inventory = Inventory.builder()
+            .product(product)
+            .availableQuantity(0)
+            .reservedQuantity(0)
+            .updatedAt(java.time.LocalDateTime.now())
+            .build();
+        inventoryRepository.save(inventory);
+        log.info("Inventory row created for product {}", product.getId());
     }
 }

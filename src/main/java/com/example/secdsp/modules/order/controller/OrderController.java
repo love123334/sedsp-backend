@@ -2,6 +2,7 @@ package com.example.secdsp.modules.order.controller;
 
 import com.example.secdsp.common.api.ApiResponse;
 import com.example.secdsp.modules.order.dto.request.CreateOrderRequest;
+import com.example.secdsp.modules.order.dto.request.UpdateOrderStatusRequest;
 import com.example.secdsp.modules.order.dto.response.OrderDetailResponse;
 import com.example.secdsp.modules.order.dto.response.OrderResponse;
 import com.example.secdsp.modules.order.service.OrderService;
@@ -48,6 +49,19 @@ public class OrderController {
         );
     }
 
+    @GetMapping("/seller")
+    @PreAuthorize("hasAnyRole('SELLER','ADMIN','MANAGER')")
+    public ResponseEntity<ApiResponse<Page<OrderResponse>>>
+    getSellerOrders(
+        @PageableDefault(size = 20) Pageable pageable
+    ) {
+        return ResponseEntity.ok(
+            ApiResponse.success(
+                orderService.getSellerOrders(pageable)
+            )
+        );
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<OrderDetailResponse>>
@@ -56,6 +70,21 @@ public class OrderController {
         return ResponseEntity.ok(
             ApiResponse.success(
                 orderService.getOrderById(id)
+            )
+        );
+    }
+
+    @PutMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('SELLER','ADMIN','MANAGER')")
+    public ResponseEntity<ApiResponse<OrderResponse>>
+    updateOrderStatus(
+        @PathVariable Long id,
+        @Valid @RequestBody UpdateOrderStatusRequest request
+    ) {
+        return ResponseEntity.ok(
+            ApiResponse.success(
+                "Order status updated",
+                orderService.updateOrderStatus(id, request)
             )
         );
     }

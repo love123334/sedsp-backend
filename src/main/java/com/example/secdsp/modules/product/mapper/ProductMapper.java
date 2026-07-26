@@ -27,6 +27,8 @@ public interface ProductMapper {
 
     @Mapping(target = "categoryId", source = "category.id")
     @Mapping(target = "categoryName", source = "category.name")
+    @Mapping(target = "sellerId", source = "seller.id")
+    @Mapping(target = "sellerStoreName", source = "seller.fullName")
     ProductResponse toProductResponse(Product product);
 
     List<ProductResponse> toProductResponseList(List<Product> products);
@@ -34,6 +36,8 @@ public interface ProductMapper {
 
     @Mapping(target = "categoryId", source = "category.id")
     @Mapping(target = "categoryName", source = "category.name")
+    @Mapping(target = "sellerId", source = "seller.id")
+    @Mapping(target = "sellerStoreName", source = "seller.fullName")
     @Mapping(target = "images", source = "productImages")
     @Mapping(target = "attributes", source = "productAttributes")
     ProductDetailResponse toProductDetailResponse(Product product);

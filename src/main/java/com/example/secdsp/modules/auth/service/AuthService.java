@@ -17,6 +17,9 @@ public interface AuthService {
 
     void resendOtp(String email);
 
+    /** Xác thực OTP đăng ký → ACTIVE */
+    void verifyEmail(VerifyOtpRequest request);
+
     void forgotPassword(String email);
 
     void verifyResetOtp(VerifyOtpRequest request);

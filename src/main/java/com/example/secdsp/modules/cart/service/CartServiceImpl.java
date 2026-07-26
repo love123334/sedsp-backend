@@ -19,6 +19,7 @@ import com.example.secdsp.modules.inventory.service.InventoryService;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.entity.ProductStatus;
+import com.example.secdsp.modules.product.repository.ProductRepository;
 import com.example.secdsp.modules.product.service.ProductService;
 import com.example.secdsp.modules.user.entity.User;
 import lombok.RequiredArgsConstructor;
@@ -40,10 +41,11 @@ public class CartServiceImpl implements CartService {
     private final CartItemMapper cartItemMapper;
 
     private final ProductService productService;
+    private final ProductRepository productRepository;
     private final InventoryService inventoryService;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public CartResponse getMyCart() {
 
         Long userId = SecurityUtils.getCurrentUserId();
@@ -90,6 +92,20 @@ public class CartServiceImpl implements CartService {
             .findByCart_IdAndProduct_Id(cart.getId(), product.id())
             .orElse(null);
 
+        // Soft-deleted dòng cũ vẫn chiếm UNIQUE (cart_id, product_id) → revive thay vì INSERT mới
+        if (item == null) {
+            item = cartItemRepository
+                .findIncludingDeleted(cart.getId(), product.id())
+                .orElse(null);
+            if (item != null && item.getDeletedAt() != null) {
+                item.setDeletedAt(null);
+                // giữ quantity cũ hoặc 0 rồi cộng ngay — không save quantity=0 (CHECK > 0)
+                if (item.getQuantity() == null || item.getQuantity() < 0) {
+                    item.setQuantity(0);
+                }
+            }
+        }
+
         int currentQuantity = (item == null ? 0 : item.getQuantity());
         int newQuantity = currentQuantity + request.getQuantity();
 
@@ -104,15 +120,15 @@ public class CartServiceImpl implements CartService {
         }
 
         if (item != null) {
-            item.setQuantity(item.getQuantity() + request.getQuantity());
+            item.setQuantity(currentQuantity + request.getQuantity());
+            cartItemRepository.save(item);
         } else {
+            Product productEntity = productRepository.findById(product.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Product", product.id()));
+
             item = new CartItem();
             item.setCart(cart);
-
-            Product productRef = new Product();
-            productRef.setId(product.id());
-            item.setProduct(productRef);
-
+            item.setProduct(productEntity);
             item.setQuantity(request.getQuantity());
 
             cartItemRepository.save(item);
@@ -192,7 +208,7 @@ public class CartServiceImpl implements CartService {
 
         log.info("User {} removing cart item {}", userId, itemId);
 
-        cartItemRepository.delete(item);
+        cartItemRepository.hardDeleteById(item.getId());
     }
 
     @Override
@@ -209,7 +225,7 @@ public class CartServiceImpl implements CartService {
 
         log.info("User {} clearing cart {}", userId, cart.getId());
 
-        cartItemRepository.deleteAllByCart_Id(cart.getId());
+        cartItemRepository.hardDeleteAllByCartId(cart.getId());
     }
 
     private CartResponse buildCartResponse(Cart cart) {
@@ -219,20 +235,23 @@ public class CartServiceImpl implements CartService {
 
         List<CartItemResponse> responses =
             items.stream().map(item -> {
-
-                CartItemResponse base =
-                    cartItemMapper.toResponse(item);
+                var product = item.getProduct();
+                BigDecimal price = product != null && product.getPrice() != null
+                    ? product.getPrice()
+                    : BigDecimal.ZERO;
+                String productName = product != null && product.getName() != null
+                    ? product.getName()
+                    : "";
+                Long productId = product != null ? product.getId() : null;
+                int qty = item.getQuantity() != null ? item.getQuantity() : 0;
 
                 return CartItemResponse.builder()
-                    .productId(base.getProductId())
-                    .productName(base.getProductName())
-                    .price(base.getPrice())
-                    .quantity(item.getQuantity())
-                    .totalPrice(
-                        base.getPrice()
-                            .multiply(
-                                BigDecimal.valueOf(
-                                    item.getQuantity())))
+                    .id(item.getId())
+                    .productId(productId)
+                    .productName(productName)
+                    .price(price)
+                    .quantity(qty)
+                    .totalPrice(price.multiply(BigDecimal.valueOf(qty)))
                     .build();
             }).toList();
 

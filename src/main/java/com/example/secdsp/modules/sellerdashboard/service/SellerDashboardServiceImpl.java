@@ -38,6 +38,8 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
 
         log.info("Loading dashboard for seller {}", sellerId);
 
+        SellerRatingSummary rating = buildRatingSection(sellerId);
+
         return SellerDashboardResponse.builder()
             .revenue(buildRevenueSummary(sellerId))
             .orders(buildOrderSummary(sellerId))
@@ -45,7 +47,12 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
             .inventory(buildInventorySummary(sellerId))
             .recentOrders(buildRecentOrders(sellerId))
             .lowStockProducts(buildLowStockProducts(sellerId))
-            .rating(buildRatingSection(sellerId))
+            .rating(rating)
+            .averageRating(rating.averageRating())
+            .totalReviews(rating.totalReviews())
+            .ratingBreakdown(rating.ratingBreakdown())
+            .recentReviews(rating.recentReviews())
+            .ratingWarning(rating.warning())
             .recommendations(Collections.emptyList())
             .build();
     }

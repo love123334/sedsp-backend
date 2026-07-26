@@ -153,16 +153,24 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
 
         String otp = otpService.generateOtp(email);
-        emailService.sendOtp(email, otp);
+        try {
+            emailService.sendOtp(email, otp);
+            log.info("Registration OTP sent to {}", email);
+        } catch (Exception e) {
+            // Không rollback user — có thể gửi lại OTP
+            log.error("Failed to send registration OTP to {}: {}", email, e.getMessage());
+        }
 
-        log.info("New customer registered: {}", email);
+        log.info("New customer registered (PENDING): {}", email);
     }
 
     @Override
     @Transactional
     public void resendOtp(String email) {
 
-        User user = userRepository.findByEmail(email)
+        String normalized = email == null ? "" : email.trim().toLowerCase();
+
+        User user = userRepository.findByEmail(normalized)
             .orElseThrow(() -> new BusinessException(
                 "Invalid request",
                 HttpStatus.BAD_REQUEST
@@ -175,16 +183,49 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
-        String otp = otpService.resendOtp(email);
+        String otp = otpService.resendOtp(normalized);
 
-        emailService.sendOtp(email, otp);
+        emailService.sendOtp(normalized, otp);
+    }
+
+    @Override
+    @Transactional
+    public void verifyEmail(VerifyOtpRequest request) {
+        if (request.getEmail() == null || request.getOtp() == null
+            || request.getEmail().isBlank() || request.getOtp().isBlank()) {
+            throw new BusinessException("Email and OTP are required", HttpStatus.BAD_REQUEST);
+        }
+
+        String email = request.getEmail().trim().toLowerCase();
+        String otp = request.getOtp().trim();
+
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new BusinessException(
+                "Invalid email or OTP",
+                HttpStatus.BAD_REQUEST
+            ));
+
+        if (user.getStatus() != UserStatus.PENDING) {
+            throw new BusinessException(
+                "Email already verified or account cannot be activated with OTP",
+                HttpStatus.BAD_REQUEST
+            );
+        }
+
+        otpService.validateOtp(email, otp);
+
+        user.setStatus(UserStatus.ACTIVE);
+        userRepository.save(user);
+        log.info("Email verified, account activated: {}", email);
     }
 
     @Override
     @Transactional
     public void forgotPassword(String email) {
 
-        User user = userRepository.findByEmail(email)
+        String normalized = email == null ? "" : email.trim().toLowerCase();
+
+        User user = userRepository.findByEmail(normalized)
             .orElseThrow(() ->
                              new BusinessException("Email does not exist", HttpStatus.BAD_REQUEST));
 
@@ -202,9 +243,8 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
-        String otp = otpService.generateOtp(email);
-
-        emailService.sendResetPasswordOtp(email, otp);
+        String otp = otpService.generateOtp(normalized);
+        emailService.sendResetPasswordOtp(normalized, otp);
     }
 
     @Override

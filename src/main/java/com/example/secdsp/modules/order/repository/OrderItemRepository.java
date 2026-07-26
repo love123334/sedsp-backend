@@ -36,15 +36,16 @@ public interface OrderItemRepository
         """)
     long countCompletedOrdersBySeller(Long sellerId);
 
-    @Query("""
-        select to_char(oi.order.createdAt, 'YYYY-MM') as month,
-               sum(oi.subtotal)
-        from OrderItem oi
-        where oi.seller.id = :sellerId
-        and oi.order.status = 'DELIVERED'
-        group by month
-        order by month
-        """)
+    @Query(value = """
+        SELECT to_char(o.created_at, 'YYYY-MM') AS month,
+               COALESCE(SUM(oi.subtotal), 0)
+        FROM order_items oi
+        INNER JOIN orders o ON o.id = oi.order_id
+        WHERE oi.seller_id = :sellerId
+          AND o.status = 'DELIVERED'
+        GROUP BY to_char(o.created_at, 'YYYY-MM')
+        ORDER BY month
+        """, nativeQuery = true)
     List<Object[]> calculateMonthlyRevenue(Long sellerId);
 
     @Query("""
