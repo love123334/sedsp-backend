@@ -1,0 +1,59 @@
+# Render Blueprint — https://dashboard.render.com/blueprints
+# Repo: love123334/sedsp-backend  ·  Branch: render
+# Root directory: .  (repo là backend thuần)
+
+databases:
+  - name: sedsp-db
+    plan: free
+    databaseName: sedsp
+    user: sedsp
+
+services:
+  - type: keyvalue
+    name: sedsp-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: [] # chỉ internal
+
+  - type: web
+    name: sedsp-api
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: render
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+      - key: JAVA_OPTS
+        value: -Xms256m -Xmx512m -Duser.timezone=Asia/Ho_Chi_Minh
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sedsp-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: sedsp-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION_MS
+        value: "86400000"
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://smartecon-49hfe1tej-love123334s-projects.vercel.app,https://*.vercel.app,http://localhost:5173
+      # Điền trong Dashboard nếu dùng OTP / upload ảnh:
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

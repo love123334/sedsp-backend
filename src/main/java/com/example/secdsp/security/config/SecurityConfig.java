@@ -38,6 +38,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> {})
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
@@ -61,12 +62,15 @@ public class SecurityConfig {
                     "/api/v1/categories/**"
                 ).permitAll()
 
-                // 3. Swagger & OAuth2 endpoints
+                // 3. Swagger, OAuth2, health (Render)
                 .requestMatchers(
                     "/swagger-ui/**",
                     "/swagger-ui.html",
                     "/v3/api-docs/**",
-                    "/oauth2/**"
+                    "/oauth2/**",
+                    "/actuator/health",
+                    "/actuator/health/**",
+                    "/actuator/info"
                 ).permitAll()
 
                 // 4. Các request còn lại bắt buộc cần Authentication
