@@ -1,0 +1,12 @@
+# Railway — https://railway.app
+# Repo: love123334/sedsp-backend · branch railway (or main)
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/actuator/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 8

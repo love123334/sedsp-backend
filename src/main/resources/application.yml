@@ -1,8 +1,9 @@
 spring:
   application:
     name: secdsp
+  # Local default; Railway/Docker set SPRING_PROFILES_ACTIVE=prod
   profiles:
-    active: dev
+    default: dev
 
   # --- Cấu hình Mail ---
   mail:
@@ -51,3 +52,7 @@ app:
   # --- Cấu hình Redirect OAuth2 ---
   oauth2:
     redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2-success}
+
+  # Frontend origins (Vercel + local). Comma-separated patterns OK.
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,https://*.vercel.app}
