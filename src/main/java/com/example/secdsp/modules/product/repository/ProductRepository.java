@@ -14,14 +14,14 @@ import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    @EntityGraph(attributePaths = {"category", "seller"})
+    @EntityGraph(attributePaths = {"category", "seller", "productImages"})
     Optional<Product> findById(Long id);
 
     boolean existsBySlugIgnoreCase(String slug);
 
-    @EntityGraph(attributePaths = {"category", "seller"})
+    @EntityGraph(attributePaths = {"category", "seller", "productImages"})
     @Query("""
-            SELECT p
+            SELECT DISTINCT p
             FROM Product p
             WHERE (:keyword IS NULL OR :keyword = ''
                 OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
@@ -38,7 +38,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     );
 
 
-    @EntityGraph(attributePaths = {"category", "seller"})
+    @EntityGraph(attributePaths = {"category", "seller", "productImages"})
     Page<Product> findBySeller_Id(
         Long sellerId,
         Pageable pageable

@@ -29,6 +29,9 @@ public interface ProductMapper {
     @Mapping(target = "categoryName", source = "category.name")
     @Mapping(target = "sellerId", source = "seller.id")
     @Mapping(target = "sellerStoreName", source = "seller.fullName")
+    @Mapping(target = "sellerEmail", source = "seller.email")
+    @Mapping(target = "sellerPhone", source = "seller.phone")
+    @Mapping(target = "primaryImageUrl", expression = "java(resolvePrimaryImageUrl(product))")
     ProductResponse toProductResponse(Product product);
 
     List<ProductResponse> toProductResponseList(List<Product> products);
@@ -80,4 +83,15 @@ public interface ProductMapper {
     @Mapping(target = "id", ignore = true) // ID is for locating, not updating itself from DTO
     @Mapping(target = "product", ignore = true)
     void updateProductAttributeFromDto(UpdateProductAttributeRequest request, @MappingTarget ProductAttribute productAttribute);
+
+    default String resolvePrimaryImageUrl(Product product) {
+        if (product == null || product.getProductImages() == null || product.getProductImages().isEmpty()) {
+            return null;
+        }
+        return product.getProductImages().stream()
+            .filter(ProductImage::isPrimary)
+            .map(ProductImage::getImageUrl)
+            .findFirst()
+            .orElseGet(() -> product.getProductImages().get(0).getImageUrl());
+    }
 }

@@ -99,6 +99,8 @@ public class ProductServiceImpl implements ProductService {
 
         if (request.getImages() != null) {
             handleProductImagesForCreate(product, request.getImages());
+        } else {
+            padProductImagesToThree(product);
         }
 
         if (request.getAttributes() != null) {
@@ -330,6 +332,23 @@ public class ProductServiceImpl implements ProductService {
 
         if (!primaryFound && !product.getProductImages().isEmpty()) {
             product.getProductImages().get(0).setPrimary(true);
+        }
+
+        padProductImagesToThree(product);
+    }
+
+    /** Ensure catalog/PDP always have 3 gallery slots. */
+    private void padProductImagesToThree(Product product) {
+        List<ProductImage> images = product.getProductImages();
+        int index = images.size();
+        while (images.size() < 3) {
+            index++;
+            ProductImage pad = new ProductImage();
+            pad.setProduct(product);
+            pad.setPrimary(images.isEmpty());
+            pad.setPublicId("secdsp/products/pad-" + (product.getId() != null ? product.getId() : "new") + "-" + index);
+            pad.setImageUrl("https://picsum.photos/seed/pad-" + pad.getPublicId() + "/800/800");
+            images.add(pad);
         }
     }
 

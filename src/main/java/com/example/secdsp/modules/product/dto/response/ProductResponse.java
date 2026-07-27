@@ -26,5 +26,9 @@ public class ProductResponse {
     String categoryName;
     Long sellerId;
     String sellerStoreName;
+    String sellerEmail;
+    String sellerPhone;
+    /** Primary product image for catalog cards */
+    String primaryImageUrl;
     LocalDateTime createdAt;
 }
