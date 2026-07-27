@@ -65,6 +65,10 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+    jvmArgs("-Duser.timezone=Asia/Ho_Chi_Minh")
+}
+
 // Only the Boot fat JAR (avoids cp *.jar picking *-plain.jar in Docker)
 tasks.named<Jar>("jar") {
     enabled = false
