@@ -1,22 +1,30 @@
-package com.example.secdsp.modules.order.service;
+package com.example.secdsp.modules.payment.service;
 
 import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.config.VnPayProperties;
 import com.example.secdsp.modules.inventory.service.InventoryInternalService;
 import com.example.secdsp.modules.order.dto.internal.MonthlyRevenueInfo;
 import com.example.secdsp.modules.order.dto.internal.RevenueInfo;
 import com.example.secdsp.modules.order.dto.internal.SalesSummaryInfo;
 import com.example.secdsp.modules.order.dto.request.PayOrderRequest;
-import com.example.secdsp.modules.order.dto.request.UpdatePaymentStatusRequest;
-import com.example.secdsp.modules.order.dto.response.PaymentResponse;
+import com.example.secdsp.modules.payment.dto.request.PaymentGatewayRequest;
+import com.example.secdsp.modules.payment.dto.request.UpdatePaymentStatusRequest;
+import com.example.secdsp.modules.payment.dto.response.PaymentGatewayResponse;
+import com.example.secdsp.modules.payment.dto.response.PaymentResponse;
 import com.example.secdsp.modules.order.entity.*;
-import com.example.secdsp.modules.order.mapper.PaymentMapper;
+import com.example.secdsp.modules.payment.entity.PaymentMethod;
+import com.example.secdsp.modules.payment.gateway.momo.MoMoService;
+import com.example.secdsp.modules.payment.gateway.vnpay.VnPayService;
+import com.example.secdsp.modules.payment.mapper.PaymentMapper;
 import com.example.secdsp.modules.order.repository.OrderItemRepository;
 import com.example.secdsp.modules.order.repository.OrderRepository;
 import com.example.secdsp.modules.order.repository.OrderTrackingRepository;
-import com.example.secdsp.modules.order.repository.PaymentRepository;
+import com.example.secdsp.modules.payment.repository.PaymentRepository;
+import com.example.secdsp.modules.payment.entity.Payment;
+import com.example.secdsp.modules.payment.entity.PaymentStatus;
 import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.user.entity.UserRole;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +50,9 @@ public class PaymentServiceImpl implements PaymentService {
     private final OrderTrackingRepository orderTrackingRepository;
     private final PaymentMapper paymentMapper;
     private final InventoryInternalService inventoryInternalService;
+    private final VnPayService vnPayService;
+    private final MoMoService momoService;
+    private final VnPayProperties vnPayProperties;
 
     @Override
     @Transactional(readOnly = true)
@@ -75,37 +86,57 @@ public class PaymentServiceImpl implements PaymentService {
         PayOrderRequest request
     ) {
 
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = requireUser();
 
-        if (userId == null) {
-            throw new UnauthorizedException("Authentication required.");
-        }
-
-        Order order = orderRepository.findById(orderId)
-            .orElseThrow(() ->
-                             new ResourceNotFoundException("Order", orderId));
+        Order order = getOrderOrThrow(orderId);
 
         if (!order.getUser().getId().equals(userId)) {
-            throw new UnauthorizedException(
-                "You cannot pay for this order."
-            );
+            throw new UnauthorizedException("You cannot pay this order.");
         }
 
-        Payment payment = paymentRepository.findByOrder_Id(orderId)
-            .orElseThrow(() ->
-                             new ResourceNotFoundException("Payment", orderId));
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new BusinessException("Only pending orders can be paid.");
+        }
+
+        Payment payment = getPaymentOrThrow(orderId);
 
         if (payment.getStatus() == PaymentStatus.SUCCESS) {
             throw new BusinessException("Order already paid.");
         }
 
+        PaymentGatewayRequest gatewayRequest =
+            PaymentGatewayRequest.builder()
+                .orderId(orderId)
+                .amount(order.getTotalAmount())
+                .orderInfo("Payment for Order #" + orderId)
+                .returnUrl(vnPayProperties.getReturnUrl())
+                .notifyUrl(vnPayProperties.getIpnUrl())
+                .build();
+
+        PaymentGatewayResponse response;
+
+        if (request.getPaymentMethod() == PaymentMethod.VNPAY) {
+            response = vnPayService.createPayment(gatewayRequest);
+        } else if (request.getPaymentMethod() == PaymentMethod.MOMO) {
+            response = momoService.createPayment(gatewayRequest);
+        } else {
+            throw new BusinessException("Unsupported payment method.");
+        }
+
         payment.setPaymentMethod(request.getPaymentMethod());
         payment.setStatus(PaymentStatus.PENDING);
+        payment.setTransactionId(response.getTransactionRef());
 
-        // TODO: Call payment gateway here (VNPay, MoMo, etc.)
-        // After gateway callback → updatePaymentStatus()
-
-        return paymentMapper.toResponse(payment);
+        return PaymentResponse.builder()
+            .id(payment.getId())
+            .orderId(orderId)
+            .paymentMethod(payment.getPaymentMethod())
+            .amount(payment.getAmount())
+            .status(payment.getStatus())
+            .transactionId(payment.getTransactionId())
+            .currency(payment.getCurrency())
+            .redirectUrl(response.getRedirectUrl())
+            .build();
     }
 
     @Override
@@ -164,8 +195,10 @@ public class PaymentServiceImpl implements PaymentService {
             Order order = payment.getOrder();
             order.setStatus(OrderStatus.PAID);
 
-            insertTracking(order,
-                           OrderTrackingEvent.PAYMENT_SUCCESS);
+            insertTracking(
+                order,
+                OrderTrackingEvent.PAYMENT_SUCCESS
+            );
 
         } else if (request.getStatus() == PaymentStatus.FAILED) {
 
@@ -180,8 +213,10 @@ public class PaymentServiceImpl implements PaymentService {
                 );
             }
 
-            insertTracking(order,
-                           OrderTrackingEvent.PAYMENT_FAILED);
+            insertTracking(
+                order,
+                OrderTrackingEvent.PAYMENT_FAILED
+            );
         }
 
         return paymentMapper.toResponse(payment);
@@ -262,6 +297,61 @@ public class PaymentServiceImpl implements PaymentService {
             })
             .toList();
     }
+
+    @Override
+    @Transactional
+    public void updatePaymentStatusByTxnRef(
+        String txnRef,
+        PaymentStatus status
+    ) {
+
+        Payment payment = paymentRepository
+            .findByTransactionId(txnRef)
+            .orElseThrow(() ->
+                             new ResourceNotFoundException(
+                                 "Payment transaction", txnRef
+                             )
+            );
+
+        if (payment.getStatus() == PaymentStatus.SUCCESS) {
+            return;
+        }
+
+        payment.setStatus(status);
+
+        Order order = payment.getOrder();
+
+        if (status == PaymentStatus.SUCCESS) {
+
+            payment.setPaidAt(LocalDateTime.now());
+
+            if (order.getStatus() != OrderStatus.PAID) {
+                order.setStatus(OrderStatus.PAID);
+                insertTracking(order, OrderTrackingEvent.PAYMENT_SUCCESS);
+            }
+
+        } else if (status == PaymentStatus.FAILED) {
+
+            if (order.getStatus() != OrderStatus.CANCELLED) {
+
+                order.setStatus(OrderStatus.CANCELLED);
+
+                List<OrderItem> items =
+                    orderItemRepository.findByOrder_Id(order.getId());
+
+                for (OrderItem item : items) {
+
+                    inventoryInternalService.releaseForCancel(
+                        item.getProduct().getId(),
+                        item.getQuantity()
+                    );
+                }
+
+                insertTracking(order, OrderTrackingEvent.PAYMENT_FAILED);
+            }
+        }
+    }
+
     private void insertTracking(
         Order order,
         OrderTrackingEvent event
@@ -271,11 +361,40 @@ public class PaymentServiceImpl implements PaymentService {
         tracking.setOrder(order);
         tracking.setEvent(event);
 
-        User admin = new User();
-        admin.setId(SecurityUtils.getCurrentUserId());
+        Long currentUserId = SecurityUtils.getCurrentUserId();
 
-        tracking.setUpdatedBy(admin);
+        User actor = new User();
+        actor.setId(currentUserId != null ? currentUserId : 0L);
+
+        tracking.setUpdatedBy(actor);
 
         orderTrackingRepository.save(tracking);
+    }
+
+    private Long requireUser() {
+
+        Long userId = SecurityUtils.getCurrentUserId();
+
+        if (userId == null) {
+            throw new UnauthorizedException("Authentication required.");
+        }
+
+        return userId;
+    }
+
+    private Order getOrderOrThrow(Long orderId) {
+
+        return orderRepository.findById(orderId)
+            .orElseThrow(() ->
+                             new ResourceNotFoundException("Order", orderId)
+            );
+    }
+
+    private Payment getPaymentOrThrow(Long orderId) {
+
+        return paymentRepository.findByOrder_Id(orderId)
+            .orElseThrow(() ->
+                             new ResourceNotFoundException("Payment", orderId)
+            );
     }
 }

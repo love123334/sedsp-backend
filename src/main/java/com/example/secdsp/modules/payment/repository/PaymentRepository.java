@@ -18,4 +18,6 @@ public interface PaymentRepository
     );
 
     boolean existsByTransactionId(String transactionId);
+
+    Optional<Payment> findByTransactionId(String transactionId);
 }
