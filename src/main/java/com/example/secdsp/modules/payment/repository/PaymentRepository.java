@@ -1,6 +1,6 @@
-package com.example.secdsp.modules.order.repository;
+package com.example.secdsp.modules.payment.repository;
 
-import com.example.secdsp.modules.order.entity.Payment;
+import com.example.secdsp.modules.payment.entity.Payment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,4 +18,6 @@ public interface PaymentRepository
     );
 
     boolean existsByTransactionId(String transactionId);
+
+    Optional<Payment> findByTransactionId(String transactionId);
 }

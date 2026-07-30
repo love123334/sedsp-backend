@@ -6,7 +6,7 @@ import com.example.secdsp.modules.order.dto.internal.MonthlyRevenueInfo;
 import com.example.secdsp.modules.order.dto.internal.SalesSummaryInfo;
 import com.example.secdsp.modules.order.dto.internal.TopProductSalesInfo;
 import com.example.secdsp.modules.order.service.OrderService;
-import com.example.secdsp.modules.order.service.PaymentService;
+import com.example.secdsp.modules.payment.service.PaymentService;
 import com.example.secdsp.modules.sellerperformance.dto.response.MonthlyRevenueResponse;
 import com.example.secdsp.modules.sellerperformance.dto.response.SalesPerformanceResponse;
 import com.example.secdsp.modules.sellerperformance.dto.response.SalesSummaryResponse;

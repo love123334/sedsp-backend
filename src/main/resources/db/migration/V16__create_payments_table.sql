@@ -7,11 +7,13 @@ CREATE TABLE payments
 
     payment_method      payment_method_enum NOT NULL,
 
+    gateway_name        VARCHAR(50),
+
     amount              NUMERIC(12,2) NOT NULL,
 
     status              payment_status DEFAULT 'PENDING'::payment_status,
 
-    transaction_id      VARCHAR(255) UNIQUE,
+    transaction_id      VARCHAR(255),
 
     currency            VARCHAR(10) DEFAULT 'VND',
 
@@ -24,6 +26,10 @@ CREATE TABLE payments
     CONSTRAINT chk_payment_amount
         CHECK (amount >= 0)
 );
+
+CREATE UNIQUE INDEX uq_payment_transaction
+    ON payments(transaction_id)
+    WHERE transaction_id IS NOT NULL;
 
 CREATE INDEX idx_payments_order
     ON payments(order_id);

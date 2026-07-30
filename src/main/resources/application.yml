@@ -56,3 +56,27 @@ app:
   # Frontend origins (Vercel + local). Comma-separated patterns OK.
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,https://*.vercel.app}
+
+  # Base URL FE — dùng redirect sau thanh toán gateway
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+
+  # --- Cấu hình Payment ---
+  payment:
+    vnpay:
+      tmn-code: ${VNPAY_TMN_CODE:YOUR_DEFAULT_TMN_CODE}
+      secret-key: ${VNPAY_HASH_SECRET:YOUR_DEFAULT_HASH_SECRET}
+      pay-url: ${VNPAY_PAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/v1/payments/vnpay-return}
+      ipn-url: ${VNPAY_IPN_URL:http://localhost:8080/api/v1/payments/vnpay-ipn}
+      version: "2.1.0"
+      command: "pay"
+
+    momo:
+      partner-code: ${MOMO_PARTNER_CODE:YOUR_DEFAULT_PARTNER_CODE}
+      access-key: ${MOMO_ACCESS_KEY:YOUR_DEFAULT_ACCESS_KEY}
+      secret-key: ${MOMO_SECRET_KEY:YOUR_DEFAULT_SECRET_KEY}
+      endpoint: ${MOMO_ENDPOINT:https://test-payment.momo.vn/v2/gateway/api/create}
+      return-url: ${MOMO_RETURN_URL:http://localhost:8080/api/v1/payments/momo-return}
+      notify-url: ${MOMO_NOTIFY_URL:http://localhost:8080/api/v1/payments/momo-ipn}
+      request-type: "captureWallet"

@@ -1,5 +1,6 @@
-package com.example.secdsp.modules.order.entity;
+package com.example.secdsp.modules.payment.entity;
 
+import com.example.secdsp.modules.order.entity.Order;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -32,6 +33,9 @@ public class Payment {
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "payment_method", nullable = false, columnDefinition = "payment_method_enum")
     PaymentMethod paymentMethod;
+
+    @Column(name = "gateway_name", length = 50)
+    String gatewayName;
 
     @Column(nullable = false)
     BigDecimal amount;

@@ -221,7 +221,7 @@ BEGIN
     VALUES (o2, p_sofa, s_home, 'Modern Sofa 3 Seater', 1, 15990000, 15990000);
 
     INSERT INTO payments (order_id, payment_method, amount, status, transaction_id, paid_at)
-    VALUES (o2, 'BANK'::payment_method_enum, 16190000, 'SUCCESS'::payment_status, 'TXN0002', NOW());
+    VALUES (o2, 'VNPAY'::payment_method_enum, 16190000, 'SUCCESS'::payment_status, 'TXN0002', NOW());
 
     INSERT INTO order_tracking (order_id, event, updated_by) VALUES
         (o2, 'CREATED'::order_tracking_event, c2),
@@ -271,7 +271,7 @@ BEGIN
     VALUES (o4, p_dell, s_minh, 'Dell XPS 15', 1, 38990000, 38990000);
 
     INSERT INTO payments (order_id, payment_method, amount, status, transaction_id)
-    VALUES (o4, 'BANK'::payment_method_enum, 39040000, 'FAILED'::payment_status, 'TXN0004');
+    VALUES (o4, 'VNPAY'::payment_method_enum, 39040000, 'FAILED'::payment_status, 'TXN0004');
 
     INSERT INTO order_tracking (order_id, event, updated_by) VALUES
         (o4, 'CREATED'::order_tracking_event, c1),
@@ -289,7 +289,7 @@ BEGIN
         (o5, p_blend, s_kit, 'Blender 1000W', 1, 1599000, 1599000);
 
     INSERT INTO payments (order_id, payment_method, amount, status, transaction_id, paid_at)
-    VALUES (o5, 'COD'::payment_method_enum, 4128000, 'SUCCESS'::payment_status, 'TXN0005', NOW());
+    VALUES (o5, 'MOMO'::payment_method_enum, 4128000, 'SUCCESS'::payment_status, 'TXN0005', NOW());
 
     INSERT INTO order_tracking (order_id, event, updated_by) VALUES
         (o5, 'CREATED'::order_tracking_event, c2),

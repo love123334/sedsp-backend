@@ -73,6 +73,14 @@ public class SecurityConfig {
                     "/actuator/info"
                 ).permitAll()
 
+                // Payment gateway callbacks (MoMo / VNPay)
+                .requestMatchers(
+                    "/api/v1/payments/momo-ipn",
+                    "/api/v1/payments/momo-return",
+                    "/api/v1/payments/vnpay-return",
+                    "/api/v1/payments/vnpay-ipn"
+                ).permitAll()
+
                 // 4. Các request còn lại bắt buộc cần Authentication
                 .anyRequest().authenticated()
             )

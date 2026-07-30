@@ -1,4 +1,4 @@
-package com.example.secdsp.modules.order.entity;
+package com.example.secdsp.modules.payment.entity;
 
 public enum PaymentStatus {
     PENDING,

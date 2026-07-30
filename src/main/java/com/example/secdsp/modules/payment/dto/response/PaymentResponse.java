@@ -1,7 +1,7 @@
-package com.example.secdsp.modules.order.dto.response;
+package com.example.secdsp.modules.payment.dto.response;
 
-import com.example.secdsp.modules.order.entity.PaymentMethod;
-import com.example.secdsp.modules.order.entity.PaymentStatus;
+import com.example.secdsp.modules.payment.entity.PaymentMethod;
+import com.example.secdsp.modules.payment.entity.PaymentStatus;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -23,4 +23,5 @@ public class PaymentResponse {
     String transactionId;
     String currency;
     LocalDateTime paidAt;
+    String redirectUrl;
 }
