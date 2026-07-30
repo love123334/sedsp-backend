@@ -108,7 +108,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BusinessException("Order already paid.");
         }
 
-        // COD: thanh toán khi nh?n hàng ? không g?i c?ng, gi? PENDING
+        // COD: pay on delivery - no gateway redirect, keep PENDING
         if (request.getPaymentMethod() == PaymentMethod.COD) {
             payment.setPaymentMethod(PaymentMethod.COD);
             payment.setGatewayName("COD");
