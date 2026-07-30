@@ -108,6 +108,25 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BusinessException("Order already paid.");
         }
 
+        // COD: thanh toán khi nh?n hàng ? không g?i c?ng, gi? PENDING
+        if (request.getPaymentMethod() == PaymentMethod.COD) {
+            payment.setPaymentMethod(PaymentMethod.COD);
+            payment.setGatewayName("COD");
+            payment.setStatus(PaymentStatus.PENDING);
+            payment.setTransactionId(null);
+
+            return PaymentResponse.builder()
+                .id(payment.getId())
+                .orderId(orderId)
+                .paymentMethod(payment.getPaymentMethod())
+                .amount(payment.getAmount())
+                .status(payment.getStatus())
+                .transactionId(payment.getTransactionId())
+                .currency(payment.getCurrency())
+                .redirectUrl(null)
+                .build();
+        }
+
         PaymentGatewayResponse response;
 
         if (request.getPaymentMethod() == PaymentMethod.VNPAY) {
