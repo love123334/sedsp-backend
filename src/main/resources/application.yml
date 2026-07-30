@@ -51,3 +51,23 @@ app:
   # --- Cấu hình Redirect OAuth2 ---
   oauth2:
     redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2-success}
+
+    # --- Cấu hình Payment ---
+    payment:
+      vnpay:
+        tmn-code: ${VNPAY_TMN_CODE:YOUR_DEFAULT_TMN_CODE}
+        hash-secret: ${VNPAY_HASH_SECRET:YOUR_DEFAULT_HASH_SECRET}
+        pay-url: ${VNPAY_PAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+        return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/v1/payments/vnpay-return}
+        ipn-url: ${VNPAY_IPN_URL:http://localhost:8080/api/v1/payments/vnpay-ipn}
+        version: "2.1.0"
+        command: "pay"
+
+      momo:
+        partner-code: ${MOMO_PARTNER_CODE:YOUR_DEFAULT_PARTNER_CODE}
+        access-key: ${MOMO_ACCESS_KEY:YOUR_DEFAULT_ACCESS_KEY}
+        secret-key: ${MOMO_SECRET_KEY:YOUR_DEFAULT_SECRET_KEY}
+        endpoint: ${MOMO_ENDPOINT:https://test-payment.momo.vn/v2/gateway/api/create}
+        return-url: ${MOMO_RETURN_URL:http://localhost:8080/api/v1/payments/momo-return}
+        notify-url: ${MOMO_NOTIFY_URL:http://localhost:8080/api/v1/payments/momo-ipn}
+        request-type: "captureWallet"
