@@ -7,7 +7,7 @@ import com.example.secdsp.modules.inventory.service.InventoryService;
 import com.example.secdsp.modules.order.dto.internal.OrderDashboardInfo;
 import com.example.secdsp.modules.order.dto.internal.RevenueInfo;
 import com.example.secdsp.modules.order.service.OrderService;
-import com.example.secdsp.modules.order.service.PaymentService;
+import com.example.secdsp.modules.payment.service.PaymentService;
 import com.example.secdsp.modules.product.dto.internal.ProductSummaryInfo;
 import com.example.secdsp.modules.product.service.ProductService;
 import com.example.secdsp.modules.review.dto.response.RatingBreakdownItem;

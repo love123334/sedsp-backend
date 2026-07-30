@@ -1,7 +1,7 @@
 package com.example.secdsp.modules.order.dto.response;
 
 import com.example.secdsp.modules.order.entity.OrderTrackingEvent;
-import com.example.secdsp.modules.order.entity.PaymentMethod;
+import com.example.secdsp.modules.payment.entity.PaymentMethod;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;

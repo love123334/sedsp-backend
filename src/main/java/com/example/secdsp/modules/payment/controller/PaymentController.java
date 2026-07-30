@@ -1,10 +1,10 @@
-package com.example.secdsp.modules.order.controller;
+package com.example.secdsp.modules.payment.controller;
 
 import com.example.secdsp.common.api.ApiResponse;
 import com.example.secdsp.modules.order.dto.request.PayOrderRequest;
-import com.example.secdsp.modules.order.dto.request.UpdatePaymentStatusRequest;
-import com.example.secdsp.modules.order.dto.response.PaymentResponse;
-import com.example.secdsp.modules.order.service.PaymentService;
+import com.example.secdsp.modules.payment.dto.request.UpdatePaymentStatusRequest;
+import com.example.secdsp.modules.payment.dto.response.PaymentResponse;
+import com.example.secdsp.modules.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
