@@ -1,7 +1,7 @@
-package com.example.secdsp.modules.order.mapper;
+package com.example.secdsp.modules.payment.mapper;
 
-import com.example.secdsp.modules.order.dto.response.PaymentResponse;
-import com.example.secdsp.modules.order.entity.Payment;
+import com.example.secdsp.modules.payment.dto.response.PaymentResponse;
+import com.example.secdsp.modules.payment.entity.Payment;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

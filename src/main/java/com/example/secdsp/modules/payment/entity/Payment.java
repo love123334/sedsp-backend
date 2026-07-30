@@ -1,5 +1,6 @@
-package com.example.secdsp.modules.order.entity;
+package com.example.secdsp.modules.payment.entity;
 
+import com.example.secdsp.modules.order.entity.Order;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.order.dto.request;
 
-import com.example.secdsp.modules.order.entity.PaymentMethod;
+import com.example.secdsp.modules.payment.entity.PaymentMethod;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
