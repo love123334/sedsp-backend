@@ -29,8 +29,7 @@ CREATE TYPE payment_status AS ENUM (
 
 CREATE TYPE payment_method_enum AS ENUM (
     'MOMO',
-    'BANK',
-    'COD'
+    'VNPAY'
 );
 
 CREATE TYPE inventory_log_reason AS ENUM (
