@@ -39,6 +39,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -290,6 +292,34 @@ public class OrderServiceImpl implements OrderService {
                 .build()
             )
             .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public LocalDate getFirstCompletedSaleDate(Long productId) {
+        return orderItemRepository
+            .findFirstCompletedSaleDateByProduct(productId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long getCompletedQuantitySold(
+        Long productId,
+        LocalDate startDate,
+        LocalDate endDate
+    ) {
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
+
+        return orderItemRepository
+            .findCompletedDailySalesByProduct(
+                productId,
+                startDateTime,
+                endDateTime
+            )
+            .stream()
+            .mapToLong(row -> ((Number) row[1]).longValue())
+            .sum();
     }
 
     private OrderResponse buildOrderResponse(Order order) {

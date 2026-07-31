@@ -9,6 +9,7 @@ import com.example.secdsp.modules.order.dto.response.OrderResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface OrderService {
@@ -26,4 +27,12 @@ public interface OrderService {
     List<RecentOrderInfo> getRecentOrders(Long sellerId);
 
     List<TopProductSalesInfo> getTopSellingProducts(Long sellerId);
+
+    LocalDate getFirstCompletedSaleDate(Long productId);
+
+    long getCompletedQuantitySold(
+        Long productId,
+        LocalDate startDate,
+        LocalDate endDate
+    );
 }

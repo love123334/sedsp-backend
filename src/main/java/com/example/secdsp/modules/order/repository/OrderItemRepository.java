@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface OrderItemRepository
@@ -65,4 +67,31 @@ public interface OrderItemRepository
         Long productId,
         OrderStatus status
     );
+
+    @Query(value = """
+        SELECT CAST(o.created_at AS DATE) AS sale_date,
+               SUM(oi.quantity) AS quantity_sold
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        WHERE oi.product_id = :productId
+          AND o.status = 'DELIVERED'
+          AND o.created_at >= :startDateTime
+          AND o.created_at < :endDateTime
+        GROUP BY CAST(o.created_at AS DATE)
+        ORDER BY sale_date
+        """, nativeQuery = true)
+    List<Object[]> findCompletedDailySalesByProduct(
+        Long productId,
+        LocalDateTime startDateTime,
+        LocalDateTime endDateTime
+    );
+
+    @Query(value = """
+        SELECT CAST(MIN(o.created_at) AS DATE)
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        WHERE oi.product_id = :productId
+          AND o.status = 'DELIVERED'
+        """, nativeQuery = true)
+    LocalDate findFirstCompletedSaleDateByProduct(Long productId);
 }
