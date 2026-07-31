@@ -47,7 +47,13 @@ spring:
         smtp:
           auth: true
           starttls:
-            enable: true
+            enable: ${MAIL_SMTP_STARTTLS:true}
+          ssl:
+            enable: ${MAIL_SMTP_SSL:false}
+          # Prevent register/health from hanging forever when SMTP is blocked
+          connectiontimeout: 8000
+          timeout: 8000
+          writetimeout: 8000
 
 management:
   endpoints:
@@ -71,6 +77,9 @@ management:
     db:
       enabled: false
     diskspace:
+      enabled: false
+    # Gmail SMTP often blocked/slow from Railway — do NOT include in /actuator/health
+    mail:
       enabled: false
 
 # app.mail.from inherits MAIL_FROM from application.yml — set MAIL_* on Railway for OTP email

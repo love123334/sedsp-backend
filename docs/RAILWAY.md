@@ -63,6 +63,13 @@ MAIL_PORT=587
 MAIL_USERNAME=sedsp.official@gmail.com
 MAIL_PASSWORD=<gmail-app-password>
 MAIL_FROM=sedsp.official@gmail.com
+
+# Nếu log báo "Couldn't connect to host smtp.gmail.com:587" (Railway block SMTP):
+# thử SSL 465:
+#   MAIL_PORT=465
+#   MAIL_SMTP_SSL=true
+#   MAIL_SMTP_STARTTLS=false
+# hoặc SMTP qua Brevo/SendGrid/Resend (HTTPS API ổn định hơn Gmail từ cloud).
 ```
 
 ## Vercel FE

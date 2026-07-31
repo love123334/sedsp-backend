@@ -121,7 +121,21 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        String email = request.getEmail().trim().toLowerCase();
+
+        if (userRepository.existsByEmail(email)) {
+            User existing = userRepository.findByEmail(email).orElse(null);
+            if (existing != null && existing.getStatus() == UserStatus.PENDING) {
+                try {
+                    String otp = otpService.resendOtp(email);
+                    emailService.sendOtp(email, otp);
+                } catch (Exception e) {
+                    log.error("Resend OTP on re-register failed for {}: {}", email, e.getMessage());
+                }
+                // Account already pending — FE should show OTP form
+                log.info("Pending account re-register; OTP form should be shown for {}", email);
+                return;
+            }
             throw new BusinessException(
                 "Email already exists",
                 HttpStatus.CONFLICT
@@ -135,8 +149,6 @@ public class AuthServiceImpl implements AuthService {
                                  "Role",
                                  UserRole.CUSTOMER.name()
                              ));
-
-        String email = request.getEmail().trim().toLowerCase();
 
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         String otp = tx.execute(status -> {
@@ -155,11 +167,8 @@ public class AuthServiceImpl implements AuthService {
             emailService.sendOtp(email, otp);
             log.info("Registration OTP sent to {}", email);
         } catch (Exception e) {
+            // OTP already in DB — still return success so FE shows OTP + Resend
             log.error("Failed to send registration OTP to {}: {}", email, e.getMessage());
-            throw new BusinessException(
-                "Tai khoan da tao nhung gui OTP that bai. Vui long bam Gui lai OTP sau it phut.",
-                HttpStatus.BAD_GATEWAY
-            );
         }
 
         log.info("New customer registered (PENDING): {}", email);
