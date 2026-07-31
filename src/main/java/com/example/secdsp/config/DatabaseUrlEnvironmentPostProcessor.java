@@ -79,7 +79,10 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
         String host = firstEnv(environment, "PGHOST", "POSTGRES_HOST", "DB_HOST", "DATABASE_HOST");
         if (!StringUtils.hasText(host)) {
             System.out.println("[datasource] WARN: no DB URL/PGHOST — app will fail DataSource config");
-            System.out.println("[datasource] Add Variable Reference: DATABASE_PUBLIC_URL from Postgres service");
+            System.out.println("[datasource] Railway Variables → Add Reference:");
+            System.out.println("[datasource]   DATABASE_PUBLIC_URL = (Postgres).DATABASE_PUBLIC_URL");
+            System.out.println("[datasource] Private DATABASE_URL is often EMPTY without private networking.");
+            dumpDbRelatedEnvKeys();
             excludeRedisIfMissing(environment);
             return;
         }
@@ -191,6 +194,26 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
                 "spring.autoconfigure.exclude",
                 "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,"
                         + "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration");
+    }
+
+    private static void dumpDbRelatedEnvKeys() {
+        Map<String, String> env = System.getenv();
+        if (env == null) {
+            return;
+        }
+        System.out.println("[datasource] DB-related env keys present:");
+        env.keySet().stream()
+            .filter(k -> {
+                String u = k.toUpperCase();
+                return u.contains("DATABASE") || u.contains("POSTGRES") || u.startsWith("PG")
+                    || u.contains("JDBC") || u.contains("DATASOURCE");
+            })
+            .sorted()
+            .forEach(k -> {
+                String v = env.get(k);
+                String state = !StringUtils.hasText(v) ? "EMPTY" : ("SET len=" + v.trim().length());
+                System.out.println("[datasource]   " + k + "=" + state);
+            });
     }
 
     private static String firstEnv(ConfigurableEnvironment environment, String... keys) {

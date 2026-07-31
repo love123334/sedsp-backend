@@ -1,39 +1,54 @@
 # Deploy SEDSP Backend trên Railway
 
-## Khác lần trước
+## Lỗi healthcheck lặp lại (DATABASE_* = UNSET/EMPTY)
 
-- **Không** dùng shell entrypoint `exit 1` (trước đó healthcheck fail vì Java không kịp start)
-- Java tự map `DATABASE_PUBLIC_URL` / `DATABASE_URL` / `PG*` → JDBC
-- Dockerfile chỉ chạy `java -jar`
+Triệu chứng trong Deploy Logs:
 
-## A. Railway setup
+```text
+[env] DATABASE_URL=UNSET   (hoặc EMPTY)
+[env] DATABASE_PUBLIC_URL=UNSET
+[datasource] WARN: no DB URL/PGHOST
+```
 
-1. New Project → Deploy from GitHub → `love123334/sedsp-backend` → branch **`railway`** (hoặc `main` sau khi merge)
-2. Thêm **PostgreSQL** (vd. `sedsp-db`) trong cùng project
-3. (Khuyến nghị) thêm **Redis**
+**Nguyên nhân thường gặp:** trên `sedsp-api` chỉ reference `DATABASE_URL` (private).
+Private URL hay bị **rỗng** nếu private networking chưa sẵn → container không có JDBC → app không boot → Railway healthcheck fail ~5 phút.
 
-## B. Variables trên service API (`sedsp-api`)
+### Fix (bắt buộc)
 
-**Bắt buộc — Add Variable → Reference từ Postgres:**
+1. Mở **sedsp-api → Variables**
+2. **New Variable → Add Reference** (không gõ tay URL):
+   - Name: `DATABASE_PUBLIC_URL`
+   - Value: chọn service Postgres (vd. `sedsp-db`) → `DATABASE_PUBLIC_URL`
+3. (Khuyến nghị thêm backup)
+   - `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` từ cùng Postgres
+4. Redeploy `sedsp-api`
 
-| Tên trên API | Lấy từ sedsp-db | Ghi chú |
-|--------------|-----------------|--------|
-| `DATABASE_PUBLIC_URL` | `DATABASE_PUBLIC_URL` | **Ưu tiên** — luôn có host public |
-| `PGHOST` | `PGHOST` | backup |
-| `PGPORT` | `PGPORT` | backup |
-| `PGUSER` | `PGUSER` | backup |
-| `PGPASSWORD` | `PGPASSWORD` | backup |
-| `PGDATABASE` | `PGDATABASE` | backup |
+Sau khi đúng, logs phải có:
 
-Có thể thêm luôn `DATABASE_URL` (private). Nếu private networking tắt, private URL có thể **empty** — vì vậy cần `DATABASE_PUBLIC_URL`.
+```text
+[env] DATABASE_PUBLIC_URL=SET len=…
+[env] selected DATABASE_PUBLIC_URL
+[env] JDBC ready from DATABASE_PUBLIC_URL
+[datasource] OK url=jdbc:postgresql://***@…
+```
 
-**Redis (nếu có):**
+Health: `https://YOUR-APP.up.railway.app/actuator/health/liveness` → `{"status":"UP"}`
 
-| Tên | Reference |
-|-----|-----------|
-| `REDIS_URL` | Redis → `REDIS_URL` hoặc `REDIS_PUBLIC_URL` |
+---
 
-**Tự thêm:**
+## Setup nhanh
+
+1. GitHub → `love123334/sedsp-backend` branch **`railway`** hoặc **`main`**
+2. Thêm **PostgreSQL** trong cùng project
+3. Variables trên API như bảng dưới + `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`
+4. Networking → Generate Domain  
+5. **Custom Start Command**: để trống (dùng Dockerfile `ENTRYPOINT`)
+
+| Tên trên API | Reference từ Postgres |
+|--------------|------------------------|
+| `DATABASE_PUBLIC_URL` | `DATABASE_PUBLIC_URL` (**bắt buộc**) |
+| `DATABASE_URL` | `DATABASE_URL` (optional) |
+| `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` / `PGDATABASE` | cùng tên |
 
 ```env
 SPRING_PROFILES_ACTIVE=prod
@@ -42,24 +57,7 @@ JWT_SECRET=<chuỗi ≥32 ký tự>
 CORS_ALLOWED_ORIGINS=https://YOUR-VERCEL.vercel.app,https://*.vercel.app,http://localhost:5173
 ```
 
-## C. Settings
-
-- **Networking** → Generate Domain  
-- **Deploy → Custom Start Command**: để **trống** (dùng Dockerfile ENTRYPOINT)
-- Root directory: repo backend (Dockerfile ở root)
-
-## D. Kiểm tra
-
-Deploy Logs phải có:
-
-```
-[datasource] Using DATABASE_PUBLIC_URL (len=…)
-[datasource] spring.datasource.url=jdbc:postgresql://***@…
-```
-
-Health: `https://YOUR-APP.up.railway.app/actuator/health` → `{"status":"UP"}`
-
-## E. Vercel FE
+## Vercel FE
 
 ```env
 VITE_USE_MOCK=false
