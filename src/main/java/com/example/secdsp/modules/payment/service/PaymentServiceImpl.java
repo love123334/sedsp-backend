@@ -134,7 +134,7 @@ public class PaymentServiceImpl implements PaymentService {
                 PaymentGatewayRequest.builder()
                     .orderId(orderId)
                     .amount(order.getTotalAmount())
-                    .orderInfo("Payment for Order #" + orderId)
+                    .orderInfo("Thanh toan don hang " + orderId)
                     .returnUrl(vnPayProperties.getReturnUrl())
                     .notifyUrl(vnPayProperties.getIpnUrl())
                     .build();

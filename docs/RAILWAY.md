@@ -71,6 +71,13 @@ MAIL_FROM=SEDSP <onboarding@resend.dev>
 # MAIL_USERNAME=sedsp.official@gmail.com
 # MAIL_PASSWORD=<gmail-app-password>
 # MAIL_FROM=sedsp.official@gmail.com
+
+# VNPay sandbox (không commit secret lên git — chỉ set trên Railway)
+VNPAY_TMN_CODE=CU183B14
+VNPAY_HASH_SECRET=<secret từ email VNPAY>
+VNPAY_PAY_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+VNPAY_RETURN_URL=https://sedsp-api-production.up.railway.app/api/v1/payments/vnpay-return
+VNPAY_IPN_URL=https://sedsp-api-production.up.railway.app/api/v1/payments/vnpay-ipn
 ```
 
 ## Vercel FE
