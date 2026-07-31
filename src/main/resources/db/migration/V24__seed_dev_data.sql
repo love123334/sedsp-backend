@@ -70,8 +70,8 @@ FROM users u JOIN categories c ON c.slug = 'dien-tu'
 WHERE u.email = 'seller@sedsp.vn'
   AND NOT EXISTS (SELECT 1 FROM products p WHERE p.slug = 'tai-nghe-bluetooth-pro-anc' AND p.deleted_at IS NULL);
 
-INSERT INTO product_images (product_id, image_url, is_primary)
-SELECT p.id, 'https://picsum.photos/seed/p1/400/400', TRUE
+INSERT INTO product_images (product_id, image_url, public_id, is_primary)
+SELECT p.id, 'https://picsum.photos/seed/p1/400/400', 'secdsp/products/tai-nghe-bluetooth-pro-anc', TRUE
 FROM products p WHERE p.slug = 'tai-nghe-bluetooth-pro-anc'
   AND NOT EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id = p.id AND pi.deleted_at IS NULL);
 
@@ -89,8 +89,8 @@ FROM users u JOIN categories c ON c.slug = 'dien-tu'
 WHERE u.email = 'seller@sedsp.vn'
   AND NOT EXISTS (SELECT 1 FROM products p WHERE p.slug = 'ban-phim-co-rgb-keypro-k87' AND p.deleted_at IS NULL);
 
-INSERT INTO product_images (product_id, image_url, is_primary)
-SELECT p.id, 'https://picsum.photos/seed/p2/400/400', TRUE
+INSERT INTO product_images (product_id, image_url, public_id, is_primary)
+SELECT p.id, 'https://picsum.photos/seed/p2/400/400', 'secdsp/products/ban-phim-co-rgb-keypro-k87', TRUE
 FROM products p WHERE p.slug = 'ban-phim-co-rgb-keypro-k87'
   AND NOT EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id = p.id AND pi.deleted_at IS NULL);
 
@@ -108,8 +108,8 @@ FROM users u JOIN categories c ON c.slug = 'the-thao'
 WHERE u.email = 'seller@sedsp.vn'
   AND NOT EXISTS (SELECT 1 FROM products p WHERE p.slug = 'giay-chay-bo-airflex-marathon' AND p.deleted_at IS NULL);
 
-INSERT INTO product_images (product_id, image_url, is_primary)
-SELECT p.id, 'https://picsum.photos/seed/p4/400/400', TRUE
+INSERT INTO product_images (product_id, image_url, public_id, is_primary)
+SELECT p.id, 'https://picsum.photos/seed/p4/400/400', 'secdsp/products/giay-chay-bo-airflex-marathon', TRUE
 FROM products p WHERE p.slug = 'giay-chay-bo-airflex-marathon'
   AND NOT EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id = p.id AND pi.deleted_at IS NULL);
 
@@ -127,8 +127,8 @@ FROM users u JOIN categories c ON c.slug = 'gia-dung'
 WHERE u.email = 'seller@sedsp.vn'
   AND NOT EXISTS (SELECT 1 FROM products p WHERE p.slug = 'noi-chien-khong-dau-5l' AND p.deleted_at IS NULL);
 
-INSERT INTO product_images (product_id, image_url, is_primary)
-SELECT p.id, 'https://picsum.photos/seed/p9/400/400', TRUE
+INSERT INTO product_images (product_id, image_url, public_id, is_primary)
+SELECT p.id, 'https://picsum.photos/seed/p9/400/400', 'secdsp/products/noi-chien-khong-dau-5l', TRUE
 FROM products p WHERE p.slug = 'noi-chien-khong-dau-5l'
   AND NOT EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id = p.id AND pi.deleted_at IS NULL);
 

@@ -34,6 +34,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    # Clear failed migrate rows / checksum drift after hotfix (e.g. V24 public_id)
+    repair-on-migrate: true
 
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
