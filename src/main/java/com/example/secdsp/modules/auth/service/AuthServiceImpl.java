@@ -94,6 +94,8 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException("Account is inactive");
         } catch (LockedException ex) {
             throw new UnauthorizedException("Account is blocked");
+        } catch (UnauthorizedException ex) {
+            throw ex;
         }
     }
 

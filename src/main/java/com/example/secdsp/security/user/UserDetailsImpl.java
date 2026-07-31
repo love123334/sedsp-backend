@@ -66,6 +66,7 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return status == UserStatus.ACTIVE;
+        // PENDING must authenticate so login can return "verify email" (not DisabledException).
+        return status == UserStatus.ACTIVE || status == UserStatus.PENDING;
     }
 }

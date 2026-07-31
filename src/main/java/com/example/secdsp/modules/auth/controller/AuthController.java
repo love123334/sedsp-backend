@@ -42,7 +42,7 @@ public class AuthController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.success(
-                "Registration successful"
+                "Registration successful. Please verify OTP sent to your email."
             ));
     }
 
