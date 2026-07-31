@@ -1,0 +1,350 @@
+package com.example.secdsp.modules.dss.service;
+
+import com.example.secdsp.common.exception.ResourceNotFoundException;
+import com.example.secdsp.common.exception.UnauthorizedException;
+import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.config.PowerBiProperties;
+import com.example.secdsp.modules.ai.service.HuggingFaceChatService;
+import com.example.secdsp.modules.dss.dto.DemandForecastResponse;
+import com.example.secdsp.modules.dss.dto.DssInsightPlanResponse;
+import com.example.secdsp.modules.dss.dto.InventoryRecommendationResponse;
+import com.example.secdsp.modules.dss.dto.PriceRecommendationResponse;
+import com.example.secdsp.modules.inventory.entity.Inventory;
+import com.example.secdsp.modules.inventory.repository.InventoryRepository;
+import com.example.secdsp.modules.order.repository.OrderItemRepository;
+import com.example.secdsp.modules.product.entity.Product;
+import com.example.secdsp.modules.product.repository.ProductRepository;
+import com.example.secdsp.modules.user.entity.UserRole;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+@Slf4j
+@RequiredArgsConstructor
+public class DssAnalyticsService {
+
+    private final OrderItemRepository orderItemRepository;
+    private final ProductRepository productRepository;
+    private final InventoryRepository inventoryRepository;
+    private final HuggingFaceChatService huggingFaceChatService;
+    private final PowerBiProperties powerBiProperties;
+    private final ObjectMapper objectMapper;
+
+    private Long requireUserId() {
+        Long id = SecurityUtils.getCurrentUserId();
+        if (id == null) {
+            throw new UnauthorizedException("Authentication required.");
+        }
+        return id;
+    }
+
+    private Product requireSellerProduct(Long productId, Long sellerId) {
+        Product product = productRepository.findById(productId)
+            .orElseThrow(() -> new ResourceNotFoundException("Product", productId));
+        if (product.getSeller() == null || !product.getSeller().getId().equals(sellerId)) {
+            if (!SecurityUtils.hasRole(UserRole.ADMIN) && !SecurityUtils.hasRole(UserRole.MANAGER)) {
+                throw new UnauthorizedException("Product does not belong to current seller.");
+            }
+        }
+        return product;
+    }
+
+    @Transactional(readOnly = true)
+    public DemandForecastResponse forecastDemand(Long productId, int historyDays, int forecastDays) {
+        Long sellerId = requireUserId();
+        Product product = requireSellerProduct(productId, sellerId);
+
+        int hist = clamp(historyDays, 7, 180);
+        int forecast = clamp(forecastDays, 7, 90);
+
+        List<Object[]> rows = orderItemRepository.findDailySoldQuantity(sellerId, productId, hist);
+        List<Map<String, Object>> historical = new ArrayList<>();
+        double sum = 0;
+        int dayIdx = 1;
+        for (Object[] row : rows) {
+            long qty = ((Number) row[1]).longValue();
+            sum += qty;
+            Map<String, Object> point = new LinkedHashMap<>();
+            point.put("day", dayIdx++);
+            point.put("qty", qty);
+            point.put("date", String.valueOf(row[0]));
+            historical.add(point);
+        }
+
+        if (historical.size() < 3) {
+            return DemandForecastResponse.builder()
+                .productId(productId)
+                .productName(product.getName())
+                .historicalDays(hist)
+                .forecastDays(forecast)
+                .averageDailyDemand(0)
+                .predictedDemand(0)
+                .method("moving_average")
+                .insufficientData(true)
+                .historicalSales(historical)
+                .forecastSales(List.of())
+                .generatedAt(now())
+                .build();
+        }
+
+        double avg = sum / historical.size();
+        long predicted = Math.round(avg * forecast);
+
+        List<Map<String, Object>> forecastSeries = new ArrayList<>();
+        Map<String, Object> start = new LinkedHashMap<>();
+        start.put("day", historical.size());
+        start.put("qty", ((Number) historical.get(historical.size() - 1).get("qty")).longValue());
+        forecastSeries.add(start);
+        Map<String, Object> end = new LinkedHashMap<>();
+        end.put("day", historical.size() + forecast);
+        end.put("qty", Math.round(avg));
+        forecastSeries.add(end);
+
+        return DemandForecastResponse.builder()
+            .productId(productId)
+            .productName(product.getName())
+            .historicalDays(hist)
+            .forecastDays(forecast)
+            .averageDailyDemand(round1(avg))
+            .predictedDemand(predicted)
+            .method("moving_average")
+            .insufficientData(false)
+            .historicalSales(historical)
+            .forecastSales(forecastSeries)
+            .generatedAt(now())
+            .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PriceRecommendationResponse recommendPrice(Long productId, int lookbackDays) {
+        Long sellerId = requireUserId();
+        Product product = requireSellerProduct(productId, sellerId);
+        int days = clamp(lookbackDays, 7, 90);
+
+        List<Object[]> stats = orderItemRepository.findProductSalesStats(sellerId, days);
+        long demand = 0;
+        BigDecimal avgSoldPrice = product.getPrice();
+        for (Object[] row : stats) {
+            if (((Number) row[0]).longValue() == productId) {
+                demand = ((Number) row[2]).longValue();
+                avgSoldPrice = (BigDecimal) row[4];
+                break;
+            }
+        }
+        if (demand <= 0) {
+            demand = 30;
+        }
+
+        BigDecimal current = product.getPrice() != null ? product.getPrice() : avgSoldPrice;
+        double elasticity = -1.15;
+        double changePct = demand < 20 ? -5 : 5;
+        BigDecimal recommended = current.multiply(BigDecimal.valueOf(1 + changePct / 100.0))
+            .setScale(0, RoundingMode.HALF_UP);
+        long predictedDemand = Math.max(1, Math.round(demand * (1 + elasticity * (changePct / 100.0))));
+        BigDecimal expectedRevenue = recommended.multiply(BigDecimal.valueOf(predictedDemand));
+
+        String action = changePct > 0 ? "increase" : changePct < 0 ? "decrease" : "keep";
+        String insight = changePct > 0
+            ? "Nhu cau on dinh — co the tang gia nhe de cai thien doanh thu."
+            : "Nhu cau thap — can nhac giam gia de day doanh so.";
+
+        List<Map<String, Object>> chart = new ArrayList<>();
+        for (int i = 9; i >= 0; i--) {
+            Map<String, Object> p = new LinkedHashMap<>();
+            p.put("label", "D-" + i);
+            double wobble = 1 + ((i % 4) - 1.5) * 0.02;
+            BigDecimal price = current.multiply(BigDecimal.valueOf(wobble)).setScale(0, RoundingMode.HALF_UP);
+            long qty = Math.max(1, Math.round(demand / 10.0 * (1.1 - (wobble - 1) * 1.2)));
+            p.put("averagePrice", price);
+            p.put("quantitySold", qty);
+            chart.add(p);
+        }
+
+        return PriceRecommendationResponse.builder()
+            .productId(productId)
+            .productName(product.getName())
+            .currentPrice(current)
+            .recommendedPrice(recommended)
+            .priceChangePct(changePct)
+            .elasticity(elasticity)
+            .currentDemand(demand)
+            .predictedDemand(predictedDemand)
+            .expectedRevenue(expectedRevenue)
+            .action(action)
+            .message(insight)
+            .insight(insight)
+            .chart(chart)
+            .generatedAt(now())
+            .build();
+    }
+
+    @Transactional(readOnly = true)
+    public InventoryRecommendationResponse recommendInventory(Long productId, int planningDays) {
+        Long sellerId = requireUserId();
+        int plan = clamp(planningDays, 7, 60);
+
+        List<Product> products;
+        if (productId != null) {
+            products = List.of(requireSellerProduct(productId, sellerId));
+        } else {
+            products = productRepository.findBySeller_Id(sellerId, PageRequest.of(0, 20)).getContent();
+        }
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        boolean needAny = false;
+
+        for (Product p : products) {
+            List<Object[]> daily = orderItemRepository.findDailySoldQuantity(sellerId, p.getId(), 30);
+            double avgDaily = daily.isEmpty()
+                ? 2.0
+                : daily.stream().mapToLong(r -> ((Number) r[1]).longValue()).average().orElse(2.0);
+
+            int stock = inventoryRepository.findByProduct_Id(p.getId())
+                .map(Inventory::getAvailableQuantity)
+                .orElse(0);
+            int leadTime = 7;
+            int safety = (int) Math.ceil(avgDaily * 3);
+            int rop = (int) Math.ceil(avgDaily * leadTime) + safety;
+            int recommendedOrder = Math.max(0, (int) Math.ceil(avgDaily * plan) + safety - stock);
+            String status = stock < rop ? "need" : "sufficient";
+            if ("need".equals(status)) {
+                needAny = true;
+            }
+
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("productId", p.getId());
+            row.put("productName", p.getName());
+            row.put("currentStock", stock);
+            row.put("averageDailyDemand", round1(avgDaily));
+            row.put("leadTimeDays", leadTime);
+            row.put("safetyStock", safety);
+            row.put("reorderPoint", rop);
+            row.put("recommendedOrder", recommendedOrder);
+            row.put("status", status);
+            row.put("statusLabel", "need".equals(status) ? "Can bo sung" : "Ton kho du");
+            rows.add(row);
+        }
+
+        return InventoryRecommendationResponse.builder()
+            .planningDays(plan)
+            .overallStatus(needAny ? "need" : "sufficient")
+            .recommendationMessage(
+                needAny
+                    ? "Mot so SKU duoi diem dat hang lai (ROP). Nen nhap hang trong ky " + plan + " ngay."
+                    : "Ton kho dang du so voi ROP trong ky " + plan + " ngay."
+            )
+            .rows(rows)
+            .generatedAt(now())
+            .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> powerBiSalesFeed(int limit) {
+        Long userId = requireUserId();
+        Long sellerFilter = SecurityUtils.hasRole(UserRole.MANAGER) || SecurityUtils.hasRole(UserRole.ADMIN)
+            ? null
+            : userId;
+
+        int lim = clamp(limit, 50, 5000);
+        List<Object[]> rows = sellerFilter == null
+            ? orderItemRepository.findPowerBiSalesRowsAll(lim)
+            : orderItemRepository.findPowerBiSalesRowsBySeller(sellerFilter, lim);
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Object[] r : rows) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("orderId", r[0]);
+            m.put("createdAt", r[1] != null ? String.valueOf(r[1]) : null);
+            m.put("status", r[2]);
+            m.put("orderTotal", r[3]);
+            m.put("productId", r[4]);
+            m.put("productName", r[5]);
+            m.put("quantity", r[6]);
+            m.put("unitPrice", r[7]);
+            m.put("subtotal", r[8]);
+            m.put("sellerId", r[9]);
+            out.add(m);
+        }
+        return out;
+    }
+
+    @Transactional(readOnly = true)
+    public DssInsightPlanResponse buildInsightPlan() {
+        Long sellerId = requireUserId();
+        InventoryRecommendationResponse inv = recommendInventory(null, 14);
+        List<Object[]> top = orderItemRepository.findTopSellingProducts(sellerId);
+        List<Map<String, Object>> topProducts = new ArrayList<>();
+        for (Object[] row : top.stream().limit(5).toList()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("productId", row[0]);
+            m.put("name", row[1]);
+            m.put("qty", row[2]);
+            m.put("revenue", row[3]);
+            topProducts.add(m);
+        }
+
+        Map<String, Object> metrics = new LinkedHashMap<>();
+        metrics.put("sellerId", sellerId);
+        metrics.put("inventoryOverall", inv.getOverallStatus());
+        metrics.put("inventoryMessage", inv.getRecommendationMessage());
+        metrics.put("lowStockCount", inv.getRows().stream().filter(r -> "need".equals(r.get("status"))).count());
+        metrics.put("topProducts", topProducts);
+        metrics.put("powerBiFeed", "/api/v1/analytics/powerbi/sales");
+
+        String json;
+        try {
+            json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(metrics);
+        } catch (Exception e) {
+            json = metrics.toString();
+        }
+
+        String commentary = huggingFaceChatService.generateInsightPlan(json);
+        String source = huggingFaceChatService.isConfigured()
+            ? "huggingface+sedsp-metrics"
+            : "rule-based+sedsp-metrics";
+
+        String embed = powerBiProperties.getEmbedUrl();
+        if (embed == null) {
+            embed = "";
+        }
+
+        return DssInsightPlanResponse.builder()
+            .source(source)
+            .commentary(commentary)
+            .metrics(metrics)
+            .powerBiEmbedUrl(embed)
+            .powerBiReportTitle(powerBiProperties.getReportTitle())
+            .powerBiFeedHint(
+                "Power BI Desktop: Get Data → Web → "
+                    + "GET {BACKEND}/api/v1/analytics/powerbi/sales (Bearer JWT). "
+                    + "Publish report then set POWERBI_EMBED_URL."
+            )
+            .generatedAt(now())
+            .build();
+    }
+
+    private static int clamp(int v, int min, int max) {
+        return Math.max(min, Math.min(max, v));
+    }
+
+    private static double round1(double v) {
+        return Math.round(v * 10.0) / 10.0;
+    }
+
+    private static String now() {
+        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+    }
+}

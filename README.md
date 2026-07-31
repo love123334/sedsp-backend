@@ -184,14 +184,59 @@ The backend follows a modular layered architecture:
 
 ---
 
+# 🤖 AI chatbot (OpenRouter / OpenAI-compatible)
+
+Token chỉ đặt trên **backend**. Frontend gọi `POST /api/v1/ai/chat`.
+
+## Env backend (Railway / local)
+
+```bash
+AI_ENABLED=true
+OPENROUTER_API_KEY=sk-or-v1-...
+# optional:
+# AI_API_BASE_URL=https://openrouter.ai/api/v1
+# AI_MODEL=openrouter/free          # free router; hoặc openai/gpt-4o-mini khi có credit
+```
+
+Local: copy key vào `src/main/resources/application-local.yml` (file gitignored).
+
+## Power BI
+
+```bash
+POWERBI_EMBED_URL=https://app.powerbi.com/view?r=...   # optional iframe
+POWERBI_REPORT_TITLE=SEDSP Decision Dashboard
+```
+
+## API
+
+| Method | Path | Mô tả |
+|--------|------|--------|
+| GET | `/api/v1/ai/status` | AI đã cấu hình? |
+| POST | `/api/v1/ai/chat` | Chat proxy (JWT) |
+| GET | `/api/v1/dss/demand/{productId}` | Moving average demand |
+| GET | `/api/v1/dss/price/{productId}` | Price recommendation |
+| GET | `/api/v1/dss/inventory` | ROP inventory |
+| GET | `/api/v1/dss/insights/plan` | Metrics + AI commentary + embed URL |
+| GET | `/api/v1/analytics/powerbi/sales` | Flat sales feed cho Power BI Web |
+
+## Power BI Desktop
+
+1. Get Data → Web → `https://YOUR-API/api/v1/analytics/powerbi/sales`
+2. Header: `Authorization: Bearer <JWT seller/manager>`
+3. Build report → Publish → copy Embed URL → set `POWERBI_EMBED_URL`
+4. FE hub DSS hiển thị nhận xét (AI hoặc rule-based) + iframe nếu có embed
+
+Không cần Power BI Premium để chạy path này.
+
+---
+
 # 📈 Future Improvements
 
-- 🤖 AI-based Demand Prediction
-- 📊 Advanced What-if Analysis
-- 🧩 Microservices Architecture
-- 🔄 CI/CD Pipeline
-- ☁️ Cloud Deployment
-- 📱 Mobile Application Support
+- Advanced What-if Analysis
+- Microservices Architecture
+- CI/CD Pipeline
+- Cloud Deployment
+- Mobile Application Support
 
 ---
 

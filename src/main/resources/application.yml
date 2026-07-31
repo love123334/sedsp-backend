@@ -61,6 +61,20 @@ app:
   frontend:
     base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
 
+  # --- AI OpenAI-compatible (OpenRouter / HF) — token chỉ trên BE ---
+  ai:
+    enabled: ${AI_ENABLED:false}
+    api-token: ${OPENROUTER_API_KEY:${AI_API_TOKEN:${HF_API_TOKEN:}}}
+    base-url: ${AI_API_BASE_URL:https://openrouter.ai/api/v1}
+    model: ${AI_MODEL:openrouter/free}
+    temperature: ${AI_TEMPERATURE:0.6}
+    max-tokens: ${AI_MAX_TOKENS:900}
+
+  # --- Power BI (embed URL sau khi publish report) ---
+  powerbi:
+    embed-url: ${POWERBI_EMBED_URL:}
+    report-title: ${POWERBI_REPORT_TITLE:SEDSP Decision Dashboard}
+
   # --- Cấu hình Payment ---
   payment:
     vnpay:
