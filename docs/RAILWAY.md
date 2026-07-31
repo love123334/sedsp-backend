@@ -55,6 +55,14 @@ SPRING_PROFILES_ACTIVE=prod
 JAVA_OPTS=-Xms256m -Xmx512m -Duser.timezone=Asia/Ho_Chi_Minh
 JWT_SECRET=<chuỗi ≥32 ký tự>
 CORS_ALLOWED_ORIGINS=https://YOUR-VERCEL.vercel.app,https://*.vercel.app,http://localhost:5173
+FRONTEND_BASE_URL=https://YOUR-VERCEL.vercel.app
+
+# Gmail OTP (cùng tài khoản đang dùng local) — App Password, không phải mật khẩu Gmail thường
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=sedsp.official@gmail.com
+MAIL_PASSWORD=<gmail-app-password>
+MAIL_FROM=sedsp.official@gmail.com
 ```
 
 ## Vercel FE
@@ -64,3 +72,5 @@ VITE_USE_MOCK=false
 VITE_API_BASE_URL=https://YOUR-APP.up.railway.app/api/v1
 VITE_BACKEND_ORIGIN=https://YOUR-APP.up.railway.app
 ```
+
+Sau khi đổi `VITE_*` phải **Redeploy** FE (build lại).

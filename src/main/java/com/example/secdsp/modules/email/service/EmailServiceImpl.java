@@ -74,6 +74,14 @@ public class EmailServiceImpl implements EmailService {
     }
 
     private void sendHtmlEmail(String toEmail, String subject, String content) {
+        String username = System.getenv("MAIL_USERNAME");
+        String from = mailProperties.getFrom();
+        if ((from == null || from.isBlank() || from.startsWith("your_email"))
+            && (username == null || username.isBlank())) {
+            throw new RuntimeException(
+                "Mail chua cau hinh. Dat MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM tren Railway."
+            );
+        }
         try {
             MimeMessage message = mailSender.createMimeMessage();
             ClassPathResource logo = new ClassPathResource(mailProperties.getLogoPath());
@@ -82,7 +90,10 @@ public class EmailServiceImpl implements EmailService {
             MimeMessageHelper helper =
                 new MimeMessageHelper(message, hasLogo, "UTF-8");
 
-            helper.setFrom(mailProperties.getFrom());
+            String fromAddr = (from != null && !from.isBlank() && !from.startsWith("your_email"))
+                ? from.trim()
+                : username.trim();
+            helper.setFrom(fromAddr);
             helper.setTo(toEmail);
             helper.setSubject(subject);
 

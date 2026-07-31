@@ -73,9 +73,12 @@ management:
     diskspace:
       enabled: false
 
+# app.mail.from inherits MAIL_FROM from application.yml — set MAIL_* on Railway for OTP email
+
 logging:
   level:
     root: INFO
     com.example.secdsp: INFO
     org.hibernate.SQL: WARN
     com.zaxxer.hikari: INFO
+    org.springframework.mail: INFO

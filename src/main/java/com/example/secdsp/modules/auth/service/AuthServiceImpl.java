@@ -31,7 +31,9 @@ import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 
@@ -48,6 +50,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final OtpService otpService;
     private final EmailService emailService;
+    private final PlatformTransactionManager transactionManager;
     private final EmailOtpRepository emailOtpRepository;
 
     @Value("${app.jwt.expiration-ms}")
@@ -106,7 +109,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional
     public void register(RegisterRequest request) {
 
         if (!request.getPassword()
@@ -132,33 +134,30 @@ public class AuthServiceImpl implements AuthService {
                                  UserRole.CUSTOMER.name()
                              ));
 
-        User user = new User();
-        user.setFullName(request.getFullName());
-
         String email = request.getEmail().trim().toLowerCase();
 
-        user.setEmail(email);
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        String otp = tx.execute(status -> {
+            User user = new User();
+            user.setFullName(request.getFullName());
+            user.setEmail(email);
+            user.setUsername(email);
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+            user.setRole(customerRole);
+            user.setStatus(UserStatus.PENDING);
+            userRepository.save(user);
+            return otpService.generateOtp(email);
+        });
 
-        user.setUsername(email);
-
-        user.setPassword(
-            passwordEncoder.encode(
-                request.getPassword()
-            )
-        );
-
-        user.setRole(customerRole);
-        user.setStatus(UserStatus.PENDING);
-
-        userRepository.save(user);
-
-        String otp = otpService.generateOtp(email);
         try {
             emailService.sendOtp(email, otp);
             log.info("Registration OTP sent to {}", email);
         } catch (Exception e) {
-            // Không rollback user — có thể gửi lại OTP
             log.error("Failed to send registration OTP to {}: {}", email, e.getMessage());
+            throw new BusinessException(
+                "Tai khoan da tao nhung gui OTP that bai. Vui long bam Gui lai OTP sau it phut.",
+                HttpStatus.BAD_GATEWAY
+            );
         }
 
         log.info("New customer registered (PENDING): {}", email);
