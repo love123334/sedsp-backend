@@ -204,6 +204,7 @@ class DemandPredictionServiceImplTest {
             SELLER_ID,
             "Nike Air Force",
             new BigDecimal("2500000.00"),
+            new BigDecimal("1800000.00"),
             ProductStatus.ACTIVE
         );
     }
