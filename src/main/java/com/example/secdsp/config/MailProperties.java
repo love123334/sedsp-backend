@@ -19,4 +19,10 @@ public class MailProperties {
     int otpExpirationMinutes;
     int resendCooldownSeconds;
     int maxResendAttempts;
+
+    /** Resend HTTPS API key — preferred on Railway Hobby (SMTP ports blocked). */
+    String resendApiKey;
+
+    /** Full URL for POST /emails (default https://api.resend.com/emails). */
+    String resendApiUrl = "https://api.resend.com/emails";
 }

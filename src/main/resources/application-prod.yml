@@ -82,7 +82,7 @@ management:
     mail:
       enabled: false
 
-# app.mail.from inherits MAIL_FROM from application.yml — set MAIL_* on Railway for OTP email
+# OTP mail on Railway Hobby: set RESEND_API_KEY (+ MAIL_FROM). SMTP (MAIL_*) stays blocked on free/hobby.
 
 logging:
   level:

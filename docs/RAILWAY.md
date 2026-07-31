@@ -57,19 +57,20 @@ JWT_SECRET=<chuỗi ≥32 ký tự>
 CORS_ALLOWED_ORIGINS=https://YOUR-VERCEL.vercel.app,https://*.vercel.app,http://localhost:5173
 FRONTEND_BASE_URL=https://YOUR-VERCEL.vercel.app
 
-# Gmail OTP (cùng tài khoản đang dùng local) — App Password, không phải mật khẩu Gmail thường
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USERNAME=sedsp.official@gmail.com
-MAIL_PASSWORD=<gmail-app-password>
-MAIL_FROM=sedsp.official@gmail.com
+# --- OTP email (Railway Hobby blocks outbound SMTP 25/465/587) ---
+# Dùng Resend HTTPS API — bắt buộc trên Free/Trial/Hobby:
+RESEND_API_KEY=re_xxxxxxxx
+# Test (chưa verify domain): chỉ gửi được tới email chủ Resend account
+MAIL_FROM=SEDSP <onboarding@resend.dev>
+# Prod (đã verify domain trên resend.com/domains):
+# MAIL_FROM=SEDSP <noreply@yourdomain.com>
 
-# Nếu log báo "Couldn't connect to host smtp.gmail.com:587" (Railway block SMTP):
-# thử SSL 465:
-#   MAIL_PORT=465
-#   MAIL_SMTP_SSL=true
-#   MAIL_SMTP_STARTTLS=false
-# hoặc SMTP qua Brevo/SendGrid/Resend (HTTPS API ổn định hơn Gmail từ cloud).
+# Gmail SMTP chỉ dùng được local / Railway Pro — Hobby sẽ Connect timed out:
+# MAIL_HOST=smtp.gmail.com
+# MAIL_PORT=587
+# MAIL_USERNAME=sedsp.official@gmail.com
+# MAIL_PASSWORD=<gmail-app-password>
+# MAIL_FROM=sedsp.official@gmail.com
 ```
 
 ## Vercel FE

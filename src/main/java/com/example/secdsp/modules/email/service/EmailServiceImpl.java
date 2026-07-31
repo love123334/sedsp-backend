@@ -5,17 +5,30 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
 
+    private static final String RESEND_TEST_FROM = "SEDSP <onboarding@resend.dev>";
+
     private final JavaMailSender mailSender;
     private final MailProperties mailProperties;
+    private final RestTemplate restTemplate;
 
     @Override
     public void sendOtp(String toEmail, String otp) {
@@ -74,12 +87,83 @@ public class EmailServiceImpl implements EmailService {
     }
 
     private void sendHtmlEmail(String toEmail, String subject, String content) {
+        if (isResendConfigured()) {
+            sendViaResend(toEmail, subject, content);
+            return;
+        }
+        sendViaSmtp(toEmail, subject, content);
+    }
+
+    private boolean isResendConfigured() {
+        String key = mailProperties.getResendApiKey();
+        return key != null && !key.isBlank();
+    }
+
+    /**
+     * HTTPS API — works on Railway Hobby where outbound SMTP (25/465/587) is blocked.
+     */
+    private void sendViaResend(String toEmail, String subject, String content) {
+        String from = resolveResendFrom();
+        String html = replaceCidLogoWithText(content);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("from", from);
+        body.put("to", List.of(toEmail));
+        body.put("subject", subject);
+        body.put("html", html);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(mailProperties.getResendApiKey().trim());
+        // Resend rejects requests without User-Agent (403 / error 1010)
+        headers.set(HttpHeaders.USER_AGENT, "sedsp-backend/1.0");
+
+        String url = mailProperties.getResendApiUrl() == null || mailProperties.getResendApiUrl().isBlank()
+            ? "https://api.resend.com/emails"
+            : mailProperties.getResendApiUrl().trim();
+
+        try {
+            @SuppressWarnings("rawtypes")
+            ResponseEntity<Map> res = restTemplate.postForEntity(
+                url,
+                new HttpEntity<>(body, headers),
+                Map.class
+            );
+            if (!res.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("Resend HTTP " + res.getStatusCode().value()
+                    + (res.getBody() != null ? ": " + res.getBody() : ""));
+            }
+            Object id = res.getBody() != null ? res.getBody().get("id") : null;
+            log.info("Email sent via Resend to {} id={}", toEmail, id);
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            log.error("Resend API HTTP {} for {}: {}", e.getStatusCode().value(), toEmail, e.getResponseBodyAsString());
+            throw new RuntimeException(
+                "Unable to send email via Resend (" + e.getStatusCode().value() + "): "
+                    + e.getResponseBodyAsString()
+            );
+        } catch (RestClientException e) {
+            log.error("Resend API failed for {}", toEmail, e);
+            throw new RuntimeException("Unable to send email via Resend: " + e.getMessage());
+        }
+    }
+
+    private String resolveResendFrom() {
+        String from = mailProperties.getFrom();
+        if (from != null && !from.isBlank() && !from.startsWith("your_email")) {
+            return from.trim();
+        }
+        // Resend test sender — only delivers to the Resend account owner until a domain is verified
+        return RESEND_TEST_FROM;
+    }
+
+    private void sendViaSmtp(String toEmail, String subject, String content) {
         String username = System.getenv("MAIL_USERNAME");
         String from = mailProperties.getFrom();
         if ((from == null || from.isBlank() || from.startsWith("your_email"))
             && (username == null || username.isBlank())) {
             throw new RuntimeException(
-                "Mail chua cau hinh. Dat MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM tren Railway."
+                "Mail chua cau hinh. Dat RESEND_API_KEY (+ MAIL_FROM) tren Railway, "
+                    + "hoac MAIL_USERNAME / MAIL_PASSWORD / MAIL_FROM (SMTP — can Pro)."
             );
         }
         try {
@@ -97,15 +181,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setTo(toEmail);
             helper.setSubject(subject);
 
-            String html = hasLogo
-                ? content
-                : content.replace(
-                    "<img src='cid:logoImage' width=\"120\" style=\"margin-bottom:18px\"/>",
-                    "<div style=\"font-size:20px;font-weight:700;color:#0f172a;margin-bottom:16px\">SEDSP</div>"
-                ).replace(
-                    "<img src='cid:logoImage' width=\"130\" style=\"margin-bottom:25px\"/>",
-                    "<div style=\"font-size:22px;font-weight:700;color:#0f172a;margin-bottom:20px\">SEDSP</div>"
-                );
+            String html = hasLogo ? content : replaceCidLogoWithText(content);
             helper.setText(html, true);
 
             if (hasLogo) {
@@ -113,11 +189,23 @@ public class EmailServiceImpl implements EmailService {
             }
 
             mailSender.send(message);
-            log.info("Email sent successfully to {}", toEmail);
+            log.info("Email sent via SMTP to {}", toEmail);
         } catch (Exception e) {
             log.error("Error sending email to {}", toEmail, e);
             throw new RuntimeException("Unable to send email at the moment: " + e.getMessage());
         }
+    }
+
+    private static String replaceCidLogoWithText(String content) {
+        return content
+            .replace(
+                "<img src='cid:logoImage' width=\"120\" style=\"margin-bottom:18px\"/>",
+                "<div style=\"font-size:20px;font-weight:700;color:#0f172a;margin-bottom:16px\">SEDSP</div>"
+            )
+            .replace(
+                "<img src='cid:logoImage' width=\"130\" style=\"margin-bottom:25px\"/>",
+                "<div style=\"font-size:22px;font-weight:700;color:#0f172a;margin-bottom:20px\">SEDSP</div>"
+            );
     }
 
     private String buildOtpTemplate(String otp) {
