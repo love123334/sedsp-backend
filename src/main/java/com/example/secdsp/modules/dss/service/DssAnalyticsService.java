@@ -15,7 +15,6 @@ import com.example.secdsp.modules.order.repository.OrderItemRepository;
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.repository.ProductRepository;
 import com.example.secdsp.modules.user.entity.UserRole;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -42,7 +41,6 @@ public class DssAnalyticsService {
     private final InventoryRepository inventoryRepository;
     private final HuggingFaceChatService huggingFaceChatService;
     private final PowerBiProperties powerBiProperties;
-    private final ObjectMapper objectMapper;
 
     private Long requireUserId() {
         Long id = SecurityUtils.getCurrentUserId();
@@ -296,24 +294,19 @@ public class DssAnalyticsService {
             topProducts.add(m);
         }
 
+        long lowStock = inv.getRows().stream().filter(r -> "need".equals(r.get("status"))).count();
         Map<String, Object> metrics = new LinkedHashMap<>();
         metrics.put("sellerId", sellerId);
         metrics.put("inventoryOverall", inv.getOverallStatus());
         metrics.put("inventoryMessage", inv.getRecommendationMessage());
-        metrics.put("lowStockCount", inv.getRows().stream().filter(r -> "need".equals(r.get("status"))).count());
+        metrics.put("lowStockCount", lowStock);
         metrics.put("topProducts", topProducts);
-        metrics.put("powerBiFeed", "/api/v1/analytics/powerbi/sales");
 
-        String json;
-        try {
-            json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(metrics);
-        } catch (Exception e) {
-            json = metrics.toString();
-        }
-
-        String commentary = huggingFaceChatService.generateInsightPlan(json);
+        // Brief tiếng Việt cho AI — tránh field kỹ thuật / endpoint làm model "xì" ra UI
+        String brief = buildSellerInsightBrief(inv.getOverallStatus(), inv.getRecommendationMessage(), lowStock, topProducts);
+        String commentary = huggingFaceChatService.generateInsightPlan(brief);
         String source = huggingFaceChatService.isConfigured()
-            ? "huggingface+sedsp-metrics"
+            ? "ai+sedsp-metrics"
             : "rule-based+sedsp-metrics";
 
         String embed = powerBiProperties.getEmbedUrl();
@@ -334,6 +327,42 @@ public class DssAnalyticsService {
             )
             .generatedAt(now())
             .build();
+    }
+
+    private static String buildSellerInsightBrief(
+        String inventoryOverall,
+        String inventoryMessage,
+        long lowStockCount,
+        List<Map<String, Object>> topProducts
+    ) {
+        String statusVi = switch (inventoryOverall == null ? "" : inventoryOverall) {
+            case "need" -> "cần bổ sung hàng";
+            case "ok", "sufficient" -> "ổn định";
+            case "overstock" -> "tồn cao";
+            default -> inventoryOverall == null || inventoryOverall.isBlank() ? "chưa rõ" : inventoryOverall;
+        };
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Tóm tắt kinh doanh (dùng để viết nhận xét cho người bán):\n");
+        sb.append("- Tình trạng tồn kho tổng thể: ").append(statusVi).append('\n');
+        sb.append("- Số mặt hàng cần nhập thêm: ").append(lowStockCount).append('\n');
+        if (inventoryMessage != null && !inventoryMessage.isBlank()) {
+            sb.append("- Gợi ý tồn kho: ").append(inventoryMessage).append('\n');
+        }
+        sb.append("- Sản phẩm bán chạy:\n");
+        if (topProducts == null || topProducts.isEmpty()) {
+            sb.append("  (chưa có đơn giao thành công gần đây)\n");
+        } else {
+            int i = 1;
+            for (Map<String, Object> p : topProducts) {
+                sb.append("  ").append(i++).append(". ")
+                    .append(String.valueOf(p.get("name")))
+                    .append(" — đã bán ").append(String.valueOf(p.get("qty")))
+                    .append(" sp, doanh thu ").append(String.valueOf(p.get("revenue")))
+                    .append("đ\n");
+            }
+        }
+        return sb.toString();
     }
 
     private static int clamp(int v, int min, int max) {

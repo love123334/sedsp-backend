@@ -58,14 +58,15 @@ public interface OrderItemRepository
     List<Object[]> calculateMonthlyRevenue(Long sellerId);
 
     @Query("""
-        select oi.product.id,
-               oi.productNameAtPurchase,
+        select p.id,
+               p.name,
                sum(oi.quantity),
                sum(oi.subtotal)
         from OrderItem oi
+        join oi.product p
         where oi.seller.id = :sellerId
-        and oi.order.status = 'DELIVERED'
-        group by oi.product.id, oi.productNameAtPurchase
+          and oi.order.status = 'DELIVERED'
+        group by p.id, p.name
         order by sum(oi.quantity) desc
         """)
     List<Object[]> findTopSellingProducts(Long sellerId);

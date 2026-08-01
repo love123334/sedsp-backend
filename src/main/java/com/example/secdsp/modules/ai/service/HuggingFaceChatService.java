@@ -122,9 +122,9 @@ public class HuggingFaceChatService {
         }
     }
 
-    public String generateInsightPlan(String metricsJson) {
+    public String generateInsightPlan(String metricsBrief) {
         if (!isConfigured()) {
-            return ruleBasedPlan(metricsJson);
+            return sanitizeInsightCommentary(ruleBasedPlan());
         }
 
         AiChatRequest req = new AiChatRequest();
@@ -133,46 +133,114 @@ public class HuggingFaceChatService {
         AiChatRequest.ChatTurn system = new AiChatRequest.ChatTurn();
         system.setRole("system");
         system.setContent(
-            "Bạn là chuyên gia DSS thương mại điện tử (SEDSP). "
-                + "Dựa trên số liệu JSON, viết tiếng Việt CÓ DẤU: "
-                + "(1) Nhận xét tình hình 3-5 câu, "
-                + "(2) Kế hoạch hành động 4-6 bước cụ thể, "
-                + "(3) Rủi ro cần theo dõi. "
-                + "Không bịa số liệu ngoài JSON. Dùng markdown ngắn gọn. "
-                + "KHÔNG chèn JSON thô, metrics snapshot, hay ghi chú kỹ thuật vào câu trả lời."
+            """
+            Bạn là cố vấn kinh doanh SEDSP cho người bán trên sàn thương mại điện tử.
+            Viết tiếng Việt có đầy đủ dấu, giọng chuyên nghiệp, dễ hiểu.
+
+            BẮT BUỘC đúng 3 mục markdown (không thiếu mục nào):
+            ## Nhận xét tình hình
+            (3–5 câu, nêu tồn kho và sản phẩm bán chạy bằng tên thương mại)
+
+            ## Kế hoạch hành động
+            (4–6 bước đánh số, cụ thể, có thể làm ngay)
+
+            ## Rủi ro cần theo dõi
+            (2–4 gạch đầu dòng; KHÔNG được để trống)
+
+            CẤM:
+            - Tiếng Trung / Anh / ngôn ngữ khác xen vào
+            - Tiêu đề không dấu (vd: "Nhan xet", "Ke hoach")
+            - Endpoint API, đường dẫn /api/..., tên biến kỹ thuật (topProducts, productId, lowStockCount, inventoryMessage, ROP, SKU JSON…)
+            - JSON thô, metrics snapshot, hướng dẫn cấu hình token
+
+            Chỉ dùng số liệu trong phần tóm tắt người dùng cung cấp; không bịa thêm.
+            """.stripIndent()
         );
         turns.add(system);
 
         AiChatRequest.ChatTurn user = new AiChatRequest.ChatTurn();
         user.setRole("user");
-        user.setContent("So lieu DSS / Power BI feed:\n" + metricsJson);
+        user.setContent(metricsBrief);
         turns.add(user);
 
         req.setMessages(turns);
         try {
-            return chat(req).getContent();
+            return sanitizeInsightCommentary(chat(req).getContent());
         } catch (Exception e) {
             log.warn("Insight AI fallback: {}", e.getMessage());
-            return ruleBasedPlan(metricsJson);
+            return sanitizeInsightCommentary(ruleBasedPlan());
         }
     }
 
-    private String ruleBasedPlan(String metricsJson) {
-        // Không nhúng metrics JSON vào UI — chỉ kế hoạch tiếng Việt có dấu
+    /** Làm sạch / chuẩn hóa commentary trước khi trả UI */
+    static String sanitizeInsightCommentary(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return ruleBasedPlan();
+        }
+        String text = raw.trim();
+        // Bỏ đường dẫn API / endpoint
+        text = text.replaceAll("(?i)/api/v1/[^\\s)\\]]+", "");
+        text = text.replaceAll("(?i)https?://\\S+", "");
+        text = text.replaceAll("(?i)\\b(powerbiFeed|topProducts|productId|lowStockCount|inventoryMessage|inventoryOverall|sellerId)\\b", "");
+        // Bỏ ký tự CJK (Trung/Nhật/Hàn) lẫn vào
+        text = text.replaceAll("[\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uf900-\\ufaff\\uac00-\\ud7af]+", "");
+        // Chuẩn hóa tiêu đề (## hoặc **...**) không dấu → có dấu markdown ##
+        text = text.replaceAll("(?im)^(?:#{1,3}\\s*|\\*{1,2}\\s*)Nhan\\s*xet(?:\\s+tinh\\s+hinh)?\\s*\\*{0,2}\\s*$", "## Nhận xét tình hình");
+        text = text.replaceAll("(?im)^(?:#{1,3}\\s*|\\*{1,2}\\s*)Ke\\s*hoach(?:\\s+hanh\\s+dong)?\\s*\\*{0,2}\\s*$", "## Kế hoạch hành động");
+        text = text.replaceAll("(?im)^(?:#{1,3}\\s*|\\*{1,2}\\s*)Rui\\s*ro(?:\\s+can\\s+theo\\s+doi)?\\s*\\*{0,2}\\s*$", "## Rủi ro cần theo dõi");
+        text = text.replaceAll("(?im)^(?:#{1,3}\\s*|\\*{1,2}\\s*)Nhận xét(?:\\s*\\([^)]*\\))?\\s*\\*{0,2}\\s*$", "## Nhận xét tình hình");
+        text = text.replaceAll("(?im)^(?:#{1,3}\\s*|\\*{1,2}\\s*)Nhận xét tình hình\\s*\\*{0,2}\\s*$", "## Nhận xét tình hình");
+        text = text.replaceAll("(?im)^(?:#{1,3}\\s*|\\*{1,2}\\s*)Kế hoạch(?:\\s+hành động|\\s+đề xuất)?(?:\\s*\\([^)]*\\))?\\s*\\*{0,2}\\s*$", "## Kế hoạch hành động");
+        text = text.replaceAll("(?im)^(?:#{1,3}\\s*|\\*{1,2}\\s*)Rủi ro(?:\\s+cần theo dõi)?\\s*\\*{0,2}\\s*$", "## Rủi ro cần theo dõi");
+        // Bỏ block metrics còn sót
+        text = text.replaceAll("(?is)\\n*-{2,}\\s*\\n*Metrics snapshot:.*$", "");
+        text = text.replaceAll("(?is)\\n*Metrics snapshot:.*$", "");
+        text = text.replaceAll("[ \\t]{2,}", " ");
+        text = text.replaceAll("\\n{3,}", "\n\n").trim();
+
+        boolean hasNhanXet = text.matches("(?is).*##\\s*Nhận xét.*");
+        boolean hasKeHoach = text.matches("(?is).*##\\s*Kế hoạch.*");
+        boolean hasRuiRo = text.matches("(?is).*##\\s*Rủi ro.*");
+        if (!hasNhanXet || !hasKeHoach) {
+            return ruleBasedPlan();
+        }
+        if (!hasRuiRo || risksSectionEmpty(text)) {
+            text = text.replaceAll("(?is)\\n*##\\s*Rủi ro[^\\n]*\\s*$", "").trim();
+            text = text + "\n\n## Rủi ro cần theo dõi\n"
+                + "- Tồn kho không theo kịp nhu cầu thực tế nếu chậm nhập hàng.\n"
+                + "- Số liệu bán chạy thay đổi nhanh khi có khuyến mãi đột xuất.\n"
+                + "- Thiếu theo dõi hàng ngày dễ bỏ lỡ sản phẩm sắp hết.";
+        }
+        return text.trim();
+    }
+
+    private static boolean risksSectionEmpty(String text) {
+        int idx = text.toLowerCase().indexOf("## rủi ro");
+        if (idx < 0) {
+            return true;
+        }
+        String after = text.substring(idx).replaceFirst("(?is)^##\\s*Rủi ro[^\\n]*\\n*", "").trim();
+        // Hết file hoặc chỉ còn heading khác ngay sau
+        return after.isEmpty() || after.startsWith("##");
+    }
+
+    private static String ruleBasedPlan() {
         return """
-            ## Nhận xét
-            Hệ thống đã tổng hợp số liệu bán hàng / tồn kho từ SEDSP.
-            AI chưa bật — đang dùng kế hoạch mẫu dựa trên dữ liệu hiện có.
+            ## Nhận xét tình hình
+            Hệ thống đã tổng hợp tình hình bán hàng và tồn kho hiện có trên SEDSP.
+            Bạn nên ưu tiên các mặt hàng bán chạy và kiểm tra sản phẩm sắp hết để tránh gián đoạn bán.
 
-            ## Kế hoạch đề xuất
-            1. Kiểm tra SKU tồn thấp và ưu tiên nhập hàng.
-            2. Theo dõi sản phẩm bán chạy để đảm bảo cung ứng.
-            3. Thử nghiệm giảm giá 5–10% trên sản phẩm bán chậm (what-if).
-            4. Đồng bộ báo cáo Power BI hàng ngày qua API analytics.
-            5. Sau khi cấu hình OPENROUTER_API_KEY và AI_ENABLED=true, tải lại trang để sinh nhận xét tự động.
+            ## Kế hoạch hành động
+            1. Rà soát sản phẩm tồn thấp và lên lịch nhập hàng trong tuần này.
+            2. Đảm bảo nguồn cung cho các mặt hàng đang bán chạy.
+            3. Thử giảm giá nhẹ (5–10%) với sản phẩm bán chậm để đẩy hàng.
+            4. Theo dõi doanh thu và tồn kho mỗi ngày trên trang DSS / Doanh số.
+            5. Sau 7 ngày, đánh giá lại hiệu quả nhập hàng và điều chỉnh kế hoạch.
 
-            ## Rủi ro
-            Thiếu token AI hoặc dữ liệu đơn hàng ít có thể làm giảm độ tin cậy dự báo.
+            ## Rủi ro cần theo dõi
+            - Nhập chậm có thể khiến mặt hàng bán chạy bị hết tồn.
+            - Dữ liệu đơn hàng ít sẽ làm dự báo nhu cầu kém chính xác hơn.
+            - Khuyến mãi đột xuất có thể làm lệch nhu cầu so với kế hoạch ban đầu.
             """.stripIndent();
     }
 }
