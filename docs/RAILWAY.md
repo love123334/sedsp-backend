@@ -78,6 +78,11 @@ VNPAY_HASH_SECRET=<secret từ email VNPAY>
 VNPAY_PAY_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
 VNPAY_RETURN_URL=https://sedsp-api-production.up.railway.app/api/v1/payments/vnpay-return
 VNPAY_IPN_URL=https://sedsp-api-production.up.railway.app/api/v1/payments/vnpay-ipn
+
+# Local test IPN: VNPay/MoMo gọi server→server nên localhost không nhận được.
+# Chạy `ngrok http 8080`, rồi set trong application-dev.yml:
+#   app.payment.vnpay.ipn-url=https://xxxx.ngrok-free.dev/api/v1/payments/vnpay-ipn
+# Railway đã public → không cần ngrok.
 ```
 
 ## Vercel FE

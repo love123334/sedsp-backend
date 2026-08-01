@@ -1,0 +1,86 @@
+# Copy → application-dev.yml (gitignored) rồi điền secret thật.
+#   copy src\main\resources\application-dev.example.yml src\main\resources\application-dev.yml
+#
+# VNPay/MoMo IPN cần URL public khi test local:
+#   ngrok http 8080  →  cập nhật ipn-url / notify-url bên dưới
+# Railway đã public → không cần ngrok (dùng VNPAY_* env trên Railway).
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/sedsp
+    username: postgres
+    password: your_local_db_password
+    driver-class-name: org.postgresql.Driver
+
+  config:
+    import: optional:classpath:application-local.yml
+
+  redis:
+    host: localhost
+    port: 6379
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    repair-on-migrate: true
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: your_email@gmail.com
+    password: your_gmail_app_password
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: your_google_client_id
+            client-secret: your_google_client_secret
+
+app:
+  mail:
+    from: your_email@gmail.com
+    logo-path: static/images/sedsp-logo.png
+    otp-expiration-minutes: 5
+    resend-cooldown-seconds: 60
+    max-resend-attempts: 5
+  cloudinary:
+    cloud-name: your_cloud_name
+    api-key: your_api_key
+    api-secret: your_api_secret
+  oauth2:
+    redirect-uri: http://localhost:5173/oauth2-success
+  frontend:
+    base-url: http://localhost:5173
+
+  payment:
+    vnpay:
+      tmn-code: CU183B14
+      secret-key: your_vnpay_hash_secret
+      pay-url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+      return-url: http://localhost:8080/api/v1/payments/vnpay-return
+      # BẮT BUỘC public (ngrok). Đổi mỗi khi restart ngrok free.
+      ipn-url: https://YOUR_NGROK.ngrok-free.dev/api/v1/payments/vnpay-ipn
+    momo:
+      partner-code: MOMO
+      access-key: your_momo_access_key
+      secret-key: your_momo_secret_key
+      endpoint: https://test-payment.momo.vn/v2/gateway/api/create
+      return-url: http://localhost:8080/api/v1/payments/momo-return
+      notify-url: https://YOUR_NGROK.ngrok-free.dev/api/v1/payments/momo-ipn
+      request-type: captureWallet
+
+server:
+  port: 8080
