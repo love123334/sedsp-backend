@@ -115,7 +115,7 @@ public interface OrderItemRepository
                oi.product_id,
                oi.product_name_at_purchase,
                oi.quantity,
-               oi.unit_price,
+               oi.unit_price_at_purchase,
                oi.subtotal,
                oi.seller_id
         FROM order_items oi
@@ -137,7 +137,7 @@ public interface OrderItemRepository
                oi.product_id,
                oi.product_name_at_purchase,
                oi.quantity,
-               oi.unit_price,
+               oi.unit_price_at_purchase,
                oi.subtotal,
                oi.seller_id
         FROM order_items oi
