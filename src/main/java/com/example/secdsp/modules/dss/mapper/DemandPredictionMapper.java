@@ -8,7 +8,7 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface DemandPredictionMapper {
 
-    @Mapping(target = "productName", source = "product.name")
+    @Mapping(target = "productName", ignore = true)
     @Mapping(target = "predictedDemand", source = "predictedQuantity")
     @Mapping(target = "generatedAt", source = "createdAt")
     DemandPredictionResponse toResponse(DemandPrediction demandPrediction);
