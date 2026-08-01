@@ -1,6 +1,7 @@
 package com.example.secdsp.modules.dss.service;
 
 import com.example.secdsp.common.exception.BusinessException;
+import com.example.secdsp.common.exception.ForbiddenException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.dss.dto.request.GenerateDemandPredictionRequest;
@@ -12,7 +13,6 @@ import com.example.secdsp.modules.order.service.OrderService;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.entity.ProductStatus;
 import com.example.secdsp.modules.product.service.ProductService;
-import com.example.secdsp.modules.user.entity.UserRole;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -84,8 +85,6 @@ class DemandPredictionServiceImplTest {
                  mockStatic(SecurityUtils.class)) {
             securityUtils.when(SecurityUtils::getCurrentUserId)
                 .thenReturn(SELLER_ID);
-            securityUtils.when(() -> SecurityUtils.hasRole(UserRole.SELLER))
-                .thenReturn(true);
 
             DemandPredictionResponse actual =
                 demandPredictionService.generatePrediction(request);
@@ -176,13 +175,69 @@ class DemandPredictionServiceImplTest {
             .save(any());
     }
 
+    @Test
+    void generatePredictionRejectsProductOwnedByAnotherSeller() {
+        ProductInfo product = new ProductInfo(
+            PRODUCT_ID,
+            99L,
+            "Nike Air Force",
+            new BigDecimal("2500000.00"),
+            new BigDecimal("1800000.00"),
+            ProductStatus.ACTIVE
+        );
+
+        when(productService.getProductInfo(PRODUCT_ID))
+            .thenReturn(product);
+
+        try (MockedStatic<SecurityUtils> securityUtils =
+                 mockSellerSecurityContext()) {
+            assertThrows(
+                ForbiddenException.class,
+                () -> demandPredictionService.generatePrediction(
+                    buildRequest(90, 30)
+                )
+            );
+        }
+
+        verify(orderService, never())
+            .getFirstCompletedSaleDate(any());
+        verify(demandPredictionRepository, never())
+            .save(any());
+    }
+
+    @Test
+    void predictDemandUsesLatestAverageDailyDemand() {
+        DemandPrediction prediction = DemandPrediction.builder()
+            .averageDailyDemand(new BigDecimal("10.50"))
+            .build();
+
+        when(demandPredictionRepository
+            .findTopByProduct_IdOrderByCreatedAtDesc(PRODUCT_ID))
+            .thenReturn(Optional.of(prediction));
+
+        double predictedDemand = demandPredictionService
+            .predictDemand(PRODUCT_ID, 30);
+
+        assertEquals(315.0, predictedDemand);
+    }
+
+    @Test
+    void predictDemandRejectsMissingPredictionHistory() {
+        when(demandPredictionRepository
+            .findTopByProduct_IdOrderByCreatedAtDesc(PRODUCT_ID))
+            .thenReturn(Optional.empty());
+
+        assertThrows(
+            BusinessException.class,
+            () -> demandPredictionService.predictDemand(PRODUCT_ID, 30)
+        );
+    }
+
     private MockedStatic<SecurityUtils> mockSellerSecurityContext() {
         MockedStatic<SecurityUtils> securityUtils =
             mockStatic(SecurityUtils.class);
         securityUtils.when(SecurityUtils::getCurrentUserId)
             .thenReturn(SELLER_ID);
-        securityUtils.when(() -> SecurityUtils.hasRole(UserRole.SELLER))
-            .thenReturn(true);
         return securityUtils;
     }
 

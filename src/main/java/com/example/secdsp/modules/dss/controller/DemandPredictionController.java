@@ -22,7 +22,7 @@ public class DemandPredictionController {
     private final DemandPredictionService demandPredictionService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SELLER', 'MANAGER')")
+    @PreAuthorize("hasRole('SELLER')")
     public ResponseEntity<ApiResponse<DemandPredictionResponse>>
     generatePrediction(
         @Valid @RequestBody GenerateDemandPredictionRequest request

@@ -8,4 +8,6 @@ public interface PricePredictionService {
     PricePredictionResponse generatePrediction(
         GeneratePricePredictionRequest request
     );
+
+    double calculateElasticity(Long productId);
 }

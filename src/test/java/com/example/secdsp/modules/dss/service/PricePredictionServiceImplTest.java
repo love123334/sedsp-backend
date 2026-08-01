@@ -10,6 +10,7 @@ import com.example.secdsp.modules.order.service.OrderService;
 import com.example.secdsp.modules.product.dto.internal.PriceHistoryInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.entity.ProductStatus;
+import com.example.secdsp.modules.product.dto.response.PriceHistoryResponse;
 import com.example.secdsp.modules.product.service.ProductService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +26,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -265,6 +267,38 @@ class PricePredictionServiceImplTest {
                 exception.getMessage()
             );
         }
+    }
+
+    @Test
+    void calculateElasticityUsesCompletedSalesAcrossPriceRegimes() {
+        LocalDate firstSaleDate = LocalDate.now().minusDays(30);
+        LocalDate changeDate = LocalDate.now().minusDays(15);
+
+        when(orderService.getFirstCompletedSaleDate(PRODUCT_ID))
+            .thenReturn(firstSaleDate);
+        when(productService.getPriceHistory(PRODUCT_ID))
+            .thenReturn(List.of(
+                PriceHistoryResponse.builder()
+                    .oldPrice(new BigDecimal("80.00"))
+                    .newPrice(new BigDecimal("100.00"))
+                    .changedAt(changeDate.atTime(10, 0))
+                    .build()
+            ));
+        when(orderService.getCompletedQuantitySold(
+            PRODUCT_ID,
+            firstSaleDate,
+            changeDate.minusDays(1)
+        )).thenReturn(160L);
+        when(orderService.getCompletedQuantitySold(
+            PRODUCT_ID,
+            changeDate,
+            LocalDate.now()
+        )).thenReturn(40L);
+
+        double elasticity = pricePredictionService
+            .calculateElasticity(PRODUCT_ID);
+
+        assertTrue(elasticity < 0);
     }
 
     private GeneratePricePredictionRequest buildRequest() {

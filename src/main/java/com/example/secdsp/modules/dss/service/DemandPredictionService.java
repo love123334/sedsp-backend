@@ -8,4 +8,6 @@ public interface DemandPredictionService {
     DemandPredictionResponse generatePrediction(
         GenerateDemandPredictionRequest request
     );
+
+    double predictDemand(Long productId, int simulationPeriod);
 }

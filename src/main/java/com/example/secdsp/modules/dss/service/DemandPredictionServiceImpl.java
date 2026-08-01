@@ -14,7 +14,6 @@ import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.service.ProductService;
 import com.example.secdsp.modules.user.entity.User;
-import com.example.secdsp.modules.user.entity.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -111,6 +110,22 @@ public class DemandPredictionServiceImpl
         return demandPredictionMapper.toResponse(saved);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public double predictDemand(
+        Long productId,
+        int simulationPeriod
+    ) {
+        DemandPrediction latestPrediction = demandPredictionRepository
+            .findTopByProduct_IdOrderByCreatedAtDesc(productId)
+            .orElseThrow(() ->
+                new BusinessException(INSUFFICIENT_DATA_MESSAGE));
+
+        return latestPrediction.getAverageDailyDemand()
+            .multiply(BigDecimal.valueOf(simulationPeriod))
+            .doubleValue();
+    }
+
     private Long requireCurrentUserId() {
         Long currentUserId = SecurityUtils.getCurrentUserId();
 
@@ -125,8 +140,7 @@ public class DemandPredictionServiceImpl
         ProductInfo product,
         Long currentUserId
     ) {
-        if (SecurityUtils.hasRole(UserRole.SELLER)
-            && !currentUserId.equals(product.sellerId())) {
+        if (!currentUserId.equals(product.sellerId())) {
             throw new ForbiddenException(
                 "You do not have permission to generate a prediction for this product."
             );

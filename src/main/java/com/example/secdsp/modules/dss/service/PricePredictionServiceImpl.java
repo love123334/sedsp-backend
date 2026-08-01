@@ -11,6 +11,7 @@ import com.example.secdsp.modules.dss.dto.response.PriceScenarioResponse;
 import com.example.secdsp.modules.order.service.OrderService;
 import com.example.secdsp.modules.product.dto.internal.PriceHistoryInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
+import com.example.secdsp.modules.product.dto.response.PriceHistoryResponse;
 import com.example.secdsp.modules.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -123,6 +124,49 @@ public class PricePredictionServiceImpl
             .bestScenario(bestScenario)
             .scenarios(scenarios)
             .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public double calculateElasticity(Long productId) {
+        LocalDate firstSaleDate = orderService
+            .getFirstCompletedSaleDate(productId);
+
+        if (firstSaleDate == null) {
+            throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
+        }
+
+        LocalDate currentDate = LocalDate.now();
+        List<PriceHistoryInfo> priceHistories = productService
+            .getPriceHistory(productId)
+            .stream()
+            .filter(history -> isWithinRange(
+                history,
+                firstSaleDate,
+                currentDate
+            ))
+            .sorted(Comparator.comparing(
+                PriceHistoryResponse::getChangedAt
+            ))
+            .map(history -> new PriceHistoryInfo(
+                history.getOldPrice(),
+                history.getNewPrice(),
+                history.getChangedAt()
+            ))
+            .toList();
+
+        if (priceHistories.isEmpty()) {
+            throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
+        }
+
+        return calculateAverageElasticity(
+            buildPriceRegimes(
+                productId,
+                firstSaleDate,
+                currentDate,
+                priceHistories
+            )
+        ).doubleValue();
     }
 
     private List<PriceRegimeInfo> buildPriceRegimes(
@@ -333,6 +377,20 @@ public class PricePredictionServiceImpl
                 "To date cannot be in the future."
             );
         }
+    }
+
+    private boolean isWithinRange(
+        PriceHistoryResponse history,
+        LocalDate fromDate,
+        LocalDate toDate
+    ) {
+        if (history.getChangedAt() == null) {
+            return false;
+        }
+
+        LocalDate changedDate = history.getChangedAt().toLocalDate();
+        return !changedDate.isBefore(fromDate)
+            && !changedDate.isAfter(toDate);
     }
 
     private void validateProductPrices(ProductInfo product) {
