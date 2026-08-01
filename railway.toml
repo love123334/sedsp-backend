@@ -7,7 +7,8 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 # ping-only — /actuator/health returns 503 if DB indicator is DOWN
+# Flyway + public DB proxy can take several minutes on cold start
 healthcheckPath = "/actuator/health/liveness"
-healthcheckTimeout = 300
+healthcheckTimeout = 600
 restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 8
+restartPolicyMaxRetries = 10

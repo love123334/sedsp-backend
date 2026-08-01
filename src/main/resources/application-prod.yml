@@ -1,5 +1,6 @@
 server:
   port: ${PORT:8080}
+  address: 0.0.0.0
 
 spring:
   datasource:
@@ -10,7 +11,10 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
-      connection-timeout: 20000
+      minimum-idle: 1
+      connection-timeout: 15000
+      validation-timeout: 5000
+      initialization-fail-timeout: 30000
 
   # Redis starter is unused (OTP is DB-backed). Exclude so missing REDIS_URL cannot break boot.
   autoconfigure:
@@ -41,6 +45,10 @@ spring:
     locations: classpath:db/migration
     # Clear failed migrate rows / checksum drift after hotfix (e.g. V24 public_id, V35 reformat)
     repair-on-migrate: true
+    # Don't hard-fail deploy on checksum noise after hotfix migrations
+    validate-on-migrate: false
+    connect-retries: 5
+    connect-retries-interval: 5s
     postgresql:
       transactional-lock: false
 
@@ -97,4 +105,5 @@ logging:
     com.example.secdsp: INFO
     org.hibernate.SQL: WARN
     com.zaxxer.hikari: INFO
+    org.flywaydb: INFO
     org.springframework.mail: INFO

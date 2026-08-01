@@ -21,12 +21,13 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
 
     private static final String[] URL_KEYS = {
             "SPRING_DATASOURCE_URL",
-            "DATABASE_PUBLIC_URL",
-            "POSTGRES_PUBLIC_URL",
-            "DATABASE_PRIVATE_URL",
+            // Prefer private networking first (faster, fewer SSL hangs than public proxy)
             "DATABASE_URL",
+            "DATABASE_PRIVATE_URL",
             "POSTGRES_URL",
             "POSTGRES_PRIVATE_URL",
+            "DATABASE_PUBLIC_URL",
+            "POSTGRES_PUBLIC_URL",
             "JDBC_DATABASE_URL"
     };
 
@@ -160,6 +161,7 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
     }
 
     private void apply(ConfigurableEnvironment environment, String url, String user, String pass) {
+        url = ensureJdbcTimeouts(url);
         Map<String, Object> map = new HashMap<>();
         map.put("spring.datasource.url", url);
         if (StringUtils.hasText(user)) {
@@ -178,6 +180,29 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
         }
         environment.getPropertySources().addFirst(new MapPropertySource(SOURCE, map));
         System.out.println("[datasource] OK url=" + url.replaceAll("//[^@]+@", "//***@"));
+    }
+
+    /** Avoid infinite SSL/read hangs on Railway public proxy during Flyway boot. */
+    private static String ensureJdbcTimeouts(String url) {
+        if (!StringUtils.hasText(url) || !url.startsWith("jdbc:postgresql://")) {
+            return url;
+        }
+        StringBuilder extra = new StringBuilder();
+        if (!url.contains("connectTimeout=")) {
+            extra.append("connectTimeout=10");
+        }
+        if (!url.contains("socketTimeout=")) {
+            if (extra.length() > 0) extra.append('&');
+            extra.append("socketTimeout=45");
+        }
+        if (!url.contains("loginTimeout=")) {
+            if (extra.length() > 0) extra.append('&');
+            extra.append("loginTimeout=10");
+        }
+        if (extra.length() == 0) {
+            return url;
+        }
+        return url.contains("?") ? url + "&" + extra : url + "?" + extra;
     }
 
     private void excludeRedisIfMissing(ConfigurableEnvironment environment) {

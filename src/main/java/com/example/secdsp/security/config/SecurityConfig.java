@@ -70,7 +70,8 @@ public class SecurityConfig {
                     "/oauth2/**",
                     "/actuator/health",
                     "/actuator/health/**",
-                    "/actuator/info"
+                    "/actuator/info",
+                    "/healthz"
                 ).permitAll()
 
                 // Payment gateway callbacks (MoMo / VNPay)

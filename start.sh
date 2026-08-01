@@ -30,17 +30,17 @@ do
   diag_key "$k"
 done
 
-# Prefer non-empty values in this order (PUBLIC before private DATABASE_URL)
+# Prefer non-empty values: explicit JDBC → private network → public proxy
 pick=""
 pick_name=""
 for k in \
   SPRING_DATASOURCE_URL \
-  DATABASE_PUBLIC_URL \
-  POSTGRES_PUBLIC_URL \
   DATABASE_URL \
   DATABASE_PRIVATE_URL \
   POSTGRES_URL \
   POSTGRES_PRIVATE_URL \
+  DATABASE_PUBLIC_URL \
+  POSTGRES_PUBLIC_URL \
   JDBC_DATABASE_URL
 do
   v=$(printenv "$k" 2>/dev/null || true)
@@ -158,6 +158,11 @@ fi
 
 export SPRING_PROFILES_ACTIVE="${SPRING_PROFILES_ACTIVE:-prod}"
 
+echo "[env] binding server.port=${PORT:-8080} (0.0.0.0)"
 # Only safe JVM flags here — datasource comes from env / EnvironmentPostProcessor
 # shellcheck disable=SC2086
-exec java ${JAVA_OPTS:-} -Dserver.port="${PORT:-8080}" -jar /app/app.jar
+exec java ${JAVA_OPTS:--Xms256m -Xmx512m} \
+  -Dserver.port="${PORT:-8080}" \
+  -Dserver.address=0.0.0.0 \
+  -Duser.timezone=Asia/Ho_Chi_Minh \
+  -jar /app/app.jar

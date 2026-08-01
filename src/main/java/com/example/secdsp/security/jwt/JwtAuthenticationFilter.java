@@ -29,6 +29,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtProvider jwtProvider;
     private final CustomUserDetailsService customUserDetailsService;
 
+@Override
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path.startsWith("/actuator/health")
+            || path.equals("/actuator/info")
+            || path.equals("/healthz");
+    }
+
     @Override
     protected void doFilterInternal(
         @NonNull HttpServletRequest request,

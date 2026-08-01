@@ -28,7 +28,7 @@ ENV SPRING_PROFILES_ACTIVE=prod
 ENV PORT=8080
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=8 \
-  CMD curl -fsS "http://127.0.0.1:${PORT}/actuator/health/liveness" || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=10 \
+  CMD curl -fsS "http://127.0.0.1:${PORT}/actuator/health/liveness" || curl -fsS "http://127.0.0.1:${PORT}/healthz" || exit 1
 
 ENTRYPOINT ["/app/start.sh"]

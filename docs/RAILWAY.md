@@ -60,7 +60,9 @@ Error creating bean … 'jpaSharedEM_entityManagerFactory'
 3. Nếu vẫn fail: Railway → Postgres → Query:
    - `SELECT * FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 10;`
    - Xóa/repair dòng `success = false`, hoặc chạy lại deploy (app có `repair-on-migrate: true`).
-4. Ưu tiên thêm reference **private** `DATABASE_URL` (nội bộ) ngoài `DATABASE_PUBLIC_URL` để giảm proxy SSL flake.
+4. Ưu tiên reference **private** `DATABASE_URL` (nội bộ cùng project) — nhanh hơn `DATABASE_PUBLIC_URL` và ít treo SSL lúc Flyway. Public URL chỉ là fallback.
+5. Service Variables: đảm bảo có `PORT=8080` (hoặc để Railway inject). Healthcheck timeout app đặt **600s**.
+6. Deploy Logs (không phải Build Logs) mới có `==== SEDSP STARTUP FAILED — cause chain ====`.
 
 ---
 
