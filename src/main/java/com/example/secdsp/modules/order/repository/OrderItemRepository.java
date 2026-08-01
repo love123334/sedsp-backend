@@ -93,7 +93,7 @@ public interface OrderItemRepository
                oi.product_name_at_purchase,
                COALESCE(SUM(oi.quantity), 0) AS qty,
                COALESCE(SUM(oi.subtotal), 0) AS revenue,
-               COALESCE(AVG(oi.unit_price), 0) AS avg_price
+               COALESCE(AVG(oi.unit_price_at_purchase), 0) AS avg_price
         FROM order_items oi
         INNER JOIN orders o ON o.id = oi.order_id
         WHERE oi.seller_id = :sellerId

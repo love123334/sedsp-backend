@@ -133,12 +133,13 @@ public class HuggingFaceChatService {
         AiChatRequest.ChatTurn system = new AiChatRequest.ChatTurn();
         system.setRole("system");
         system.setContent(
-            "Ban la chuyen gia DSS thuong mai dien tu (SEDSP). "
-                + "Dua tren so lieu JSON, viet tieng Viet: "
-                + "(1) Nhan xet tinh hinh 3-5 cau, "
-                + "(2) Ke hoach hanh dong 4-6 buoc cu the, "
-                + "(3) Rui ro can theo doi. "
-                + "Khong bia so lieu ngoai JSON. Dung markdown ngan gon."
+            "Bạn là chuyên gia DSS thương mại điện tử (SEDSP). "
+                + "Dựa trên số liệu JSON, viết tiếng Việt CÓ DẤU: "
+                + "(1) Nhận xét tình hình 3-5 câu, "
+                + "(2) Kế hoạch hành động 4-6 bước cụ thể, "
+                + "(3) Rủi ro cần theo dõi. "
+                + "Không bịa số liệu ngoài JSON. Dùng markdown ngắn gọn. "
+                + "KHÔNG chèn JSON thô, metrics snapshot, hay ghi chú kỹ thuật vào câu trả lời."
         );
         turns.add(system);
 
@@ -157,24 +158,21 @@ public class HuggingFaceChatService {
     }
 
     private String ruleBasedPlan(String metricsJson) {
+        // Không nhúng metrics JSON vào UI — chỉ kế hoạch tiếng Việt có dấu
         return """
-            ## Nhan xet
-            He thong da tong hop so lieu ban hang / ton kho tu SEDSP (nguon web).
-            AI chua bat — dang dung ke hoach mau dua tren du lieu hien co.
+            ## Nhận xét
+            Hệ thống đã tổng hợp số liệu bán hàng / tồn kho từ SEDSP.
+            AI chưa bật — đang dùng kế hoạch mẫu dựa trên dữ liệu hiện có.
 
-            ## Ke hoach de xuat
-            1. Kiem tra SKU ton thap va uu tien nhap hang.
-            2. Theo doi SP ban chay de dam bao cung ung.
-            3. Thu nghiem giam gia 5-10%% tren SP ban cham (what-if).
-            4. Dong bo bao cao Power BI hang ngay qua API analytics.
-            5. Sau khi cau hinh OPENROUTER_API_KEY, bat lai de sinh nhan xet tu dong.
+            ## Kế hoạch đề xuất
+            1. Kiểm tra SKU tồn thấp và ưu tiên nhập hàng.
+            2. Theo dõi sản phẩm bán chạy để đảm bảo cung ứng.
+            3. Thử nghiệm giảm giá 5–10% trên sản phẩm bán chậm (what-if).
+            4. Đồng bộ báo cáo Power BI hàng ngày qua API analytics.
+            5. Sau khi cấu hình OPENROUTER_API_KEY và AI_ENABLED=true, tải lại trang để sinh nhận xét tự động.
 
-            ## Rui ro
-            Thieu token AI hoac du lieu don hang it co the lam giam do tin cay du bao.
-
-            ---
-            Metrics snapshot:
-            %s
-            """.formatted(metricsJson.length() > 1200 ? metricsJson.substring(0, 1200) + "..." : metricsJson);
+            ## Rủi ro
+            Thiếu token AI hoặc dữ liệu đơn hàng ít có thể làm giảm độ tin cậy dự báo.
+            """.stripIndent();
     }
 }
