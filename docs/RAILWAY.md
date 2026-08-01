@@ -36,6 +36,34 @@ Health: `https://YOUR-APP.up.railway.app/actuator/health/liveness` → `{"status
 
 ---
 
+## Lỗi Tomcat / `jpaSharedEM_entityManagerFactory` (boot crash sau khi DB đã connect)
+
+Triệu chứng:
+
+```text
+[datasource] OK url=jdbc:postgresql://…
+Flyway: Database: jdbc:postgresql://… (PostgreSQL 18.x)
+Flyway upgrade recommended: PostgreSQL 18…
+Error creating bean … 'jpaSharedEM_entityManagerFactory'
+```
+
+**Nguyên nhân thường gặp**
+
+1. **Flyway migration fail** (checksum V24/V35, enum payment, …) → JPA không tạo được `EntityManagerFactory` (lỗi Tomcat chỉ là hệ quả).
+2. Postgres **18** trên Railway + Flyway cũ → warning / edge-case; app đã pin Flyway **11.14.1**.
+3. `ddl-auto: validate` lệch schema nhẹ → crash; prod đã chuyển **`ddl-auto: none`** (Flyway là source of truth).
+
+**Fix**
+
+1. Redeploy `sedsp-api` (nhánh `railway` / `main` mới nhất).
+2. Trong Deploy Logs tìm dòng `==== SEDSP STARTUP FAILED — cause chain ====` (root cause Flyway/SQL).
+3. Nếu vẫn fail: Railway → Postgres → Query:
+   - `SELECT * FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 10;`
+   - Xóa/repair dòng `success = false`, hoặc chạy lại deploy (app có `repair-on-migrate: true`).
+4. Ưu tiên thêm reference **private** `DATABASE_URL` (nội bộ) ngoài `DATABASE_PUBLIC_URL` để giảm proxy SSL flake.
+
+---
+
 ## Setup nhanh
 
 1. GitHub → `love123334/sedsp-backend` branch **`railway`** hoặc **`main`**

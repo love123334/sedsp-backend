@@ -31,6 +31,8 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        objectMapper.writeValue(response.getOutputStream(), ApiResponse.error("Authentication failed"));
+        objectMapper.writeValue(response.getOutputStream(), ApiResponse.error(
+            "Phiên đăng nhập hết hạn hoặc thiếu token. Vui lòng đăng nhập lại."
+        ));
     }
 }

@@ -1,5 +1,6 @@
 package com.example.secdsp;
 
+import com.example.secdsp.config.StartupFailureLogger;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -7,7 +8,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class SecdspApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(SecdspApplication.class, args);
+		SpringApplication app = new SpringApplication(SecdspApplication.class);
+		app.addListeners(new StartupFailureLogger());
+		app.run(args);
 	}
 
 }

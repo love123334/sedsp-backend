@@ -17,6 +17,10 @@ repositories {
     mavenCentral()
 }
 
+// Railway Postgres is often 18.x — Boot 3.5.14 manages Flyway 11.7.2 (PG≤17 warning).
+// Pin a newer Flyway that recognizes PostgreSQL 18 cleanly.
+extra["flyway.version"] = "11.14.1"
+
 // Version management
 val mapstructVersion = "1.6.3"
 val lombokMapstructBindingVersion = "0.2.0"
