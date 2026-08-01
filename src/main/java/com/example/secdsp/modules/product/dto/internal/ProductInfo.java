@@ -9,5 +9,6 @@ public record ProductInfo(
     Long sellerId,
     String name,
     BigDecimal price,
+    BigDecimal costPrice,
     ProductStatus status
 ) {}

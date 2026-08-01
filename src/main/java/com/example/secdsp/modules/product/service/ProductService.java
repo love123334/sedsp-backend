@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.product.service;
 
+import com.example.secdsp.modules.product.dto.internal.PriceHistoryInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductSummaryInfo;
 import com.example.secdsp.modules.product.dto.request.CreateProductRequest;
@@ -10,6 +11,7 @@ import com.example.secdsp.modules.product.dto.response.ProductResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface ProductService {
@@ -32,6 +34,12 @@ public interface ProductService {
     ProductInfo getProductInfo(Long id);
 
     List<PriceHistoryResponse> getPriceHistory(Long productId);
+
+    List<PriceHistoryInfo> getPriceHistoryInfo(
+        Long productId,
+        LocalDate fromDate,
+        LocalDate toDate
+    );
 
     ProductSummaryInfo getSellerProductSummary(Long sellerId);
 }

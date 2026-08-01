@@ -8,6 +8,7 @@ import com.example.secdsp.infrastructure.cloudinary.CloudinaryService;
 import com.example.secdsp.modules.category.dto.internal.CategoryInfo;
 import com.example.secdsp.modules.category.entity.Category;
 import com.example.secdsp.modules.category.service.CategoryService;
+import com.example.secdsp.modules.product.dto.internal.PriceHistoryInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductSummaryInfo;
 import com.example.secdsp.modules.product.dto.request.*;
@@ -37,6 +38,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -254,6 +256,7 @@ public class ProductServiceImpl implements ProductService {
                 : null,
             product.getName(),
             product.getPrice(),
+            product.getCostPrice(),
             product.getStatus()
         );
     }
@@ -273,6 +276,28 @@ public class ProductServiceImpl implements ProductService {
                 .findByProduct_IdOrderByChangedAtDesc(productId);
 
         return priceHistoryMapper.toResponse(histories);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PriceHistoryInfo> getPriceHistoryInfo(
+        Long productId,
+        LocalDate fromDate,
+        LocalDate toDate
+    ) {
+        return priceHistoryRepository
+            .findByProductAndDateRange(
+                productId,
+                fromDate.atStartOfDay(),
+                toDate.plusDays(1).atStartOfDay()
+            )
+            .stream()
+            .map(history -> new PriceHistoryInfo(
+                history.getOldPrice(),
+                history.getNewPrice(),
+                history.getChangedAt()
+            ))
+            .toList();
     }
 
     @Override
