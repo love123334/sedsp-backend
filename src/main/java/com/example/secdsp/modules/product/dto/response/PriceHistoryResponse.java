@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Getter
 @Builder
@@ -16,5 +16,5 @@ public class PriceHistoryResponse {
     Long id;
     BigDecimal oldPrice;
     BigDecimal newPrice;
-    LocalDateTime changedAt;
+    OffsetDateTime changedAt;
 }

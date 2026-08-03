@@ -3,7 +3,7 @@ package com.example.secdsp.modules.category.dto.response;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Data
 @Builder
@@ -16,5 +16,5 @@ public class CategoryResponse {
     String slug;
     Long parentId;
     String parentName;
-    LocalDateTime createdAt;
+    OffsetDateTime createdAt;
 }

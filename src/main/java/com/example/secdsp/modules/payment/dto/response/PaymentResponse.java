@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Getter
 @Builder
@@ -22,6 +22,6 @@ public class PaymentResponse {
     PaymentStatus status;
     String transactionId;
     String currency;
-    LocalDateTime paidAt;
+    OffsetDateTime paidAt;
     String redirectUrl;
 }

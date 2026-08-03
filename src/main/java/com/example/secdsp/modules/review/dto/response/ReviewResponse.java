@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.review.dto.response;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public record ReviewResponse(
     Long id,
@@ -8,5 +8,6 @@ public record ReviewResponse(
     String userName,
     Integer rating,
     String comment,
-    LocalDateTime createdAt
-) {}
+    OffsetDateTime createdAt
+) {
+}

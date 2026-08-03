@@ -33,7 +33,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Slf4j
 @Service
@@ -248,7 +248,7 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
-        if (latestOtp.getExpiryTime().isBefore(LocalDateTime.now())) {
+        if (latestOtp.getExpiryTime().isBefore(OffsetDateTime.now())) {
             throw new BusinessException("OTP expired", HttpStatus.BAD_REQUEST);
         }
 

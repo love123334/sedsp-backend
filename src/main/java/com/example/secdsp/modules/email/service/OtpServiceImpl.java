@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -27,10 +27,10 @@ public class OtpServiceImpl implements OtpService {
         emailOtp.setEmail(email);
         emailOtp.setOtp(otp);
         emailOtp.setExpiryTime(
-            LocalDateTime.now()
+            OffsetDateTime.now()
                 .plusMinutes(mailProperties.getOtpExpirationMinutes()));
         emailOtp.setUsed(false);
-        emailOtp.setCreatedAt(LocalDateTime.now());
+        emailOtp.setCreatedAt(OffsetDateTime.now());
         emailOtp.setResendCount(0);
 
         emailOtpRepository.save(emailOtp);
@@ -48,7 +48,7 @@ public class OtpServiceImpl implements OtpService {
 
         if (latestOtp.getCreatedAt()
             .plusSeconds(mailProperties.getResendCooldownSeconds())
-            .isAfter(LocalDateTime.now())) {
+            .isAfter(OffsetDateTime.now())) {
 
             throw new BusinessException(
                 "Please wait before requesting another OTP",
@@ -56,7 +56,7 @@ public class OtpServiceImpl implements OtpService {
             );
         }
 
-       if (latestOtp.getResendCount() >= mailProperties.getMaxResendAttempts()) {
+        if (latestOtp.getResendCount() >= mailProperties.getMaxResendAttempts()) {
             throw new BusinessException(
                 "Maximum resend attempts exceeded",
                 HttpStatus.TOO_MANY_REQUESTS
@@ -68,9 +68,9 @@ public class OtpServiceImpl implements OtpService {
 
         latestOtp.setOtp(newOtp);
         latestOtp.setExpiryTime(
-            LocalDateTime.now()
+            OffsetDateTime.now()
                 .plusMinutes(mailProperties.getOtpExpirationMinutes()));
-        latestOtp.setCreatedAt(LocalDateTime.now());
+        latestOtp.setCreatedAt(OffsetDateTime.now());
         latestOtp.setResendCount(latestOtp.getResendCount() + 1);
         latestOtp.setUsed(false);
         latestOtp.setVerified(false);
@@ -92,7 +92,7 @@ public class OtpServiceImpl implements OtpService {
             throw new BusinessException("OTP already used", HttpStatus.BAD_REQUEST);
         }
 
-        if (emailOtp.getExpiryTime().isBefore(LocalDateTime.now())) {
+        if (emailOtp.getExpiryTime().isBefore(OffsetDateTime.now())) {
             throw new BusinessException("OTP expired", HttpStatus.BAD_REQUEST);
         }
 
