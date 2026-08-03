@@ -1,7 +1,9 @@
 package com.example.secdsp.modules.inventory.entity;
 
-public enum InventoryLogReason {
+import io.swagger.v3.oas.annotations.media.Schema;
 
+@Schema(description = "Reason for inventory adjustment")
+public enum InventoryLogReason {
     MANUAL_ADJUST,
     ORDER,
     ORDER_CANCEL,
