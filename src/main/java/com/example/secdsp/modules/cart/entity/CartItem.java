@@ -9,26 +9,12 @@ import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
 @Entity
-@Table(
-    name = "cart_items",
-    uniqueConstraints = {
-        @UniqueConstraint(
-            name = "uq_cart_product",
-            columnNames = {"cart_id", "product_id"}
-        )
-    }
-)
+@Table(name = "cart_items")
 @Getter
 @Setter
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@SQLDelete(
-    sql = """
-        UPDATE cart_items
-        SET deleted_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    """
-)
+@SQLDelete(sql = "UPDATE cart_items SET deleted_at = now() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class CartItem extends BaseEntity {
 
