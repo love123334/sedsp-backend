@@ -5,6 +5,7 @@ import com.example.secdsp.modules.order.dto.request.PayOrderRequest;
 import com.example.secdsp.modules.payment.dto.request.UpdatePaymentStatusRequest;
 import com.example.secdsp.modules.payment.dto.response.PaymentResponse;
 import com.example.secdsp.modules.payment.service.PaymentService;
+import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+@Hidden
 @RestController
 @RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
