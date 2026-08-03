@@ -4,7 +4,11 @@ import com.example.secdsp.modules.common.entity.BaseEntity;
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.user.entity.User;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -13,29 +17,26 @@ import org.hibernate.annotations.SQLRestriction;
 @Getter
 @Setter
 @NoArgsConstructor
-@SQLDelete(sql = """
-    UPDATE product_reviews
-    SET deleted_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-""")
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@SQLDelete(sql = "UPDATE product_reviews SET deleted_at = now() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class ProductReview extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    Product product;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "user_id")
+    User user;
 
     @Column(nullable = false)
-    private Integer rating;
+    Integer rating;
 
     @Column(columnDefinition = "TEXT")
-    private String comment;
+    String comment;
 }

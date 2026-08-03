@@ -7,9 +7,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "payments")
@@ -28,28 +30,46 @@ public class Payment {
     Order order;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "payment_method", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(
+        name = "payment_method",
+        nullable = false,
+        columnDefinition = "payment_method_enum"
+    )
     PaymentMethod paymentMethod;
 
-    @Column(nullable = false)
+    @Column(name = "gateway_name", length = 50)
+    String gatewayName;
+
+    @Column(nullable = false, precision = 12, scale = 2)
     BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    PaymentStatus status;
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(
+        name = "status",
+        nullable = false,
+        columnDefinition = "payment_status"
+    )
+    PaymentStatus status = PaymentStatus.PENDING;
 
     @Column(name = "transaction_id")
     String transactionId;
 
-    @Column(nullable = false)
-    String currency;
+    @Column(nullable = false, length = 10)
+    String currency = "VND";
 
     @Column(name = "gateway_response", columnDefinition = "TEXT")
     String gatewayResponse;
 
     @Column(name = "paid_at")
-    LocalDateTime paidAt;
+    OffsetDateTime paidAt;
 
-    @Column(name = "created_at", insertable = false, updatable = false)
-    LocalDateTime createdAt;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    OffsetDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = OffsetDateTime.now();
+    }
 }

@@ -3,7 +3,10 @@ package com.example.secdsp.modules.cart.entity;
 import com.example.secdsp.modules.common.entity.BaseEntity;
 import com.example.secdsp.modules.user.entity.User;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
@@ -17,13 +20,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@SQLDelete(
-    sql = """
-        UPDATE carts
-        SET deleted_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    """
-)
+@SQLDelete(sql = "UPDATE carts SET deleted_at = now() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class Cart extends BaseEntity {
 

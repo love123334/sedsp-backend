@@ -7,7 +7,8 @@ import jakarta.persistence.PreUpdate;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Getter
 @Setter
@@ -19,26 +20,26 @@ public abstract class BaseEntity {
         nullable = false,
         updatable = false
     )
-    protected LocalDateTime createdAt;
+    protected OffsetDateTime createdAt;
 
     @Column(
         name = "updated_at",
         nullable = false
     )
-    protected LocalDateTime updatedAt;
+    protected OffsetDateTime updatedAt;
 
     @Column(name = "deleted_at")
-    protected LocalDateTime deletedAt;
+    protected OffsetDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         this.createdAt = now;
         this.updatedAt = now;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
     }
 }

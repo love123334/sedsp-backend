@@ -7,8 +7,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "order_tracking")
@@ -27,7 +29,12 @@ public class OrderTracking {
     Order order;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "event", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(
+        name = "event",
+        nullable = false,
+        columnDefinition = "order_tracking_event"
+    )
     OrderTrackingEvent event;
 
     @Column(columnDefinition = "TEXT")
@@ -37,6 +44,11 @@ public class OrderTracking {
     @JoinColumn(name = "updated_by", nullable = false)
     User updatedBy;
 
-    @Column(name = "created_at", insertable = false, updatable = false)
-    LocalDateTime createdAt;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    OffsetDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = OffsetDateTime.now();
+    }
 }

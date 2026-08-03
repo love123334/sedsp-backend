@@ -16,13 +16,7 @@ import org.hibernate.annotations.SQLRestriction;
 @Setter
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@SQLDelete(
-    sql = """
-        UPDATE product_attributes
-        SET deleted_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    """
-)
+@SQLDelete(sql = "UPDATE product_attributes SET deleted_at = now() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class ProductAttribute extends BaseEntity {
 

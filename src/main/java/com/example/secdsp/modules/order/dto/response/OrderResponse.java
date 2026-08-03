@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Getter
@@ -21,6 +21,6 @@ public class OrderResponse {
     BigDecimal shippingFee;
     BigDecimal discount;
     BigDecimal total;
-    LocalDateTime createdAt;
+    OffsetDateTime createdAt;
     List<OrderItemResponse> items;
 }

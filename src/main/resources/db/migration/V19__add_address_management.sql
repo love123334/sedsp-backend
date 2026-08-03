@@ -18,7 +18,7 @@ CREATE TABLE customer_addresses
 
     is_default     BOOLEAN   DEFAULT FALSE,
 
-    created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT fk_customer_address_user
         FOREIGN KEY (user_id)
@@ -33,3 +33,7 @@ ALTER TABLE orders
     ADD CONSTRAINT fk_orders_address
         FOREIGN KEY (address_id)
             REFERENCES customer_addresses (id);
+
+CREATE UNIQUE INDEX uq_user_default_address
+    ON customer_addresses(user_id)
+    WHERE is_default = TRUE;

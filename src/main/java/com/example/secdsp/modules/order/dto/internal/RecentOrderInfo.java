@@ -4,7 +4,7 @@ import com.example.secdsp.modules.order.entity.OrderStatus;
 import lombok.Builder;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Builder
 public record RecentOrderInfo(
@@ -12,5 +12,6 @@ public record RecentOrderInfo(
     String customer,
     BigDecimal total,
     OrderStatus status,
-    LocalDateTime createdAt
-) {}
+    OffsetDateTime createdAt
+) {
+}
