@@ -1,8 +1,6 @@
 package com.example.secdsp.modules.auth.service;
 
-import com.example.secdsp.common.exception.BusinessException;
-import com.example.secdsp.common.exception.ResourceNotFoundException;
-import com.example.secdsp.common.exception.UnauthorizedException;
+import com.example.secdsp.common.exception.*;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.auth.dto.request.LoginRequest;
 import com.example.secdsp.modules.auth.dto.request.RegisterRequest;
@@ -26,7 +24,6 @@ import com.example.secdsp.security.user.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -67,7 +64,7 @@ public class AuthServiceImpl implements AuthService {
             UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
             User user = userRepository.findById(userDetails.getId())
-                .orElseThrow();
+                .orElseThrow(() -> new ResourceNotFoundException("User", userDetails.getId()));
 
             if (user.getStatus() == UserStatus.PENDING) {
                 throw new UnauthorizedException("Please verify your email first");
@@ -112,16 +109,13 @@ public class AuthServiceImpl implements AuthService {
         if (!request.getPassword()
             .equals(request.getConfirmPassword())) {
             throw new BusinessException(
-                "Password confirmation does not match",
-                HttpStatus.BAD_REQUEST
+                ErrorCode.INVALID_REQUEST,
+                "Password confirmation does not match"
             );
         }
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BusinessException(
-                "Email already exists",
-                HttpStatus.CONFLICT
-            );
+            throw new ResourceAlreadyExistsException("Email already exists");
         }
 
         Role customerRole = roleRepository.findByName(
@@ -163,15 +157,15 @@ public class AuthServiceImpl implements AuthService {
     public void resendOtp(String email) {
 
         User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new BusinessException(
-                "Invalid request",
-                HttpStatus.BAD_REQUEST
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "User with email",
+                email
             ));
 
         if (user.getStatus() != UserStatus.PENDING) {
             throw new BusinessException(
-                "Email already verified or account not eligible for OTP resend",
-                HttpStatus.BAD_REQUEST
+                ErrorCode.BUSINESS_ERROR,
+                "Email already verified or account not eligible for OTP resend"
             );
         }
 
@@ -185,20 +179,19 @@ public class AuthServiceImpl implements AuthService {
     public void forgotPassword(String email) {
 
         User user = userRepository.findByEmail(email)
-            .orElseThrow(() ->
-                             new BusinessException("Email does not exist", HttpStatus.BAD_REQUEST));
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "User with email",
+                email
+            ));
 
         if (user.getStatus() == UserStatus.BLOCKED) {
-            throw new BusinessException(
-                "Account is blocked",
-                HttpStatus.FORBIDDEN
-            );
+            throw new ForbiddenException("Account is blocked");
         }
 
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new BusinessException(
-                "Account is not active",
-                HttpStatus.BAD_REQUEST
+                ErrorCode.BUSINESS_ERROR,
+                "Account is not active"
             );
         }
 
@@ -211,9 +204,11 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void verifyResetOtp(VerifyOtpRequest request) {
 
-        User user = userRepository.findByEmail(request.getEmail())
-            .orElseThrow(() ->
-                             new BusinessException("Invalid request", HttpStatus.BAD_REQUEST));
+        userRepository.findByEmail(request.getEmail())
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "User with email",
+                request.getEmail()
+            ));
 
         otpService.validateOtp(request.getEmail(), request.getOtp());
 
@@ -227,29 +222,36 @@ public class AuthServiceImpl implements AuthService {
             .equals(request.getConfirmPassword())) {
 
             throw new BusinessException(
-                "Password confirmation does not match",
-                HttpStatus.BAD_REQUEST
+                ErrorCode.INVALID_REQUEST,
+                "Password confirmation does not match"
             );
         }
 
         User user = userRepository.findByEmail(request.getEmail())
-            .orElseThrow(() ->
-                             new BusinessException("Invalid request", HttpStatus.BAD_REQUEST));
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "User with email",
+                request.getEmail()
+            ));
 
         EmailOtp latestOtp = emailOtpRepository
             .findTopByEmailOrderByIdDesc(request.getEmail())
-            .orElseThrow(() ->
-                             new BusinessException("Invalid request", HttpStatus.BAD_REQUEST));
+            .orElseThrow(() -> new BusinessException(
+                ErrorCode.INVALID_REQUEST,
+                "OTP not found"
+            ));
 
         if (!latestOtp.isVerified()) {
             throw new BusinessException(
-                "OTP verification required",
-                HttpStatus.BAD_REQUEST
+                ErrorCode.BUSINESS_ERROR,
+                "OTP verification required"
             );
         }
 
         if (latestOtp.getExpiryTime().isBefore(OffsetDateTime.now())) {
-            throw new BusinessException("OTP expired", HttpStatus.BAD_REQUEST);
+            throw new BusinessException(
+                ErrorCode.BUSINESS_ERROR,
+                "OTP expired"
+            );
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
