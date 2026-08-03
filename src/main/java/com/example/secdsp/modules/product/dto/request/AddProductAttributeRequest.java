@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.product.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
@@ -12,13 +13,24 @@ import lombok.experimental.FieldDefaults;
 @Setter
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@Schema(description = "Request to add a product attribute")
 public class AddProductAttributeRequest {
 
+    @Schema(
+        description = "Attribute name",
+        example = "Color",
+        requiredMode = Schema.RequiredMode.REQUIRED
+    )
     @NotBlank(message = "Attribute name cannot be blank")
-    @Size(max = 100, message = "Attribute name must not exceed 100 characters")
+    @Size(max = 100)
     String attributeName;
 
+    @Schema(
+        description = "Attribute value",
+        example = "Black",
+        requiredMode = Schema.RequiredMode.REQUIRED
+    )
     @NotBlank(message = "Attribute value cannot be blank")
-    @Size(max = 255, message = "Attribute value must not exceed 255 characters")
+    @Size(max = 255)
     String attributeValue;
 }

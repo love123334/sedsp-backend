@@ -1,10 +1,7 @@
 package com.example.secdsp.modules.product.dto.response;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 @Getter
@@ -12,8 +9,15 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@Schema(description = "Product attribute")
 public class ProductAttributeResponse {
+
+    @Schema(description = "Attribute identifier", example = "8")
     Long id;
+
+    @Schema(description = "Attribute name", example = "Color")
     String attributeName;
+
+    @Schema(description = "Attribute value", example = "Black")
     String attributeValue;
 }
