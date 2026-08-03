@@ -1,38 +1,42 @@
 CREATE TABLE payments
 (
-    id                  BIGSERIAL PRIMARY KEY,
+    id               BIGSERIAL PRIMARY KEY,
 
-    order_id            BIGINT NOT NULL UNIQUE
-        REFERENCES orders(id),
+    order_id         BIGINT              NOT NULL UNIQUE
+        REFERENCES orders (id)
+            ON DELETE RESTRICT
+            ON UPDATE CASCADE,
 
-    payment_method      payment_method_enum NOT NULL,
+    payment_method   payment_method_enum NOT NULL,
 
-    gateway_name        VARCHAR(50),
+    gateway_name     VARCHAR(50),
 
-    amount              NUMERIC(12,2) NOT NULL,
+    amount           NUMERIC(12, 2)      NOT NULL,
 
-    status              payment_status DEFAULT 'PENDING'::payment_status,
+    status           payment_status               DEFAULT 'PENDING'::payment_status,
 
-    transaction_id      VARCHAR(255),
+    transaction_id   VARCHAR(255),
 
-    currency            VARCHAR(10) DEFAULT 'VND',
+    currency         VARCHAR(10)                  DEFAULT 'VND',
 
-    gateway_response    TEXT,
+    gateway_response TEXT,
 
-    paid_at             TIMESTAMP,
+    paid_at          TIMESTAMPTZ,
 
-    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at       TIMESTAMPTZ         NOT NULL DEFAULT now(),
 
     CONSTRAINT chk_payment_amount
         CHECK (amount >= 0)
 );
 
 CREATE UNIQUE INDEX uq_payment_transaction
-    ON payments(transaction_id)
-    WHERE transaction_id IS NOT NULL;
+    ON payments (transaction_id) WHERE transaction_id IS NOT NULL;
 
 CREATE INDEX idx_payments_order
-    ON payments(order_id);
+    ON payments (order_id);
 
 CREATE INDEX idx_payments_status
-    ON payments(status);
+    ON payments (status);
+
+CREATE INDEX idx_payments_status_created
+    ON payments (status, created_at);
