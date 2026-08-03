@@ -16,13 +16,7 @@ import org.hibernate.annotations.SQLRestriction;
 @Setter
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@SQLDelete(
-    sql = """
-        UPDATE product_images
-        SET deleted_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    """
-)
+@SQLDelete(sql = "UPDATE product_images SET deleted_at = now() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class ProductImage extends BaseEntity {
 
@@ -37,9 +31,9 @@ public class ProductImage extends BaseEntity {
     @Column(name = "image_url", nullable = false, columnDefinition = "TEXT")
     String imageUrl;
 
-    @Column(name = "is_primary", nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
-    boolean isPrimary;
+    @Column(name = "public_id", nullable = false, length = 255)
+    String publicId;
 
-    @Column(nullable = false)
-    private String publicId;
+    @Column(name = "is_primary", nullable = false)
+    boolean isPrimary = false;
 }
