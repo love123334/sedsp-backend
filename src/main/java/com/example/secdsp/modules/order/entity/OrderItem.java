@@ -3,7 +3,10 @@ package com.example.secdsp.modules.order.entity;
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.user.entity.User;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
@@ -32,15 +35,15 @@ public class OrderItem {
     @JoinColumn(name = "seller_id", nullable = false)
     User seller;
 
-    @Column(name = "product_name_at_purchase", nullable = false)
+    @Column(name = "product_name_at_purchase", nullable = false, length = 255)
     String productNameAtPurchase;
 
     @Column(name = "quantity", nullable = false)
     Integer quantity;
 
-    @Column(name = "unit_price_at_purchase", nullable = false)
+    @Column(name = "unit_price_at_purchase", nullable = false, precision = 12, scale = 2)
     BigDecimal unitPriceAtPurchase;
 
-    @Column(name = "subtotal", nullable = false)
+    @Column(name = "subtotal", nullable = false, precision = 12, scale = 2)
     BigDecimal subtotal;
 }
