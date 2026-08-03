@@ -7,5 +7,8 @@ import java.math.BigDecimal;
 @Builder
 public record RevenueInfo(
     BigDecimal totalRevenue,
-    Long completedOrders
-) {}
+    Long completedOrders,
+    BigDecimal previousPeriodRevenue,
+    Double growthRate
+) {
+}
