@@ -20,6 +20,7 @@ rows would duplicate platform revenue.
 | `reporting.platform_seller_daily` | One day and one seller with delivered sales | Seller ranking |
 | `reporting.platform_product_daily` | One day and one product with delivered sales | Product ranking |
 | `reporting.platform_category_daily` | One day and one current product category | Category ranking |
+| `reporting.platform_customer_purchase_daily` | One day and one customer with delivered orders | Exact distinct purchasing-customer counts |
 | `reporting.platform_activity_daily` | One calendar day | New seller, customer, product and category trends |
 | `reporting.platform_current_summary` | Current platform snapshot | Current account/product/category scorecards |
 
@@ -36,6 +37,10 @@ delivered sales.
 - `average_order_value`: delivered order value divided by delivered order count.
 - `active_seller_count`: distinct sellers in delivered order items for the day.
 - `active_customer_count`: distinct customers with delivered orders for the day.
+- `customer_id` in `platform_customer_purchase_daily`: use
+  `COUNT_DISTINCT(customer_id)` for the exact number of purchasing customers in
+  any selected date range. Do not sum the daily `active_customer_count` field for
+  this purpose.
 - `successful_amount_by_created_date`: successful amount among payments created
   on the day.
 - `settled_successful_amount`: successful amount that was settled on the day.
@@ -136,6 +141,10 @@ SELECT * FROM reporting.platform_category_daily
 ```
 
 ```sql
+SELECT * FROM reporting.platform_customer_purchase_daily
+```
+
+```sql
 SELECT * FROM reporting.platform_activity_daily
 ```
 
@@ -149,6 +158,8 @@ SELECT * FROM reporting.platform_current_summary
 - Set additive money fields to Currency (VND) with aggregation `SUM`.
 - Set count and quantity fields to Number with aggregation `SUM`.
 - Set IDs, names, statuses and payment methods to Dimensions.
+- Set `customer_id` to a Dimension and use `COUNT_DISTINCT(customer_id)` for the
+  purchasing-customer scorecard.
 - Set `daily_market_share_percentage` to Percent only after confirming whether
   the data source expects `14.50` or `0.145`; the view returns percentage points
   such as `14.50`.
@@ -190,6 +201,8 @@ default aggregation when adding them to scorecards.
 - Order status donut/table: `platform_order_status_daily`.
 - Payment method chart/table: `platform_payment_method_daily`.
 - Top seller/product/category tables: their corresponding ranking views.
+- Unique purchasing-customer scorecard:
+  `platform_customer_purchase_daily` with `COUNT_DISTINCT(customer_id)`.
 - Registration/product activity trend: `platform_activity_daily`.
 - Current platform snapshot cards: `platform_current_summary`.
 
