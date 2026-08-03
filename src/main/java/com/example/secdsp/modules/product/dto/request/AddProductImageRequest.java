@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.product.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.AccessLevel;
@@ -12,11 +13,24 @@ import lombok.experimental.FieldDefaults;
 @Setter
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@Schema(description = "Request to add a product image")
 public class AddProductImageRequest {
 
+    @Schema(
+        description = "Image URL",
+        example = "https://cdn.example.com/products/iphone-front.jpg",
+        requiredMode = Schema.RequiredMode.REQUIRED
+    )
     @NotBlank(message = "Image URL cannot be blank")
-    @Pattern(regexp = "^(http|https)://.*", message = "Image URL must be a valid URL")
+    @Pattern(
+        regexp = "^(http|https)://.*",
+        message = "Image URL must be a valid URL"
+    )
     String imageUrl;
 
+    @Schema(
+        description = "Whether this image is the primary image",
+        example = "true"
+    )
     boolean isPrimary = false;
 }

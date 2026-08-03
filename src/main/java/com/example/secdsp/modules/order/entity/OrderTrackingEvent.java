@@ -1,5 +1,8 @@
 package com.example.secdsp.modules.order.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@Schema(description = "Order tracking event")
 public enum OrderTrackingEvent {
     CREATED,
     CONFIRMED,

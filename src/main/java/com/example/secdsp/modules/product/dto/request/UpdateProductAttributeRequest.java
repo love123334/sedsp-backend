@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.product.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
@@ -12,15 +13,35 @@ import lombok.experimental.FieldDefaults;
 @Setter
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@Schema(description = "Request to create or update a product attribute")
 public class UpdateProductAttributeRequest {
 
-    Long id; // Null for new attributes, not null for existing attributes to update
+    @Schema(
+        description = """
+            Attribute identifier.
+            
+            Leave null to create a new attribute.
+            Provide an existing id to update an existing attribute.
+            """,
+        example = "8"
+    )
+    Long id;
 
-    @NotBlank(message = "Attribute name cannot be blank")
-    @Size(max = 100, message = "Attribute name must not exceed 100 characters")
+    @Schema(
+        description = "Attribute name",
+        example = "Storage",
+        requiredMode = Schema.RequiredMode.REQUIRED
+    )
+    @NotBlank
+    @Size(max = 100)
     String attributeName;
 
-    @NotBlank(message = "Attribute value cannot be blank")
-    @Size(max = 255, message = "Attribute value must not exceed 255 characters")
+    @Schema(
+        description = "Attribute value",
+        example = "256 GB",
+        requiredMode = Schema.RequiredMode.REQUIRED
+    )
+    @NotBlank
+    @Size(max = 255)
     String attributeValue;
 }

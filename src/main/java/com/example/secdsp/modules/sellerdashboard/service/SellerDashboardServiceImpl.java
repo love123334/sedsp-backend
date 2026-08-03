@@ -18,7 +18,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -35,23 +38,139 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
     public SellerDashboardResponse getDashboard() {
 
         Long sellerId = getCurrentSellerId();
-
         log.info("Loading dashboard for seller {}", sellerId);
 
+        RevenueSummary revenue = buildRevenueSummary(sellerId);
+        OrderSummary orders = buildOrderSummary(sellerId);
+        ProductSummary products = buildProductSummary(sellerId);
+        InventorySummary inventory = buildInventorySummary(sellerId);
+        List<RecentOrderResponse> recentOrders = buildRecentOrders(sellerId);
+        List<LowStockProductResponse> lowStockProducts = buildLowStockProducts(sellerId);
+        SellerRatingSummary rating = buildRatingSection(sellerId);
+
+        // Sinh danh sách gợi ý nâng cấp theo DTO
+        List<RecommendationResponse> recommendations = buildRecommendations(
+            revenue, orders, products, inventory, rating, lowStockProducts
+        );
+
         return SellerDashboardResponse.builder()
-            .revenue(buildRevenueSummary(sellerId))
-            .orders(buildOrderSummary(sellerId))
-            .products(buildProductSummary(sellerId))
-            .inventory(buildInventorySummary(sellerId))
-            .recentOrders(buildRecentOrders(sellerId))
-            .lowStockProducts(buildLowStockProducts(sellerId))
-            .rating(buildRatingSection(sellerId))
-            .recommendations(Collections.emptyList())
+            .revenue(revenue)
+            .orders(orders)
+            .products(products)
+            .inventory(inventory)
+            .recentOrders(recentOrders)
+            .lowStockProducts(lowStockProducts)
+            .rating(rating)
+            .recommendations(recommendations)
             .build();
     }
 
     // ==============================
-    // PRIVATE METHODS
+    // RULE ENGINE: RECOMMENDATIONS
+    // ==============================
+
+    private List<RecommendationResponse> buildRecommendations(
+        RevenueSummary revenue,
+        OrderSummary orders,
+        ProductSummary products,
+        InventorySummary inventory,
+        SellerRatingSummary rating,
+        List<LowStockProductResponse> lowStockProducts
+    ) {
+        List<RecommendationResponse> list = new ArrayList<>();
+
+        // 1. CẢNH BÁO ĐƠN HÀNG
+        if (orders != null && orders.pending() > 0) {
+            list.add(RecommendationResponse.builder()
+                         .id("REC_PENDING_ORDERS")
+                         .title("Xử lý đơn hàng mới")
+                         .message(String.format(
+                             "Bạn có %d đơn hàng đang chờ xác nhận. Hãy đóng gói sớm để không trễ hạn delivery!",
+                             orders.pending()
+                         ))
+                         .priority(RecommendationPriority.HIGH)
+                         .actionUrl("/seller/orders?status=PENDING")
+                         .actionLabel("Xem đơn hàng")
+                         .build());
+        }
+
+        // 2. CẢNH BÁO TỒN KHO HẾT HÀNG
+        if (inventory != null && inventory.outOfStockProducts() > 0) {
+            list.add(RecommendationResponse.builder()
+                         .id("REC_OUT_OF_STOCK")
+                         .title("Sản phẩm hết hàng")
+                         .message(String.format(
+                             "Hiện tại có %d sản phẩm đã hết hàng. Hãy cập nhật kho để tiếp tục bán hàng.",
+                             inventory.outOfStockProducts()
+                         ))
+                         .priority(RecommendationPriority.HIGH)
+                         .actionUrl("/seller/inventory?filter=OUT_OF_STOCK")
+                         .actionLabel("Cập nhật kho")
+                         .build());
+        }
+
+        // 3. CẢNH BÁO SẮP HẾT HÀNG
+        if (inventory != null && inventory.lowStockProducts() > 0) {
+            String sampleName = (lowStockProducts != null && !lowStockProducts.isEmpty())
+                ? "'" + lowStockProducts.get(0).productName() + "' "
+                : "";
+            list.add(RecommendationResponse.builder()
+                         .id("REC_LOW_STOCK")
+                         .title("Tồn kho mức cảnh báo")
+                         .message(String.format(
+                             "Sản phẩm %ssắp hết hàng. Tổng cộng %d sản phẩm cần bổ sung.",
+                             sampleName,
+                             inventory.lowStockProducts()
+                         ))
+                         .priority(RecommendationPriority.MEDIUM)
+                         .actionUrl("/seller/inventory?filter=LOW_STOCK")
+                         .actionLabel("Nhập thêm hàng")
+                         .build());
+        }
+
+        // 4. CẢNH BÁO UY TÍN & RATING
+        if (rating != null && rating.warning() != null && !rating.warning().isBlank()) {
+            list.add(RecommendationResponse.builder()
+                         .id("REC_RATING_WARNING")
+                         .title("Cảnh báo chất lượng Shop")
+                         .message(rating.warning())
+                         .priority(RecommendationPriority.HIGH)
+                         .actionUrl("/seller/reviews")
+                         .actionLabel("Xem đánh giá")
+                         .build());
+        }
+
+        // 5. CẢNH BÁO SẢN PHẨM
+        if (products != null) {
+            if (products.totalProducts() == 0) {
+                list.add(RecommendationResponse.builder()
+                             .id("REC_NO_PRODUCTS")
+                             .title("Bắt đầu kinh doanh")
+                             .message("Gian hàng của bạn chưa có sản phẩm nào. Hãy đăng sản phẩm đầu tiên!")
+                             .priority(RecommendationPriority.HIGH)
+                             .actionUrl("/seller/products/create")
+                             .actionLabel("Đăng sản phẩm")
+                             .build());
+            }
+        }
+
+        // 6. TRƯỜNG HỢP MẶC ĐỊNH
+        if (list.isEmpty()) {
+            list.add(RecommendationResponse.builder()
+                         .id("REC_ALL_GOOD")
+                         .title("Vận hành tuyệt vời!")
+                         .message("Gian hàng của bạn đang hoạt động rất tốt. Không có cảnh báo nào cần xử lý ngay.")
+                         .priority(RecommendationPriority.INFO)
+                         .actionUrl("/seller/analytics")
+                         .actionLabel("Xem phân tích")
+                         .build());
+        }
+
+        return list;
+    }
+
+    // ==============================
+    // PRIVATE BUILDER METHODS
     // ==============================
 
     private Long getCurrentSellerId() {
@@ -63,20 +182,16 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
     }
 
     private RevenueSummary buildRevenueSummary(Long sellerId) {
-
         RevenueInfo info = paymentService.getRevenue(sellerId);
-
         return RevenueSummary.builder()
             .totalRevenue(info.totalRevenue())
             .completedOrders(info.completedOrders())
+            .growthRate(info.growthRate())
             .build();
     }
 
     private OrderSummary buildOrderSummary(Long sellerId) {
-
-        OrderDashboardInfo info =
-            orderService.getSellerOrderSummary(sellerId);
-
+        OrderDashboardInfo info = orderService.getSellerOrderSummary(sellerId);
         return OrderSummary.builder()
             .pending(info.pending())
             .processing(info.processing())
@@ -86,10 +201,7 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
     }
 
     private ProductSummary buildProductSummary(Long sellerId) {
-
-        ProductSummaryInfo info =
-            productService.getSellerProductSummary(sellerId);
-
+        ProductSummaryInfo info = productService.getSellerProductSummary(sellerId);
         return ProductSummary.builder()
             .totalProducts(info.totalProducts())
             .activeProducts(info.activeProducts())
@@ -97,10 +209,7 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
     }
 
     private InventorySummary buildInventorySummary(Long sellerId) {
-
-        InventorySummaryInfo info =
-            inventoryService.getInventorySummary(sellerId);
-
+        InventorySummaryInfo info = inventoryService.getInventorySummary(sellerId);
         return InventorySummary.builder()
             .lowStockProducts(info.lowStockProducts())
             .outOfStockProducts(info.outOfStockProducts())
@@ -108,7 +217,6 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
     }
 
     private List<RecentOrderResponse> buildRecentOrders(Long sellerId) {
-
         return orderService.getRecentOrders(sellerId)
             .stream()
             .map(info -> RecentOrderResponse.builder()
@@ -122,7 +230,6 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
     }
 
     private List<LowStockProductResponse> buildLowStockProducts(Long sellerId) {
-
         return inventoryService.getLowStockProducts(sellerId)
             .stream()
             .map(info -> LowStockProductResponse.builder()
@@ -134,22 +241,21 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
     }
 
     private SellerRatingSummary buildRatingSection(Long sellerId) {
-
         Object[] summary = reviewRepository.getSellerRatingSummary(sellerId);
 
-        Double avg = summary[0] != null ? (Double) summary[0] : 0.0;
-        Long total = summary[1] != null ? (Long) summary[1] : 0L;
+        Double avg = summary != null && summary.length > 0 && summary[0] != null ? (Double) summary[0] : 0.0;
+        Long total = summary != null && summary.length > 1 && summary[1] != null ? (Long) summary[1] : 0L;
 
-        List<Object[]> rawBreakdown =
-            reviewRepository.getSellerRatingBreakdown(sellerId);
+        List<Object[]> rawBreakdown = reviewRepository.getSellerRatingBreakdown(sellerId);
 
         Map<Integer, Long> countMap = new HashMap<>();
-        for (Object[] row : rawBreakdown) {
-            countMap.put((Integer) row[0], (Long) row[1]);
+        if (rawBreakdown != null) {
+            for (Object[] row : rawBreakdown) {
+                countMap.put((Integer) row[0], (Long) row[1]);
+            }
         }
 
         List<RatingBreakdownItem> breakdown = new ArrayList<>();
-
         for (int i = 5; i >= 1; i--) {
             Long count = countMap.getOrDefault(i, 0L);
             double percent = total == 0 ? 0 : (count * 100.0) / total;
@@ -161,24 +267,22 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
             ));
         }
 
-        List<RecentReviewResponse> recentReviews =
-            reviewRepository
-                .findTop5ByProduct_Seller_IdOrderByCreatedAtDesc(sellerId)
-                .stream()
-                .map(r -> new RecentReviewResponse(
-                    r.getId(),
-                    r.getProduct().getId(),
-                    r.getProduct().getName(),
-                    r.getRating(),
-                    r.getComment(),
-                    r.getCreatedAt()
-                ))
-                .toList();
+        List<RecentReviewResponse> recentReviews = reviewRepository
+            .findTop5ByProduct_Seller_IdOrderByCreatedAtDesc(sellerId)
+            .stream()
+            .map(r -> new RecentReviewResponse(
+                r.getId(),
+                r.getProduct().getId(),
+                r.getProduct().getName(),
+                r.getRating(),
+                r.getComment(),
+                r.getCreatedAt()
+            ))
+            .toList();
 
         String warning = null;
-
         if (avg < 3.5 && total >= 5) {
-            warning = "Your shop rating is below average. Please improve service quality.";
+            warning = "Đánh giá trung bình của gian hàng đang thấp hơn 3.5⭐. Vui lòng cải thiện dịch vụ.";
         }
 
         return SellerRatingSummary.builder()
