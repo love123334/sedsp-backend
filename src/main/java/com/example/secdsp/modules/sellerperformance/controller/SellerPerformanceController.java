@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.sellerperformance.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.sellerperformance.dto.response.SalesPerformanceResponse;
 import com.example.secdsp.modules.sellerperformance.service.SellerPerformanceService;
 import lombok.RequiredArgsConstructor;
@@ -19,11 +19,11 @@ public class SellerPerformanceController {
     private final SellerPerformanceService service;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<SalesPerformanceResponse>>
+    public ResponseEntity<BaseResponse<SalesPerformanceResponse>>
     getPerformance() {
 
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 service.getPerformance()
             )
         );

@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.review.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.review.dto.request.CreateReviewRequest;
 import com.example.secdsp.modules.review.dto.request.UpdateReviewRequest;
 import com.example.secdsp.modules.review.dto.response.RatingSummaryResponse;
@@ -23,35 +23,35 @@ public class ProductReviewController {
 
     @PostMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<ReviewResponse>> createReview(
+    public ResponseEntity<BaseResponse<ReviewResponse>> createReview(
         @PathVariable Long productId,
         @Valid @RequestBody CreateReviewRequest request
     ) {
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 reviewService.createReview(productId, request)
             )
         );
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<ReviewResponse>>> getReviews(
+    public ResponseEntity<BaseResponse<Page<ReviewResponse>>> getReviews(
         @PathVariable Long productId,
         Pageable pageable
     ) {
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 reviewService.getReviews(productId, pageable)
             )
         );
     }
 
     @GetMapping("/summary")
-    public ResponseEntity<ApiResponse<RatingSummaryResponse>> getSummary(
+    public ResponseEntity<BaseResponse<RatingSummaryResponse>> getSummary(
         @PathVariable Long productId
     ) {
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 reviewService.getRatingSummary(productId)
             )
         );
@@ -59,13 +59,13 @@ public class ProductReviewController {
 
     @PutMapping("/{reviewId}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<ReviewResponse>> updateReview(
+    public ResponseEntity<BaseResponse<ReviewResponse>> updateReview(
         @PathVariable Long productId,
         @PathVariable Long reviewId,
         @Valid @RequestBody UpdateReviewRequest request
     ) {
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 reviewService.updateReview(reviewId, request)
             )
         );
@@ -73,11 +73,11 @@ public class ProductReviewController {
 
     @DeleteMapping("/{reviewId}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<Void>> deleteReview(
+    public ResponseEntity<BaseResponse<Void>> deleteReview(
         @PathVariable Long productId,
         @PathVariable Long reviewId
     ) {
         reviewService.deleteReview(reviewId);
-        return ResponseEntity.ok(ApiResponse.success("Review deleted"));
+        return ResponseEntity.ok(BaseResponse.success("Review deleted"));
     }
 }

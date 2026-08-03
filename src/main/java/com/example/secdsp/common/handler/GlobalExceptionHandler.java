@@ -1,6 +1,6 @@
 package com.example.secdsp.common.handler;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.dto.FieldErrorResponse;
 import com.example.secdsp.common.exception.dto.ValidationErrorResponse;
@@ -26,71 +26,71 @@ public class GlobalExceptionHandler {
     private static final String UNEXPECTED_ERROR_MESSAGE = "An unexpected error occurred";
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
+    public ResponseEntity<BaseResponse<Void>> handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
         List<FieldErrorResponse> errors = ValidationErrorResponse.fromFieldErrors(ex.getBindingResult().getFieldErrors());
         log.warn("Validation failed: {}", errors);
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(VALIDATION_FAILED_MESSAGE, errors));
+                .body(BaseResponse.error(VALIDATION_FAILED_MESSAGE, errors));
     }
 
     @ExceptionHandler(BindException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBindException(BindException ex) {
+    public ResponseEntity<BaseResponse<Void>> handleBindException(BindException ex) {
         List<FieldErrorResponse> errors = ValidationErrorResponse.fromFieldErrors(ex.getBindingResult().getFieldErrors());
         log.warn("Validation failed: {}", errors);
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(VALIDATION_FAILED_MESSAGE, errors));
+                .body(BaseResponse.error(VALIDATION_FAILED_MESSAGE, errors));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(ConstraintViolationException ex) {
+    public ResponseEntity<BaseResponse<Void>> handleConstraintViolation(ConstraintViolationException ex) {
         List<FieldErrorResponse> errors = ValidationErrorResponse.fromConstraintViolations(ex.getConstraintViolations());
         log.warn("Validation failed: {}", errors);
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(VALIDATION_FAILED_MESSAGE, errors));
+                .body(BaseResponse.error(VALIDATION_FAILED_MESSAGE, errors));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+    public ResponseEntity<BaseResponse<Void>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
         log.warn("Malformed request body: {}", ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Malformed request body"));
+                .body(BaseResponse.error("Malformed request body"));
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMissingServletRequestParameter(
+    public ResponseEntity<BaseResponse<Void>> handleMissingServletRequestParameter(
             MissingServletRequestParameterException ex) {
         log.warn("Missing request parameter: {}", ex.getParameterName());
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(String.format("Required parameter '%s' is missing", ex.getParameterName())));
+                .body(BaseResponse.error(String.format("Required parameter '%s' is missing", ex.getParameterName())));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatch(
+    public ResponseEntity<BaseResponse<Void>> handleMethodArgumentTypeMismatch(
             MethodArgumentTypeMismatchException ex) {
         log.warn("Invalid parameter type for '{}': {}", ex.getName(), ex.getValue());
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(String.format("Invalid value for parameter '%s'", ex.getName())));
+                .body(BaseResponse.error(String.format("Invalid value for parameter '%s'", ex.getName())));
     }
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
+    public ResponseEntity<BaseResponse<Void>> handleBusinessException(BusinessException ex) {
         log.warn("Business exception: {}", ex.getMessage());
         return ResponseEntity
                 .status(ex.getHttpStatus())
-                .body(ApiResponse.error(ex.getMessage()));
+                .body(BaseResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleUnexpectedException(Exception ex) {
+    public ResponseEntity<BaseResponse<Void>> handleUnexpectedException(Exception ex) {
         log.error("Unexpected error occurred", ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error(UNEXPECTED_ERROR_MESSAGE));
+                .body(BaseResponse.error(UNEXPECTED_ERROR_MESSAGE));
     }
 }

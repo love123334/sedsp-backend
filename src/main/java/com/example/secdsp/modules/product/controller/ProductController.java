@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.product.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.product.dto.request.CreateProductRequest;
 import com.example.secdsp.modules.product.dto.request.UpdateProductRequest;
 import com.example.secdsp.modules.product.dto.response.PriceHistoryResponse;
@@ -28,38 +28,38 @@ public class ProductController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
-    public ResponseEntity<ApiResponse<ProductResponse>> createProduct(
+    public ResponseEntity<BaseResponse<ProductResponse>> createProduct(
         @Valid @RequestBody CreateProductRequest request
     ) {
         ProductResponse response = productService.createProduct(request);
-        return new ResponseEntity<>(ApiResponse.success("Product created successfully", response), HttpStatus.CREATED);
+        return new ResponseEntity<>(BaseResponse.success("Product created successfully", response), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
-    public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
+    public ResponseEntity<BaseResponse<ProductResponse>> updateProduct(
         @PathVariable Long id,
         @Valid @RequestBody UpdateProductRequest request
     ) {
         ProductResponse response = productService.updateProduct(id, request);
-        return ResponseEntity.ok(ApiResponse.success("Product updated successfully", response));
+        return ResponseEntity.ok(BaseResponse.success("Product updated successfully", response));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
-    public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable Long id) {
+    public ResponseEntity<BaseResponse<Void>> deleteProduct(@PathVariable Long id) {
         productService.deleteProduct(id);
-        return new ResponseEntity<>(ApiResponse.success("Product deleted successfully"), HttpStatus.NO_CONTENT);
+        return new ResponseEntity<>(BaseResponse.success("Product deleted successfully"), HttpStatus.NO_CONTENT);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ProductDetailResponse>> getProductById(@PathVariable Long id) {
+    public ResponseEntity<BaseResponse<ProductDetailResponse>> getProductById(@PathVariable Long id) {
         ProductDetailResponse response = productService.getProductById(id);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(BaseResponse.success(response));
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<ProductResponse>>> getProducts(
+    public ResponseEntity<BaseResponse<Page<ProductResponse>>> getProducts(
         @RequestParam(value = "keyword", required = false) String keyword,
         @RequestParam(value = "categoryId", required = false) Long categoryId,
         @RequestParam(value = "brandId", required = false) Long brandId,
@@ -72,16 +72,16 @@ public class ProductController {
             sellerId,
             pageable
         );
-        return ResponseEntity.ok(ApiResponse.success(responsePage));
+        return ResponseEntity.ok(BaseResponse.success(responsePage));
     }
 
     @GetMapping("/{id}/price-history")
     @PreAuthorize("hasAnyRole('ADMIN','SELLER')")
-    public ResponseEntity<ApiResponse<List<PriceHistoryResponse>>>
+    public ResponseEntity<BaseResponse<List<PriceHistoryResponse>>>
     getPriceHistory(@PathVariable Long id) {
 
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 productService.getPriceHistory(id)
             )
         );

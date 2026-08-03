@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.category.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.category.dto.request.CreateCategoryRequest;
 import com.example.secdsp.modules.category.dto.request.UpdateCategoryRequest;
 import com.example.secdsp.modules.category.dto.response.CategoryResponse;
@@ -26,50 +26,50 @@ public class CategoryController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<CategoryResponse>> createCategory(@Valid @RequestBody CreateCategoryRequest request) {
+    public ResponseEntity<BaseResponse<CategoryResponse>> createCategory(@Valid @RequestBody CreateCategoryRequest request) {
         CategoryResponse response = categoryService.createCategory(request);
-        return new ResponseEntity<>(ApiResponse.success("Category created successfully", response), HttpStatus.CREATED);
+        return new ResponseEntity<>(BaseResponse.success("Category created successfully", response), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(
+    public ResponseEntity<BaseResponse<CategoryResponse>> updateCategory(
         @PathVariable Long id,
         @Valid @RequestBody UpdateCategoryRequest request
     ) {
         CategoryResponse response = categoryService.updateCategory(id, request);
-        return ResponseEntity.ok(ApiResponse.success("Category updated successfully", response));
+        return ResponseEntity.ok(BaseResponse.success("Category updated successfully", response));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> deleteCategory(@PathVariable Long id) {
+    public ResponseEntity<BaseResponse<Void>> deleteCategory(@PathVariable Long id) {
 
         categoryService.deleteCategory(id);
 
         return ResponseEntity.ok(
-            ApiResponse.success("Category deleted successfully")
+            BaseResponse.success("Category deleted successfully")
         );
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<CategoryResponse>> getCategoryById(@PathVariable Long id) {
+    public ResponseEntity<BaseResponse<CategoryResponse>> getCategoryById(@PathVariable Long id) {
         CategoryResponse response = categoryService.getCategoryById(id);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(BaseResponse.success(response));
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<CategoryResponse>>> getCategories(
+    public ResponseEntity<BaseResponse<Page<CategoryResponse>>> getCategories(
         @RequestParam(value = "keyword", required = false) String keyword,
         Pageable pageable
     ) {
         Page<CategoryResponse> responsePage = categoryService.getCategories(keyword, pageable);
-        return ResponseEntity.ok(ApiResponse.success(responsePage));
+        return ResponseEntity.ok(BaseResponse.success(responsePage));
     }
 
     @GetMapping("/tree")
-    public ResponseEntity<ApiResponse<List<CategoryTreeResponse>>> getCategoryTree() {
+    public ResponseEntity<BaseResponse<List<CategoryTreeResponse>>> getCategoryTree() {
         List<CategoryTreeResponse> response = categoryService.getCategoryTree();
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(BaseResponse.success(response));
     }
 }

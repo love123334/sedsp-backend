@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.order.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.order.dto.request.CreateOrderRequest;
 import com.example.secdsp.modules.order.dto.response.OrderDetailResponse;
 import com.example.secdsp.modules.order.dto.response.OrderResponse;
@@ -23,11 +23,11 @@ public class OrderController {
 
     @PostMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<OrderResponse>>
+    public ResponseEntity<BaseResponse<OrderResponse>>
     createOrder(@Valid @RequestBody CreateOrderRequest request) {
 
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 "Order created successfully",
                 orderService.createOrder(request)
             )
@@ -36,13 +36,13 @@ public class OrderController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<Page<OrderResponse>>>
+    public ResponseEntity<BaseResponse<Page<OrderResponse>>>
     getMyOrders(
         @PageableDefault(size = 10) Pageable pageable
     ) {
 
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 orderService.getMyOrders(pageable)
             )
         );
@@ -50,11 +50,11 @@ public class OrderController {
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<OrderDetailResponse>>
+    public ResponseEntity<BaseResponse<OrderDetailResponse>>
     getOrderById(@PathVariable Long id) {
 
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 orderService.getOrderById(id)
             )
         );
@@ -62,13 +62,13 @@ public class OrderController {
 
     @PutMapping("/{id}/cancel")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<Void>>
+    public ResponseEntity<BaseResponse<Void>>
     cancelOrder(@PathVariable Long id) {
 
         orderService.cancelOrder(id);
 
         return ResponseEntity.ok(
-            ApiResponse.success("Order cancelled successfully")
+            BaseResponse.success("Order cancelled successfully")
         );
     }
 }

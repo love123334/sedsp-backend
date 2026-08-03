@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.cart.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.cart.dto.request.AddCartItemRequest;
 import com.example.secdsp.modules.cart.dto.request.UpdateCartItemRequest;
 import com.example.secdsp.modules.cart.dto.response.CartResponse;
@@ -18,18 +18,18 @@ public class CartController {
     private final CartService cartService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<CartResponse>> getCart() {
+    public ResponseEntity<BaseResponse<CartResponse>> getCart() {
         return ResponseEntity.ok(
-            ApiResponse.success(cartService.getMyCart())
+            BaseResponse.success(cartService.getMyCart())
         );
     }
 
     @PostMapping("/items")
-    public ResponseEntity<ApiResponse<CartResponse>>
+    public ResponseEntity<BaseResponse<CartResponse>>
     addItem(@RequestBody @Valid AddCartItemRequest request) {
 
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 "Item added to cart",
                 cartService.addItem(request)
             )
@@ -37,14 +37,14 @@ public class CartController {
     }
 
     @PutMapping("/items/{itemId}")
-    public ResponseEntity<ApiResponse<CartResponse>>
+    public ResponseEntity<BaseResponse<CartResponse>>
     updateItem(
         @PathVariable Long itemId,
         @RequestBody @Valid UpdateCartItemRequest request
     ) {
 
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 "Cart item updated",
                 cartService.updateItem(itemId, request)
             )
@@ -52,23 +52,23 @@ public class CartController {
     }
 
     @DeleteMapping("/items/{itemId}")
-    public ResponseEntity<ApiResponse<Void>>
+    public ResponseEntity<BaseResponse<Void>>
     removeItem(@PathVariable Long itemId) {
 
         cartService.removeItem(itemId);
 
         return ResponseEntity.ok(
-            ApiResponse.success("Item removed")
+            BaseResponse.success("Item removed")
         );
     }
 
     @DeleteMapping
-    public ResponseEntity<ApiResponse<Void>> clearCart() {
+    public ResponseEntity<BaseResponse<Void>> clearCart() {
 
         cartService.clearCart();
 
         return ResponseEntity.ok(
-            ApiResponse.success("Cart cleared")
+            BaseResponse.success("Cart cleared")
         );
     }
 }

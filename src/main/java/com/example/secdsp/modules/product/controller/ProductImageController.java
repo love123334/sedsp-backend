@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.product.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.infrastructure.cloudinary.CloudinaryService;
 import com.example.secdsp.modules.product.dto.response.CloudinaryUploadResult;
@@ -22,7 +22,7 @@ public class ProductImageController {
 
     @PostMapping("/upload")
     @PreAuthorize("hasAnyRole('ADMIN','SELLER')")
-    public ResponseEntity<ApiResponse<CloudinaryUploadResult>>  uploadImage(
+    public ResponseEntity<BaseResponse<CloudinaryUploadResult>>  uploadImage(
         @RequestParam("file") MultipartFile file) {
 
         if (file.isEmpty()) {
@@ -36,7 +36,7 @@ public class ProductImageController {
         CloudinaryUploadResult imageUrl = cloudinaryService.uploadImage(file);
 
         return ResponseEntity.ok(
-            ApiResponse.success("Upload successful", imageUrl)
+            BaseResponse.success("Upload successful", imageUrl)
         );
     }
 }

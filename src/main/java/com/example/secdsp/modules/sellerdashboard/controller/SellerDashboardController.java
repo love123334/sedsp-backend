@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.sellerdashboard.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.sellerdashboard.dto.SellerDashboardResponse;
 import com.example.secdsp.modules.sellerdashboard.service.SellerDashboardService;
 import lombok.RequiredArgsConstructor;
@@ -19,11 +19,11 @@ public class SellerDashboardController {
     private final SellerDashboardService dashboardService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<SellerDashboardResponse>>
+    public ResponseEntity<BaseResponse<SellerDashboardResponse>>
     getDashboard() {
 
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 dashboardService.getDashboard()
             )
         );

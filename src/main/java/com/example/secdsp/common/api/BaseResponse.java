@@ -14,45 +14,45 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ApiResponse<T> {
+public class BaseResponse<T> {
 
     private boolean success;
     private String message;
     private T data;
     private List<FieldErrorResponse> errors;
 
-    public static <T> ApiResponse<T> success(T data) {
-        return ApiResponse.<T>builder()
+    public static <T> BaseResponse<T> success(T data) {
+        return BaseResponse.<T>builder()
                 .success(true)
                 .message("Request successful")
                 .data(data)
                 .build();
     }
 
-    public static <T> ApiResponse<T> success(String message, T data) {
-        return ApiResponse.<T>builder()
+    public static <T> BaseResponse<T> success(String message, T data) {
+        return BaseResponse.<T>builder()
                 .success(true)
                 .message(message)
                 .data(data)
                 .build();
     }
 
-    public static <T> ApiResponse<T> success(String message) {
-        return ApiResponse.<T>builder()
+    public static <T> BaseResponse<T> success(String message) {
+        return BaseResponse.<T>builder()
                 .success(true)
                 .message(message)
                 .build();
     }
 
-    public static ApiResponse<Void> error(String message) {
-        return ApiResponse.<Void>builder()
+    public static BaseResponse<Void> error(String message) {
+        return BaseResponse.<Void>builder()
                 .success(false)
                 .message(message)
                 .build();
     }
 
-    public static ApiResponse<Void> error(String message, List<FieldErrorResponse> errors) {
-        return ApiResponse.<Void>builder()
+    public static BaseResponse<Void> error(String message, List<FieldErrorResponse> errors) {
+        return BaseResponse.<Void>builder()
                 .success(false)
                 .message(message)
                 .errors(errors)
