@@ -6,7 +6,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "price_history")
@@ -32,12 +32,15 @@ public class PriceHistory {
     @Column(name = "new_price", precision = 12, scale = 2)
     BigDecimal newPrice;
 
-    @Column(name = "changed_at",
-        insertable = false,
-        updatable = false)
-    LocalDateTime changedAt;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "changed_by")
     User changedBy;
+
+    @Column(name = "changed_at", nullable = false, updatable = false)
+    OffsetDateTime changedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.changedAt = OffsetDateTime.now();
+    }
 }

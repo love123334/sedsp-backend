@@ -1,10 +1,12 @@
 package com.example.secdsp.modules.inventory.entity;
 
+import com.example.secdsp.modules.product.entity.Product;
+import com.example.secdsp.modules.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "inventory_logs")
@@ -22,7 +24,7 @@ public class InventoryLog {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
-    com.example.secdsp.modules.product.entity.Product product;
+    Product product;
 
     @Column(name = "change_amount", nullable = false)
     Integer changeAmount;
@@ -38,9 +40,14 @@ public class InventoryLog {
     InventoryLogReason reason;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "updated_by", nullable = false)
-    com.example.secdsp.modules.user.entity.User updatedBy;
+    @JoinColumn(name = "updated_by")
+    User updatedBy;
 
-    @Column(name = "created_at", nullable = false)
-    LocalDateTime createdAt;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    OffsetDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = OffsetDateTime.now();
+    }
 }

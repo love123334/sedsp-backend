@@ -1,10 +1,11 @@
 package com.example.secdsp.modules.inventory.entity;
 
+import com.example.secdsp.modules.product.entity.Product;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "inventory")
@@ -22,14 +23,22 @@ public class Inventory {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false, unique = true)
-    com.example.secdsp.modules.product.entity.Product product;
+    Product product;
 
     @Column(name = "available_quantity", nullable = false)
-    Integer availableQuantity;
+    @Builder.Default
+    Integer availableQuantity = 0;
 
     @Column(name = "reserved_quantity", nullable = false)
-    Integer reservedQuantity;
+    @Builder.Default
+    Integer reservedQuantity = 0;
 
     @Column(name = "updated_at", nullable = false)
-    LocalDateTime updatedAt;
+    OffsetDateTime updatedAt;
+
+    @PrePersist
+    @PreUpdate
+    protected void onSave() {
+        this.updatedAt = OffsetDateTime.now();
+    }
 }
