@@ -3,15 +3,17 @@ package com.example.secdsp.modules.email.entity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "email_otps")
 @Getter
 @Setter
+@NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class EmailOtp {
 
@@ -19,20 +21,29 @@ public class EmailOtp {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
+    @Column(nullable = false, length = 150)
     String email;
 
+    @Column(nullable = false, length = 10)
     String otp;
 
-    LocalDateTime expiryTime;
+    @Column(name = "expiry_time", nullable = false)
+    OffsetDateTime expiryTime;
 
-    boolean used;
-
-    @Column(nullable = false)
-    LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    int resendCount;
+    @Column(name = "resend_count", nullable = false)
+    int resendCount = 0;
 
     @Column(nullable = false)
-    boolean verified;
+    boolean verified = false;
+
+    @Column(nullable = false)
+    boolean used = false;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    OffsetDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = OffsetDateTime.now();
+    }
 }
