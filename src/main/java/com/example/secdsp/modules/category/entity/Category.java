@@ -10,6 +10,7 @@ import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -18,13 +19,7 @@ import java.util.List;
 @Setter
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NoArgsConstructor
-@SQLDelete(
-    sql = """
-            UPDATE categories
-            SET deleted_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        """
-)
+@SQLDelete(sql = "UPDATE categories SET deleted_at = now() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class Category extends BaseEntity {
 
@@ -35,7 +30,7 @@ public class Category extends BaseEntity {
     @Column(nullable = false, length = 150)
     String name;
 
-    @Column(nullable = false, unique = true, length = 150)
+    @Column(nullable = false, length = 150)
     String slug;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -46,5 +41,5 @@ public class Category extends BaseEntity {
         mappedBy = "parent",
         fetch = FetchType.LAZY
     )
-    List<Category> children;
+    List<Category> children = new ArrayList<>();
 }

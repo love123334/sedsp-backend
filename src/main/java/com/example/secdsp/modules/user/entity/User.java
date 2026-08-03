@@ -26,10 +26,10 @@ public class User extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = false, length = 100)
     String username;
 
-    @Column(nullable = false, unique = true, length = 150)
+    @Column(nullable = false, length = 150)
     String email;
 
     @Column(nullable = false)
@@ -38,7 +38,7 @@ public class User extends BaseEntity {
     @Column(name = "full_name", length = 150)
     String fullName;
 
-    @Column(unique = true, length = 20)
+    @Column(length = 20)
     String phone;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -53,4 +53,16 @@ public class User extends BaseEntity {
         columnDefinition = "user_status"
     )
     UserStatus status = UserStatus.ACTIVE;
+
+    @Column(name = "store_name")
+    String storeName;
+
+    @Column(name = "business_email", length = 150)
+    String businessEmail;
+
+    @Column(name = "business_phone", length = 20)
+    String businessPhone;
+
+    @Column(name = "seller_description", columnDefinition = "TEXT")
+    String sellerDescription;
 }
