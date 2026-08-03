@@ -19,9 +19,9 @@ CREATE TABLE users
     business_phone VARCHAR(20),
     seller_description TEXT,
 
-    created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    deleted_at     TIMESTAMP
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at     TIMESTAMPTZ
 );
 
 CREATE INDEX idx_users_role
