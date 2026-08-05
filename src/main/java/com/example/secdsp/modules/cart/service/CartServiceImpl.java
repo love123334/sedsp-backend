@@ -1,8 +1,6 @@
 package com.example.secdsp.modules.cart.service;
 
-import com.example.secdsp.common.exception.BusinessException;
-import com.example.secdsp.common.exception.ResourceNotFoundException;
-import com.example.secdsp.common.exception.UnauthorizedException;
+import com.example.secdsp.common.exception.*;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.cart.dto.request.AddCartItemRequest;
 import com.example.secdsp.modules.cart.dto.request.UpdateCartItemRequest;
@@ -49,11 +47,7 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public CartResponse getMyCart() {
 
-        Long userId = SecurityUtils.getCurrentUserId();
-
-        if (userId == null) {
-            throw new UnauthorizedException("Authentication required.");
-        }
+        Long userId = getCurrentUserId();
 
         Cart cart = getOrCreateCart(userId);
 
@@ -66,11 +60,7 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public CartResponse addItem(AddCartItemRequest request) {
 
-        Long userId = SecurityUtils.getCurrentUserId();
-
-        if (userId == null) {
-            throw new UnauthorizedException("Authentication required.");
-        }
+        Long userId = getCurrentUserId();
 
         log.info(
             "User {} adding product {} to cart",
@@ -81,13 +71,13 @@ public class CartServiceImpl implements CartService {
             productService.getProductInfo(request.getProductId());
 
         if (product.status() != ProductStatus.ACTIVE) {
-            throw new BusinessException("Product is not available.");
+            throw new BusinessException(
+                ErrorCode.BUSINESS_ERROR,
+                "Product is not available."
+            );
         }
 
         Cart cart = getOrCreateCart(userId);
-
-        InventoryResponse inventory =
-            inventoryService.getInventoryByProductId(product.id());
 
         CartItem item = cartItemRepository
             .findByCart_IdAndProduct_Id(cart.getId(), product.id())
@@ -110,15 +100,7 @@ public class CartServiceImpl implements CartService {
         int currentQuantity = (item == null ? 0 : item.getQuantity());
         int newQuantity = currentQuantity + request.getQuantity();
 
-        if (inventory.getAvailableQuantity() < newQuantity) {
-
-            log.warn(
-                "User {} insufficient stock for product {}",
-                userId, product.id()
-            );
-
-            throw new BusinessException("Insufficient stock.");
-        }
+        validateStock(product.id(), newQuantity);
 
         if (item != null) {
             item.setQuantity(currentQuantity + request.getQuantity());
@@ -147,40 +129,22 @@ public class CartServiceImpl implements CartService {
         UpdateCartItemRequest request
     ) {
 
-        Long userId = SecurityUtils.getCurrentUserId();
-
-        log.info(
-            "User {} updating cart item {} to quantity {}",
-            userId, itemId, request.getQuantity()
-        );
-
-        if (userId == null) {
-            throw new UnauthorizedException("Authentication required.");
-        }
+        Long userId = getCurrentUserId();
 
         CartItem item = cartItemRepository.findById(itemId)
             .orElseThrow(() ->
                              new ResourceNotFoundException("CartItem", itemId));
 
-        if (!item.getCart().getUser().getId().equals(userId)) {
-            throw new BusinessException(
-                "You cannot modify this cart item."
-            );
-        }
+        validateCartOwner(item, userId);
 
         if (request.getQuantity() <= 0) {
             throw new BusinessException(
+                ErrorCode.INVALID_REQUEST,
                 "Quantity must be greater than 0."
             );
         }
 
-        InventoryResponse inventory =
-            inventoryService.getInventoryByProductId(
-                item.getProduct().getId());
-
-        if (inventory.getAvailableQuantity() < request.getQuantity()) {
-            throw new BusinessException("Insufficient stock.");
-        }
+        validateStock(item.getProduct().getId(), request.getQuantity());
 
         item.setQuantity(request.getQuantity());
 
@@ -191,21 +155,13 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public void removeItem(Long itemId) {
 
-        Long userId = SecurityUtils.getCurrentUserId();
-
-        if (userId == null) {
-            throw new UnauthorizedException("Authentication required.");
-        }
+        Long userId = getCurrentUserId();
 
         CartItem item = cartItemRepository.findById(itemId)
             .orElseThrow(() ->
                              new ResourceNotFoundException("CartItem", itemId));
 
-        if (!item.getCart().getUser().getId().equals(userId)) {
-            throw new BusinessException(
-                "You cannot remove this cart item."
-            );
-        }
+        validateCartOwner(item, userId);
 
         log.info("User {} removing cart item {}", userId, itemId);
 
@@ -216,11 +172,7 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public void clearCart() {
 
-        Long userId = SecurityUtils.getCurrentUserId();
-
-        if (userId == null) {
-            throw new UnauthorizedException("Authentication required.");
-        }
+        Long userId = getCurrentUserId();
 
         Cart cart = getOrCreateCart(userId);
 
@@ -294,5 +246,38 @@ public class CartServiceImpl implements CartService {
             .orElseGet(() -> product.getProductImages().get(0).getImageUrl());
     }
 
+    private Long getCurrentUserId() {
 
+        Long userId = SecurityUtils.getCurrentUserId();
+
+        if (userId == null) {
+            throw new UnauthorizedException();
+        }
+
+        return userId;
+    }
+
+    private void validateStock(Long productId, int quantity) {
+
+        InventoryResponse inventory =
+            inventoryService.getInventoryByProductId(productId);
+
+        if (inventory.getAvailableQuantity() < quantity) {
+            throw new BusinessException(
+                ErrorCode.BUSINESS_ERROR,
+                "Insufficient stock."
+            );
+        }
+    }
+
+    private void validateCartOwner(
+        CartItem item,
+        Long userId
+    ) {
+
+        if (!item.getCart().getUser().getId().equals(userId)) {
+            throw new ForbiddenException(
+                "You cannot access this cart item.");
+        }
+    }
 }
