@@ -28,7 +28,7 @@ public interface PlatformRevenueRepository extends JpaRepository<Order, Long> {
         WHERE o.created_at >= :startDateTime
           AND o.created_at < :endDateTime
         """, nativeQuery = true)
-    Object[] findOrderOverview(
+    List<Object[]> findOrderOverview(
         @Param("startDateTime") LocalDateTime startDateTime,
         @Param("endDateTime") LocalDateTime endDateTime
     );
@@ -54,7 +54,7 @@ public interface PlatformRevenueRepository extends JpaRepository<Order, Long> {
           AND o.created_at >= :startDateTime
           AND o.created_at < :endDateTime
         """, nativeQuery = true)
-    Object[] findItemOverview(
+    List<Object[]> findItemOverview(
         @Param("startDateTime") LocalDateTime startDateTime,
         @Param("endDateTime") LocalDateTime endDateTime
     );
@@ -258,7 +258,7 @@ public interface PlatformRevenueRepository extends JpaRepository<Order, Long> {
         WHERE u.deleted_at IS NULL
           AND r.deleted_at IS NULL
         """, nativeQuery = true)
-    Object[] findUserActivity(
+    List<Object[]> findUserActivity(
         @Param("startDateTime") LocalDateTime startDateTime,
         @Param("endDateTime") LocalDateTime endDateTime
     );
@@ -276,7 +276,7 @@ public interface PlatformRevenueRepository extends JpaRepository<Order, Long> {
         FROM products p
         WHERE p.deleted_at IS NULL
         """, nativeQuery = true)
-    Object[] findProductActivity(
+    List<Object[]> findProductActivity(
         @Param("startDateTime") LocalDateTime startDateTime,
         @Param("endDateTime") LocalDateTime endDateTime
     );

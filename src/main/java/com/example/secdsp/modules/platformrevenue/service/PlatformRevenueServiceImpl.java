@@ -69,13 +69,17 @@ public class PlatformRevenueServiceImpl implements PlatformRevenueService {
             request.getGranularity()
         );
 
-        Object[] orderOverview = platformRevenueRepository.findOrderOverview(
-            startDateTime,
-            endDateTime
+        Object[] orderOverview = firstRow(
+            platformRevenueRepository.findOrderOverview(
+                startDateTime,
+                endDateTime
+            )
         );
-        Object[] itemOverview = platformRevenueRepository.findItemOverview(
-            startDateTime,
-            endDateTime
+        Object[] itemOverview = firstRow(
+            platformRevenueRepository.findItemOverview(
+                startDateTime,
+                endDateTime
+            )
         );
 
         BigDecimal grossMerchandiseValue = money(orderOverview, 0);
@@ -166,7 +170,7 @@ public class PlatformRevenueServiceImpl implements PlatformRevenueService {
             throw new BusinessException("From date must not be after to date.");
         }
 
-        if (request.getToDate().isAfter(LocalDate.now())) {
+        if (request.getToDate().isAfter(LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")))) {
             throw new BusinessException("To date must not be in the future.");
         }
 
@@ -240,10 +244,12 @@ public class PlatformRevenueServiceImpl implements PlatformRevenueService {
         );
 
         for (Object[] row : rows) {
-            counts.put(
-                OrderStatus.valueOf(String.valueOf(row[0])),
-                count(row, 1)
-            );
+            String statusName = String.valueOf(row[0]);
+            try {
+                counts.put(OrderStatus.valueOf(statusName), count(row, 1));
+            } catch (IllegalArgumentException ex) {
+                log.warn("Skipping unknown order status in revenue report: {}", statusName);
+            }
         }
 
         List<OrderStatusDistributionItem> distribution = new ArrayList<>();
@@ -381,10 +387,12 @@ public class PlatformRevenueServiceImpl implements PlatformRevenueService {
         );
 
         for (Object[] row : rows) {
-            values.put(
-                PaymentMethod.valueOf(String.valueOf(row[0])),
-                row
-            );
+            String methodName = String.valueOf(row[0]);
+            try {
+                values.put(PaymentMethod.valueOf(methodName), row);
+            } catch (IllegalArgumentException ex) {
+                log.warn("Skipping unknown payment method in revenue report: {}", methodName);
+            }
         }
 
         BigDecimal cohortSuccessfulAmount = rows.stream()
@@ -415,14 +423,14 @@ public class PlatformRevenueServiceImpl implements PlatformRevenueService {
         LocalDateTime startDateTime,
         LocalDateTime endDateTime
     ) {
-        Object[] users = platformRevenueRepository.findUserActivity(
+        Object[] users = firstRow(platformRevenueRepository.findUserActivity(
             startDateTime,
             endDateTime
-        );
-        Object[] products = platformRevenueRepository.findProductActivity(
+        ));
+        Object[] products = firstRow(platformRevenueRepository.findProductActivity(
             startDateTime,
             endDateTime
-        );
+        ));
 
         return PlatformActivity.builder()
             .totalSellers(count(users, 0))
@@ -480,9 +488,43 @@ public class PlatformRevenueServiceImpl implements PlatformRevenueService {
     private Map<LocalDate, Object[]> indexByPeriod(List<Object[]> rows) {
         Map<LocalDate, Object[]> valuesByPeriod = new HashMap<>();
         for (Object[] row : safeRows(rows)) {
-            valuesByPeriod.put(toLocalDate(row[0]), row);
+            if (row.length == 0 || row[0] == null) {
+                continue;
+            }
+            try {
+                valuesByPeriod.put(toLocalDate(row[0]), row);
+            } catch (Exception ex) {
+                log.warn("Skipping revenue period row with bad period_start={}: {}",
+                    row[0], ex.getMessage());
+            }
         }
         return valuesByPeriod;
+    }
+
+    /** Native single-row queries must return List to avoid Hibernate Object[] wrapping bugs. */
+    private Object[] firstRow(List<Object[]> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return null;
+        }
+        return unwrapRow(rows.get(0));
+    }
+
+    /**
+     * Hibernate/Spring sometimes returns a single native row as
+     * {@code Object[]{ Object[]{ col0, col1, ... } }} — unwrap until flat.
+     */
+    private Object[] unwrapRow(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        if (!(raw instanceof Object[] arr)) {
+            return new Object[] { raw };
+        }
+        Object[] current = arr;
+        while (current.length == 1 && current[0] instanceof Object[] nested) {
+            current = nested;
+        }
+        return current;
     }
 
     private List<LocalDate> buildPeriods(
@@ -560,15 +602,45 @@ public class PlatformRevenueServiceImpl implements PlatformRevenueService {
         if (value == null) {
             return zeroMoney();
         }
+        // Never attempt BigDecimal.parse on temporal types ("2026-07-07" → NFE missing "e")
+        if (value instanceof LocalDate
+            || value instanceof LocalDateTime
+            || value instanceof Date
+            || value instanceof Timestamp
+            || value instanceof java.util.Date) {
+            log.warn("money() received temporal value {}; treating as 0", value);
+            return zeroMoney();
+        }
+        if (value instanceof Object[]) {
+            log.warn("money() received nested Object[]; treating as 0");
+            return zeroMoney();
+        }
         if (value instanceof BigDecimal decimal) {
             return decimal.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
         }
         if (value instanceof Number number) {
-            return new BigDecimal(number.toString())
-                .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            if (number instanceof Double || number instanceof Float) {
+                return BigDecimal.valueOf(number.doubleValue())
+                    .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            }
+            try {
+                return new BigDecimal(number.toString())
+                    .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            } catch (NumberFormatException ex) {
+                return BigDecimal.valueOf(number.doubleValue())
+                    .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            }
         }
-        return new BigDecimal(value.toString())
-            .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        String raw = value.toString().trim();
+        if (raw.isEmpty()) {
+            return zeroMoney();
+        }
+        try {
+            return new BigDecimal(raw).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        } catch (NumberFormatException ex) {
+            log.warn("money() could not parse '{}': {}", raw, ex.getMessage());
+            return zeroMoney();
+        }
     }
 
     private BigDecimal zeroMoney() {
@@ -584,10 +656,16 @@ public class PlatformRevenueServiceImpl implements PlatformRevenueService {
         if (row == null || row.length <= index || row[index] == null) {
             return null;
         }
-        if (row[index] instanceof Number number) {
+        Object value = row[index];
+        if (value instanceof Number number) {
             return number.longValue();
         }
-        return Long.valueOf(row[index].toString());
+        try {
+            return Long.valueOf(value.toString().trim());
+        } catch (NumberFormatException ex) {
+            log.warn("nullableLong() could not parse '{}'", value);
+            return null;
+        }
     }
 
     private String text(Object[] row, int index) {
@@ -597,6 +675,9 @@ public class PlatformRevenueServiceImpl implements PlatformRevenueService {
     }
 
     private LocalDate toLocalDate(Object value) {
+        if (value == null) {
+            throw new IllegalArgumentException("period_start is null");
+        }
         if (value instanceof LocalDate localDate) {
             return localDate;
         }
@@ -609,10 +690,28 @@ public class PlatformRevenueServiceImpl implements PlatformRevenueService {
         if (value instanceof Timestamp timestamp) {
             return timestamp.toLocalDateTime().toLocalDate();
         }
-        return LocalDate.parse(value.toString());
+        if (value instanceof java.util.Date utilDate) {
+            return new Timestamp(utilDate.getTime()).toLocalDateTime().toLocalDate();
+        }
+        String raw = value.toString().trim();
+        // Postgres may return "2026-07-07 00:00:00" from DATE_TRUNC cast
+        if (raw.length() >= 10 && raw.charAt(4) == '-' && raw.charAt(7) == '-') {
+            return LocalDate.parse(raw.substring(0, 10));
+        }
+        return LocalDate.parse(raw);
     }
 
     private List<Object[]> safeRows(List<Object[]> rows) {
-        return rows == null ? List.of() : rows;
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        List<Object[]> out = new ArrayList<>(rows.size());
+        for (Object raw : rows) {
+            Object[] row = unwrapRow(raw);
+            if (row != null) {
+                out.add(row);
+            }
+        }
+        return out;
     }
 }

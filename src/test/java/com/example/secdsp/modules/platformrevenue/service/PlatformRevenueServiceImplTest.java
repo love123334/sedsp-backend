@@ -55,7 +55,7 @@ class PlatformRevenueServiceImplTest {
         when(platformRevenueRepository.findOrderOverview(
             START_DATE_TIME,
             END_DATE_TIME
-        )).thenReturn(new Object[] {
+        )).thenReturn(List.<Object[]>of(new Object[] {
             new BigDecimal("1000.00"),
             new BigDecimal("1050.00"),
             new BigDecimal("50.00"),
@@ -63,11 +63,11 @@ class PlatformRevenueServiceImplTest {
             10L,
             4L,
             3L
-        });
+        }));
         when(platformRevenueRepository.findItemOverview(
             START_DATE_TIME,
             END_DATE_TIME
-        )).thenReturn(new Object[] {20L, 2L});
+        )).thenReturn(List.<Object[]>of(new Object[] {20L, 2L}));
         when(platformRevenueRepository.findGrossMerchandiseValue(
             PREVIOUS_START_DATE_TIME,
             START_DATE_TIME
@@ -162,11 +162,11 @@ class PlatformRevenueServiceImplTest {
         when(platformRevenueRepository.findUserActivity(
             START_DATE_TIME,
             END_DATE_TIME
-        )).thenReturn(new Object[] {5L, 4L, 1L, 100L, 90L, 10L});
+        )).thenReturn(List.<Object[]>of(new Object[] {5L, 4L, 1L, 100L, 90L, 10L}));
         when(platformRevenueRepository.findProductActivity(
             START_DATE_TIME,
             END_DATE_TIME
-        )).thenReturn(new Object[] {50L, 40L, 5L, 5L, 8L, 2L});
+        )).thenReturn(List.<Object[]>of(new Object[] {50L, 40L, 5L, 5L, 8L, 2L}));
         when(platformRevenueRepository.countActiveCategories())
             .thenReturn(7L);
         when(platformRevenueRepository.findDailyActivityTrend(
