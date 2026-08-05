@@ -608,7 +608,7 @@ public class ProductServiceImpl implements ProductService {
             .product(product)
             .availableQuantity(0)
             .reservedQuantity(0)
-            .updatedAt(java.time.LocalDateTime.now())
+            .updatedAt(java.time.OffsetDateTime.now())
             .build();
         inventoryRepository.save(inventory);
         log.info("Inventory row created for product {}", product.getId());

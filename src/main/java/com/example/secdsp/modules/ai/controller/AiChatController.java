@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.ai.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.ai.dto.AiChatRequest;
@@ -34,9 +34,9 @@ public class AiChatController {
 
     @GetMapping("/status")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> status() {
+    public ResponseEntity<BaseResponse<Map<String, Object>>> status() {
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 Map.of(
                     "configured", huggingFaceChatService.isConfigured(),
                     "provider", huggingFaceChatService.providerName()
@@ -47,13 +47,13 @@ public class AiChatController {
 
     @PostMapping("/chat")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<AiChatResponse>> chat(
+    public ResponseEntity<BaseResponse<AiChatResponse>> chat(
         @Valid @RequestBody AiChatRequest request
     ) {
         aiChatRateLimiter.check(SecurityUtils.getCurrentUserId());
         validateTurns(request);
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 "AI reply",
                 huggingFaceChatService.chat(request)
             )

@@ -16,7 +16,7 @@ CREATE TABLE inventory_logs
     updated_by        BIGINT
         REFERENCES users (id),
 
-    created_at        TIMESTAMP            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT chk_inventory_log_current_non_negative
         CHECK (current_quantity >= 0)
@@ -27,3 +27,6 @@ CREATE INDEX idx_inventory_logs_product
 
 CREATE INDEX idx_inventory_logs_updated_by
     ON inventory_logs(updated_by);
+
+CREATE INDEX idx_inventory_logs_product_created
+    ON inventory_logs(product_id, created_at DESC);

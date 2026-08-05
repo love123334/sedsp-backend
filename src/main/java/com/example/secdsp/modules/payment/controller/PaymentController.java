@@ -1,10 +1,11 @@
 package com.example.secdsp.modules.payment.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.order.dto.request.PayOrderRequest;
 import com.example.secdsp.modules.payment.dto.request.UpdatePaymentStatusRequest;
 import com.example.secdsp.modules.payment.dto.response.PaymentResponse;
 import com.example.secdsp.modules.payment.service.PaymentService;
+import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+@Hidden
 @RestController
 @RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
@@ -23,14 +25,14 @@ public class PaymentController {
 
     @PostMapping("/orders/{orderId}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<PaymentResponse>>
+    public ResponseEntity<BaseResponse<PaymentResponse>>
     payOrder(
         @PathVariable Long orderId,
         @Valid @RequestBody PayOrderRequest request
     ) {
 
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 "Payment initiated",
                 paymentService.payOrder(orderId, request)
             )
@@ -39,11 +41,11 @@ public class PaymentController {
 
     @GetMapping("/orders/{orderId}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<PaymentResponse>>
+    public ResponseEntity<BaseResponse<PaymentResponse>>
     getPaymentByOrder(@PathVariable Long orderId) {
 
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 paymentService.getPaymentByOrderId(orderId)
             )
         );
@@ -51,13 +53,13 @@ public class PaymentController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ApiResponse<Page<PaymentResponse>>>
+    public ResponseEntity<BaseResponse<Page<PaymentResponse>>>
     getMyPayments(
         @PageableDefault(size = 10) Pageable pageable
     ) {
 
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 paymentService.getMyPayments(pageable)
             )
         );
@@ -65,14 +67,14 @@ public class PaymentController {
 
     @PutMapping("/{paymentId}/status")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<PaymentResponse>>
+    public ResponseEntity<BaseResponse<PaymentResponse>>
     updatePaymentStatus(
         @PathVariable Long paymentId,
         @Valid @RequestBody UpdatePaymentStatusRequest request
     ) {
 
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 "Payment status updated",
                 paymentService.updatePaymentStatus(paymentId, request)
             )

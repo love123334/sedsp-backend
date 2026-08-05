@@ -11,7 +11,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "payments")
@@ -31,32 +31,45 @@ public class Payment {
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "payment_method", nullable = false, columnDefinition = "payment_method_enum")
+    @Column(
+        name = "payment_method",
+        nullable = false,
+        columnDefinition = "payment_method_enum"
+    )
     PaymentMethod paymentMethod;
 
     @Column(name = "gateway_name", length = 50)
     String gatewayName;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 12, scale = 2)
     BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false, columnDefinition = "payment_status")
-    PaymentStatus status;
+    @Column(
+        name = "status",
+        nullable = false,
+        columnDefinition = "payment_status"
+    )
+    PaymentStatus status = PaymentStatus.PENDING;
 
     @Column(name = "transaction_id")
     String transactionId;
 
-    @Column(nullable = false)
-    String currency;
+    @Column(nullable = false, length = 10)
+    String currency = "VND";
 
     @Column(name = "gateway_response", columnDefinition = "TEXT")
     String gatewayResponse;
 
     @Column(name = "paid_at")
-    LocalDateTime paidAt;
+    OffsetDateTime paidAt;
 
-    @Column(name = "created_at", insertable = false, updatable = false)
-    LocalDateTime createdAt;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    OffsetDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = OffsetDateTime.now();
+    }
 }

@@ -21,7 +21,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -65,7 +66,7 @@ class PricePredictionServiceImplTest {
             new PriceHistoryInfo(
                 new BigDecimal("80.00"),
                 new BigDecimal("100.00"),
-                LocalDateTime.of(2026, 7, 16, 10, 0)
+                OffsetDateTime.of(2026, 7, 16, 10, 0, 0, 0, ZoneOffset.UTC)
             )
         ));
         when(orderService.getCompletedQuantitySold(
@@ -160,7 +161,7 @@ class PricePredictionServiceImplTest {
             new PriceHistoryInfo(
                 new BigDecimal("80.00"),
                 new BigDecimal("100.00"),
-                LocalDateTime.of(2026, 7, 16, 10, 0)
+                OffsetDateTime.of(2026, 7, 16, 10, 0, 0, 0, ZoneOffset.UTC)
             )
         ));
         when(orderService.getCompletedQuantitySold(
@@ -281,7 +282,7 @@ class PricePredictionServiceImplTest {
                 PriceHistoryResponse.builder()
                     .oldPrice(new BigDecimal("80.00"))
                     .newPrice(new BigDecimal("100.00"))
-                    .changedAt(changeDate.atTime(10, 0))
+                    .changedAt(changeDate.atTime(10, 0).atOffset(ZoneOffset.UTC))
                     .build()
             ));
         when(orderService.getCompletedQuantitySold(

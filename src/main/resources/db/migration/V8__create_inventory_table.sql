@@ -10,11 +10,14 @@ CREATE TABLE inventory
 
     reserved_quantity  INTEGER   NOT NULL DEFAULT 0,
 
-    updated_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT chk_inventory_available
         CHECK (available_quantity >= 0),
 
     CONSTRAINT chk_inventory_reserved
-        CHECK (reserved_quantity >= 0)
+        CHECK (reserved_quantity >= 0),
+
+    CONSTRAINT chk_reserved_not_exceed_available
+        CHECK (available_quantity - reserved_quantity >= 0)
 );

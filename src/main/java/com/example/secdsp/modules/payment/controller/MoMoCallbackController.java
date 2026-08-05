@@ -3,6 +3,7 @@ package com.example.secdsp.modules.payment.controller;
 import com.example.secdsp.modules.payment.entity.PaymentStatus;
 import com.example.secdsp.modules.payment.gateway.momo.MoMoService;
 import com.example.secdsp.modules.payment.service.PaymentService;
+import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+@Hidden
 @RestController
 @RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
@@ -33,8 +35,7 @@ public class MoMoCallbackController {
         @RequestBody Map<String, String> payload
     ) {
 
-        boolean valid =
-            moMoService.verifyCallback(payload);
+        boolean valid = moMoService.verifyCallback(payload);
 
         if (!valid) {
             return ResponseEntity.badRequest()

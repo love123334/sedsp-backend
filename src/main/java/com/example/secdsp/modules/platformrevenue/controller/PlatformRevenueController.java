@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.platformrevenue.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.platformrevenue.dto.request.PlatformRevenueDashboardRequest;
 import com.example.secdsp.modules.platformrevenue.dto.response.PlatformRevenueDashboardResponse;
 import com.example.secdsp.modules.platformrevenue.service.PlatformRevenueService;
@@ -22,12 +22,12 @@ public class PlatformRevenueController {
     private final PlatformRevenueService platformRevenueService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<PlatformRevenueDashboardResponse>>
+    public ResponseEntity<BaseResponse<PlatformRevenueDashboardResponse>>
     getDashboard(
         @Valid @ModelAttribute PlatformRevenueDashboardRequest request
     ) {
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 "Lấy báo cáo doanh thu toàn sàn thành công.",
                 platformRevenueService.getDashboard(request)
             )

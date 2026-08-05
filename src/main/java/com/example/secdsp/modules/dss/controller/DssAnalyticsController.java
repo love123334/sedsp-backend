@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.dss.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.dss.dto.DemandForecastResponse;
 import com.example.secdsp.modules.dss.dto.DssInsightPlanResponse;
 import com.example.secdsp.modules.dss.dto.InventoryRecommendationResponse;
@@ -27,13 +27,13 @@ public class DssAnalyticsController {
 
     @GetMapping("/dss/demand/{productId}")
     @PreAuthorize("hasAnyRole('SELLER','MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse<DemandForecastResponse>> demand(
+    public ResponseEntity<BaseResponse<DemandForecastResponse>> demand(
         @PathVariable Long productId,
         @RequestParam(defaultValue = "90") int historyDays,
         @RequestParam(defaultValue = "30") int forecastDays
     ) {
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 dssAnalyticsService.forecastDemand(productId, historyDays, forecastDays)
             )
         );
@@ -41,12 +41,12 @@ public class DssAnalyticsController {
 
     @GetMapping("/dss/price/{productId}")
     @PreAuthorize("hasAnyRole('SELLER','MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse<PriceRecommendationResponse>> price(
+    public ResponseEntity<BaseResponse<PriceRecommendationResponse>> price(
         @PathVariable Long productId,
         @RequestParam(defaultValue = "30") int lookbackDays
     ) {
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 dssAnalyticsService.recommendPrice(productId, lookbackDays)
             )
         );
@@ -54,12 +54,12 @@ public class DssAnalyticsController {
 
     @GetMapping("/dss/inventory")
     @PreAuthorize("hasAnyRole('SELLER','MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse<InventoryRecommendationResponse>> inventory(
+    public ResponseEntity<BaseResponse<InventoryRecommendationResponse>> inventory(
         @RequestParam(required = false) Long productId,
         @RequestParam(defaultValue = "14") int planningDays
     ) {
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 dssAnalyticsService.recommendInventory(productId, planningDays)
             )
         );
@@ -68,20 +68,20 @@ public class DssAnalyticsController {
     /** Power BI brain: metrics from web + AI commentary / optional embed */
     @GetMapping("/dss/insights/plan")
     @PreAuthorize("hasAnyRole('SELLER','MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse<DssInsightPlanResponse>> insightPlan() {
+    public ResponseEntity<BaseResponse<DssInsightPlanResponse>> insightPlan() {
         return ResponseEntity.ok(
-            ApiResponse.success(dssAnalyticsService.buildInsightPlan())
+            BaseResponse.success(dssAnalyticsService.buildInsightPlan())
         );
     }
 
     /** Flat sales feed for Power BI Web connector */
     @GetMapping("/analytics/powerbi/sales")
     @PreAuthorize("hasAnyRole('SELLER','MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> powerBiSales(
+    public ResponseEntity<BaseResponse<List<Map<String, Object>>>> powerBiSales(
         @RequestParam(defaultValue = "1000") int limit
     ) {
         return ResponseEntity.ok(
-            ApiResponse.success(dssAnalyticsService.powerBiSalesFeed(limit))
+            BaseResponse.success(dssAnalyticsService.powerBiSalesFeed(limit))
         );
     }
 }

@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.dss.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.dss.dto.request.GenerateDemandPredictionRequest;
 import com.example.secdsp.modules.dss.dto.response.DemandPredictionResponse;
 import com.example.secdsp.modules.dss.service.DemandPredictionService;
@@ -23,12 +23,12 @@ public class DemandPredictionController {
 
     @PostMapping
     @PreAuthorize("hasRole('SELLER')")
-    public ResponseEntity<ApiResponse<DemandPredictionResponse>>
+    public ResponseEntity<BaseResponse<DemandPredictionResponse>>
     generatePrediction(
         @Valid @RequestBody GenerateDemandPredictionRequest request
     ) {
         return new ResponseEntity<>(
-            ApiResponse.success(
+            BaseResponse.success(
                 "Tạo dự báo nhu cầu thành công.",
                 demandPredictionService.generatePrediction(request)
             ),

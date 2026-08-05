@@ -35,7 +35,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Slf4j
 @Service
@@ -298,7 +298,7 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
-        if (latestOtp.getExpiryTime().isBefore(LocalDateTime.now())) {
+        if (latestOtp.getExpiryTime().isBefore(OffsetDateTime.now())) {
             throw new BusinessException("OTP expired", HttpStatus.BAD_REQUEST);
         }
 

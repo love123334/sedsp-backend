@@ -5,6 +5,7 @@ import com.example.secdsp.modules.payment.entity.PaymentStatus;
 import com.example.secdsp.modules.payment.gateway.vnpay.VnPayService;
 import com.example.secdsp.modules.payment.repository.PaymentRepository;
 import com.example.secdsp.modules.payment.service.PaymentService;
+import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
+@Hidden
 @RestController
 @RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor

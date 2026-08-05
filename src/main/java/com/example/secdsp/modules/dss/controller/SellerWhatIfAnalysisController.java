@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.dss.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.dss.dto.request.SellerDiscountAnalysisRequest;
 import com.example.secdsp.modules.dss.dto.response.SellerDiscountAnalysisResponse;
 import com.example.secdsp.modules.dss.service.SellerWhatIfAnalysisService;
@@ -22,12 +22,12 @@ public class SellerWhatIfAnalysisController {
 
     @PostMapping
     @PreAuthorize("hasRole('SELLER')")
-    public ResponseEntity<ApiResponse<SellerDiscountAnalysisResponse>>
+    public ResponseEntity<BaseResponse<SellerDiscountAnalysisResponse>>
     analyzeDiscount(
         @Valid @RequestBody SellerDiscountAnalysisRequest request
     ) {
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 "Phân tích kịch bản giảm giá thành công.",
                 sellerWhatIfAnalysisService.analyzeDiscount(request)
             )

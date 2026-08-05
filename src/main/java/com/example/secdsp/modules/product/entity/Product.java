@@ -24,13 +24,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@SQLDelete(
-    sql = """
-        UPDATE products
-        SET deleted_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    """
-)
+@SQLDelete(sql = "UPDATE products SET deleted_at = now() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class Product extends BaseEntity {
 
@@ -49,7 +43,7 @@ public class Product extends BaseEntity {
     @JoinColumn(name = "seller_id", nullable = false)
     User seller;
 
-    @Column(unique = true, length = 255)
+    @Column(nullable = false, length = 255)
     String slug;
 
     @Column(columnDefinition = "TEXT")
@@ -72,13 +66,15 @@ public class Product extends BaseEntity {
 
     @OneToMany(
         mappedBy = "product",
-        cascade = CascadeType.ALL
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
     )
     List<ProductImage> productImages = new ArrayList<>();
 
     @OneToMany(
         mappedBy = "product",
-        cascade = CascadeType.ALL
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
     )
     List<ProductAttribute> productAttributes = new ArrayList<>();
 }

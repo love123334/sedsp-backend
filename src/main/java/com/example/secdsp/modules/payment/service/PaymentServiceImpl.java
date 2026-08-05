@@ -11,22 +11,22 @@ import com.example.secdsp.modules.order.dto.internal.MonthlyRevenueInfo;
 import com.example.secdsp.modules.order.dto.internal.RevenueInfo;
 import com.example.secdsp.modules.order.dto.internal.SalesSummaryInfo;
 import com.example.secdsp.modules.order.dto.request.PayOrderRequest;
+import com.example.secdsp.modules.order.entity.*;
+import com.example.secdsp.modules.order.repository.OrderItemRepository;
+import com.example.secdsp.modules.order.repository.OrderRepository;
+import com.example.secdsp.modules.order.repository.OrderTrackingRepository;
 import com.example.secdsp.modules.order.service.OrderNotificationService;
 import com.example.secdsp.modules.payment.dto.request.PaymentGatewayRequest;
 import com.example.secdsp.modules.payment.dto.request.UpdatePaymentStatusRequest;
 import com.example.secdsp.modules.payment.dto.response.PaymentGatewayResponse;
 import com.example.secdsp.modules.payment.dto.response.PaymentResponse;
-import com.example.secdsp.modules.order.entity.*;
+import com.example.secdsp.modules.payment.entity.Payment;
 import com.example.secdsp.modules.payment.entity.PaymentMethod;
+import com.example.secdsp.modules.payment.entity.PaymentStatus;
 import com.example.secdsp.modules.payment.gateway.momo.MoMoService;
 import com.example.secdsp.modules.payment.gateway.vnpay.VnPayService;
 import com.example.secdsp.modules.payment.mapper.PaymentMapper;
-import com.example.secdsp.modules.order.repository.OrderItemRepository;
-import com.example.secdsp.modules.order.repository.OrderRepository;
-import com.example.secdsp.modules.order.repository.OrderTrackingRepository;
 import com.example.secdsp.modules.payment.repository.PaymentRepository;
-import com.example.secdsp.modules.payment.entity.Payment;
-import com.example.secdsp.modules.payment.entity.PaymentStatus;
 import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.user.entity.UserRole;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Service
@@ -222,7 +222,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         if (request.getStatus() == PaymentStatus.SUCCESS) {
 
-            payment.setPaidAt(LocalDateTime.now());
+            payment.setPaidAt(OffsetDateTime.now());
 
             Order order = payment.getOrder();
             order.setStatus(OrderStatus.PAID);
@@ -357,7 +357,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         if (status == PaymentStatus.SUCCESS) {
 
-            payment.setPaidAt(LocalDateTime.now());
+            payment.setPaidAt(OffsetDateTime.now());
 
             if (order.getStatus() != OrderStatus.PAID) {
                 order.setStatus(OrderStatus.PAID);

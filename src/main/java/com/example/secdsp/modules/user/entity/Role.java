@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.user.entity;
 
+import com.example.secdsp.modules.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -9,17 +10,15 @@ import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
-import java.time.LocalDateTime;
-
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Table(name = "roles")
-@SQLDelete(sql = "UPDATE roles SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+@SQLDelete(sql = "UPDATE roles SET deleted_at = now() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
-public class Role {
+public class Role extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,7 +29,4 @@ public class Role {
 
     @Column(columnDefinition = "TEXT")
     String description;
-
-    @Column(name = "created_at", insertable = false, updatable = false)
-    LocalDateTime createdAt;
 }

@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.dss.controller;
 
-import com.example.secdsp.common.api.ApiResponse;
+import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.dss.dto.request.GeneratePricePredictionRequest;
 import com.example.secdsp.modules.dss.dto.response.PricePredictionResponse;
 import com.example.secdsp.modules.dss.service.PricePredictionService;
@@ -22,12 +22,12 @@ public class PricePredictionController {
 
     @PostMapping
     @PreAuthorize("hasRole('SELLER')")
-    public ResponseEntity<ApiResponse<PricePredictionResponse>>
+    public ResponseEntity<BaseResponse<PricePredictionResponse>>
     generatePrediction(
         @Valid @RequestBody GeneratePricePredictionRequest request
     ) {
         return ResponseEntity.ok(
-            ApiResponse.success(
+            BaseResponse.success(
                 "Tạo khuyến nghị giá thành công.",
                 pricePredictionService.generatePrediction(request)
             )
