@@ -1,5 +1,9 @@
-﻿-- DSS demo dataset for FR01, FR03 and FR07.
--- PostgreSQL only. Also applied automatically by Flyway V43 on migrate.
+-- V43: Auto-apply DSS / platform-performance demo dataset (from db/seed/dss_demo_data.sql).
+-- Idempotent via email/slug/NOT EXISTS guards. Login:
+--   seller.dss.demo@example.com / password
+-- Previously manual-only; required on Railway so testers can verify FR01/FR03/FR07.
+-- DSS demo dataset for FR01, FR03 and FR07.
+-- PostgreSQL only. Run manually in a development database.
 --
 -- Primary demo seller login:
 --   email:    seller.dss.demo@example.com
@@ -11,7 +15,6 @@
 -- twelve customers and ten products are added so an empty development database
 -- is also immediately usable for DSS and platform-performance reporting.
 
-BEGIN;
 
 -- ---------------------------------------------------------------------------
 -- Demo identities and catalogue fallback
@@ -709,7 +712,6 @@ WHERE completed_order.status = 'DELIVERED'
   )
 GROUP BY product.id, product.seller_id;
 
-COMMIT;
 
 -- Quick verification result set. Aggregates are separated to avoid multiplying
 -- sales rows when a product has multiple price-history records.

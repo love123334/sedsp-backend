@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
@@ -24,6 +25,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,6 +33,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
+@Validated
 @Tag(
     name = "Product Management",
     description = "APIs for managing products and product information"
@@ -41,7 +44,7 @@ public class ProductController {
 
     @Operation(
         summary = "Create product",
-        description = "Create a new product. Requires ADMIN or SELLER role."
+        description = "Create a new product. Requires SELLER role."
     )
     @SecurityRequirement(name = "Bearer Authentication")
     @ApiResponses({
@@ -51,7 +54,7 @@ public class ProductController {
         @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content)
     })
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
+    @PreAuthorize("hasRole('SELLER')")
     public ResponseEntity<BaseResponse<ProductResponse>> createProduct(
         @Valid @RequestBody CreateProductRequest request
     ) {
@@ -67,7 +70,7 @@ public class ProductController {
 
     @Operation(
         summary = "Update product",
-        description = "Update an existing product. Requires ADMIN or SELLER role."
+        description = "Update an existing product. Requires SELLER role."
     )
     @SecurityRequirement(name = "Bearer Authentication")
     @ApiResponses({
@@ -78,7 +81,7 @@ public class ProductController {
         @ApiResponse(responseCode = "404", description = "Product not found", content = @Content)
     })
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
+    @PreAuthorize("hasRole('SELLER')")
     public ResponseEntity<BaseResponse<ProductResponse>> updateProduct(
 
         @Parameter(
@@ -102,7 +105,7 @@ public class ProductController {
 
     @Operation(
         summary = "Delete product",
-        description = "Delete a product. Requires ADMIN or SELLER role."
+        description = "Delete a product. Requires SELLER role."
     )
     @SecurityRequirement(name = "Bearer Authentication")
     @ApiResponses({
@@ -112,7 +115,7 @@ public class ProductController {
         @ApiResponse(responseCode = "404", description = "Product not found", content = @Content)
     })
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
+    @PreAuthorize("hasRole('SELLER')")
     public ResponseEntity<BaseResponse<Void>> deleteProduct(
 
         @Parameter(
@@ -168,6 +171,7 @@ public class ProductController {
             example = "iphone"
         )
         @RequestParam(required = false)
+        @Size(max = 100, message = "Keyword must not exceed 100 characters")
         String keyword,
 
         @Parameter(
