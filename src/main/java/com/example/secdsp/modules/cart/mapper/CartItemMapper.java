@@ -11,6 +11,7 @@ public interface CartItemMapper {
     @Mapping(target = "productId", source = "product.id")
     @Mapping(target = "productName", source = "product.name")
     @Mapping(target = "price", source = "product.price")
+    @Mapping(target = "productImageUrl", ignore = true)
     @Mapping(target = "totalPrice", ignore = true)
     CartItemResponse toResponse(CartItem entity);
 }

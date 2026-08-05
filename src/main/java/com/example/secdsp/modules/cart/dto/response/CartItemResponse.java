@@ -15,6 +15,8 @@ public class CartItemResponse {
     Long id;
     Long productId;
     String productName;
+    /** Primary product image — same source as shop listing */
+    String productImageUrl;
     BigDecimal price;
     Integer quantity;
     BigDecimal totalPrice;

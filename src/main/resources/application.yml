@@ -60,9 +60,10 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,https://*.vercel.app}
 
-  # Base URL FE — redirect sau thanh toán gateway → /cart?pay=
+  # Base URL FE — redirect sau thanh toán gateway → /payment/result rồi về /cart
+  # Production (Railway): set FRONTEND_BASE_URL=https://smartecon-fe.vercel.app
   frontend:
-    base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+    base-url: ${FRONTEND_BASE_URL:https://smartecon-fe.vercel.app}
 
   # --- AI OpenAI-compatible (OpenRouter / HF) — token chỉ trên BE ---
   ai:
@@ -80,7 +81,7 @@ app:
 
   # Platform Looker Studio (manager revenue) — FE cũng hardcode cùng URL
   looker:
-    studio-embed-url: ${LOOKER_STUDIO_EMBED_URL:https://datastudio.google.com/embed/reporting/8d218406-968f-42bc-85a9-dfd1f42fab43/page/ChS5F}
+    studio-embed-url: ${LOOKER_STUDIO_EMBED_URL:https://datastudio.google.com/embed/reporting/88f0776f-62a9-409c-8c78-40e9cd4b9f26/page/Y0b5F}
 
   # --- Cấu hình Payment ---
   payment:

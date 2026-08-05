@@ -58,10 +58,35 @@ public class HuggingFaceChatService {
         String url = aiProperties.getBaseUrl().replaceAll("/$", "") + "/chat/completions";
 
         List<Map<String, String>> messages = new ArrayList<>();
-        for (AiChatRequest.ChatTurn turn : request.getMessages()) {
+        List<AiChatRequest.ChatTurn> turns = request.getMessages();
+        // Cap payload size: keep system + last user/assistant turns
+        int start = 0;
+        if (turns.size() > 16) {
+            // Prefer keeping a leading system message if present
+            if ("system".equalsIgnoreCase(turns.get(0).getRole())) {
+                Map<String, String> sys = new HashMap<>();
+                sys.put("role", "system");
+                String sysContent = turns.get(0).getContent();
+                if (sysContent != null && sysContent.length() > 6000) {
+                    sysContent = sysContent.substring(0, 6000);
+                }
+                sys.put("content", sysContent);
+                messages.add(sys);
+                start = Math.max(1, turns.size() - 14);
+            } else {
+                start = turns.size() - 14;
+            }
+        }
+        for (int i = start; i < turns.size(); i++) {
+            AiChatRequest.ChatTurn turn = turns.get(i);
             Map<String, String> m = new HashMap<>();
-            m.put("role", turn.getRole());
-            m.put("content", turn.getContent());
+            String role = turn.getRole() == null ? "user" : turn.getRole().trim().toLowerCase();
+            String content = turn.getContent() == null ? "" : turn.getContent();
+            if (content.length() > 8000) {
+                content = content.substring(0, 8000);
+            }
+            m.put("role", role);
+            m.put("content", content);
             messages.add(m);
         }
 

@@ -25,7 +25,7 @@ public class MoMoCallbackController {
     private final MoMoService moMoService;
     private final PaymentService paymentService;
 
-    @Value("${app.frontend.base-url:http://localhost:5173}")
+    @Value("${app.frontend.base-url:https://smartecon-fe.vercel.app}")
     private String frontendBaseUrl;
 
     @PostMapping("/momo-ipn")
@@ -85,7 +85,7 @@ public class MoMoCallbackController {
         }
 
         String target = frontendBaseUrl.replaceAll("/$", "")
-            + "/cart?pay=" + (success ? "success" : "failed")
+            + "/payment/result?status=" + (success ? "success" : "failed")
             + "&gateway=momo"
             + "&orderId=" + (orderId != null ? orderId : "");
 

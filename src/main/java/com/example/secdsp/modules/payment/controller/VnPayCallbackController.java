@@ -31,7 +31,7 @@ public class VnPayCallbackController {
     private final PaymentService paymentService;
     private final PaymentRepository paymentRepository;
 
-    @Value("${app.frontend.base-url:http://localhost:5173}")
+    @Value("${app.frontend.base-url:https://smartecon-fe.vercel.app}")
     private String frontendBaseUrl;
 
     /**
@@ -76,9 +76,9 @@ public class VnPayCallbackController {
         }
 
         String statusParam = success ? "success" : (customerCancel ? "cancelled" : "failed");
-        // Always land on cart with a pay banner (success / fail / cancel)
+        // Public bridge page (no auth) → then FE routes to /cart with banner
         String target = frontendBaseUrl.replaceAll("/$", "")
-            + "/cart?pay=" + statusParam
+            + "/payment/result?status=" + statusParam
             + "&gateway=vnpay"
             + "&orderId=" + encode(orderId)
             + "&code=" + encode(responseCode == null ? "" : responseCode)

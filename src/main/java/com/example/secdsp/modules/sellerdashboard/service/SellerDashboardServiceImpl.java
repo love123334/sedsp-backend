@@ -39,22 +39,75 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
         log.info("Loading dashboard for seller {}", sellerId);
 
         SellerRatingSummary rating = buildRatingSection(sellerId);
+        OrderSummary orders = buildOrderSummary(sellerId);
+        InventorySummary inventory = buildInventorySummary(sellerId);
+        List<LowStockProductResponse> lowStock = buildLowStockProducts(sellerId);
 
         return SellerDashboardResponse.builder()
             .revenue(buildRevenueSummary(sellerId))
-            .orders(buildOrderSummary(sellerId))
+            .orders(orders)
             .products(buildProductSummary(sellerId))
-            .inventory(buildInventorySummary(sellerId))
+            .inventory(inventory)
             .recentOrders(buildRecentOrders(sellerId))
-            .lowStockProducts(buildLowStockProducts(sellerId))
+            .lowStockProducts(lowStock)
             .rating(rating)
             .averageRating(rating.averageRating())
             .totalReviews(rating.totalReviews())
             .ratingBreakdown(rating.ratingBreakdown())
             .recentReviews(rating.recentReviews())
             .ratingWarning(rating.warning())
-            .recommendations(Collections.emptyList())
+            .recommendations(buildRecommendations(inventory, lowStock, rating, orders))
             .build();
+    }
+
+    /** Actionable DSS-style tips from live dashboard metrics (not generic placeholders). */
+    private List<String> buildRecommendations(
+        InventorySummary inventory,
+        List<LowStockProductResponse> lowStock,
+        SellerRatingSummary rating,
+        OrderSummary orders
+    ) {
+        List<String> tips = new ArrayList<>();
+
+        if (inventory.outOfStockProducts() > 0) {
+            tips.add(
+                "Có " + inventory.outOfStockProducts()
+                    + " sản phẩm hết hàng — mở DSS → Khuyến nghị tồn kho để lập lệnh nhập."
+            );
+        }
+        if (!lowStock.isEmpty()) {
+            String names = lowStock.stream()
+                .limit(2)
+                .map(LowStockProductResponse::productName)
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("");
+            tips.add(
+                "Tồn thấp: " + names
+                    + (lowStock.size() > 2 ? " (+" + (lowStock.size() - 2) + ")" : "")
+                    + ". Chạy dự báo nhu cầu trước khi nhập."
+            );
+        }
+        if (orders.pending() > 0) {
+            tips.add(
+                "Có " + orders.pending()
+                    + " đơn chờ xử lý — ưu tiên xác nhận để tránh hủy đơn."
+            );
+        }
+        if (rating.warning() != null && !rating.warning().isBlank()) {
+            tips.add(rating.warning() + " Xem đánh giá gần đây và cải thiện phản hồi.");
+        }
+        if (orders.shipping() > 5) {
+            tips.add(
+                "Có " + orders.shipping()
+                    + " đơn đang giao — theo dõi tracking để giảm khiếu nại giao hàng."
+            );
+        }
+        if (tips.isEmpty()) {
+            tips.add(
+                "Shop đang ổn định. Dùng DSS → Gợi ý giá / What-if để tối ưu biên lợi nhuận."
+            );
+        }
+        return tips.stream().limit(5).toList();
     }
 
     // ==============================

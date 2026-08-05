@@ -18,6 +18,7 @@ import com.example.secdsp.modules.inventory.dto.response.InventoryResponse;
 import com.example.secdsp.modules.inventory.service.InventoryService;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.entity.Product;
+import com.example.secdsp.modules.product.entity.ProductImage;
 import com.example.secdsp.modules.product.entity.ProductStatus;
 import com.example.secdsp.modules.product.repository.ProductRepository;
 import com.example.secdsp.modules.product.service.ProductService;
@@ -244,11 +245,13 @@ public class CartServiceImpl implements CartService {
                     : "";
                 Long productId = product != null ? product.getId() : null;
                 int qty = item.getQuantity() != null ? item.getQuantity() : 0;
+                String imageUrl = resolvePrimaryImageUrl(product);
 
                 return CartItemResponse.builder()
                     .id(item.getId())
                     .productId(productId)
                     .productName(productName)
+                    .productImageUrl(imageUrl)
                     .price(price)
                     .quantity(qty)
                     .totalPrice(price.multiply(BigDecimal.valueOf(qty)))
@@ -278,6 +281,17 @@ public class CartServiceImpl implements CartService {
                 cart.setUser(user);
                 return cartRepository.save(cart);
             });
+    }
+
+    private static String resolvePrimaryImageUrl(Product product) {
+        if (product == null || product.getProductImages() == null || product.getProductImages().isEmpty()) {
+            return null;
+        }
+        return product.getProductImages().stream()
+            .filter(ProductImage::isPrimary)
+            .map(ProductImage::getImageUrl)
+            .findFirst()
+            .orElseGet(() -> product.getProductImages().get(0).getImageUrl());
     }
 
 
