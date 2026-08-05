@@ -1,5 +1,5 @@
 -- DSS demo dataset for FR01, FR03 and FR07.
--- PostgreSQL only. Also applied automatically by Flyway V43 on migrate.
+-- PostgreSQL only. Run manually in a development database.
 --
 -- Primary demo seller login:
 --   email:    seller.dss.demo@example.com
