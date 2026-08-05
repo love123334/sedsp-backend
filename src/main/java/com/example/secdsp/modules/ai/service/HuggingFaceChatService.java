@@ -27,6 +27,9 @@ public class HuggingFaceChatService {
     private final AiProperties aiProperties;
     private final RestTemplate restTemplate;
 
+    @org.springframework.beans.factory.annotation.Value("${app.frontend.base-url:https://smartecon.vercel.app}")
+    private String frontendBaseUrl;
+
     public boolean isConfigured() {
         return aiProperties.isEnabled()
             && aiProperties.getApiToken() != null
@@ -72,8 +75,11 @@ public class HuggingFaceChatService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(aiProperties.getApiToken().trim());
         if ("openrouter".equals(providerName())) {
-            headers.set("HTTP-Referer", "https://sedsp.local");
-            headers.set("X-Title", "SEDSP Chatbot");
+            String referer = frontendBaseUrl == null || frontendBaseUrl.isBlank()
+                ? "https://smartecon.vercel.app"
+                : frontendBaseUrl.replaceAll("/$", "");
+            headers.set("HTTP-Referer", referer);
+            headers.set("X-Title", "SEDSP DSS");
         }
 
         try {

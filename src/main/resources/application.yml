@@ -56,11 +56,11 @@ app:
   oauth2:
     redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2-success}
 
-  # Frontend origins (Vercel + local). Comma-separated patterns OK.
+  // Frontend origins (Vercel + local). Env merges with built-in Vercel patterns in CorsConfig.
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,https://*.vercel.app}
 
-  # Base URL FE — dùng redirect sau thanh toán gateway
+  # Base URL FE — redirect sau thanh toán gateway → /cart?pay=
   frontend:
     base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
 

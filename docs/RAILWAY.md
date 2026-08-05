@@ -87,6 +87,11 @@ JWT_SECRET=<chuỗi ≥32 ký tự>
 CORS_ALLOWED_ORIGINS=https://YOUR-VERCEL.vercel.app,https://*.vercel.app,http://localhost:5173
 FRONTEND_BASE_URL=https://YOUR-VERCEL.vercel.app
 
+# AI DSS commentary (OpenRouter) — bắt buộc nếu muốn nhận xét AI trên Vercel
+AI_ENABLED=true
+OPENROUTER_API_KEY=sk-or-v1-...
+# AI_MODEL=openrouter/free
+
 # --- OTP email (Railway Hobby blocks outbound SMTP 25/465/587) ---
 # Dùng Resend HTTPS API — bắt buộc trên Free/Trial/Hobby:
 RESEND_API_KEY=re_xxxxxxxx
@@ -115,12 +120,18 @@ VNPAY_IPN_URL=https://sedsp-api-production.up.railway.app/api/v1/payments/vnpay-
 # Railway đã public → không cần ngrok.
 ```
 
+> **CORS:** Backend luôn merge thêm `https://*.vercel.app`. Nếu FE vẫn báo CORS, kiểm tra `FRONTEND_BASE_URL` đúng domain Vercel production (không dùng URL preview tạm).
+
 ## Vercel FE
+
+Repo `love123334/smartecon-fe` — file `.env.production` đã trỏ Railway:
 
 ```env
 VITE_USE_MOCK=false
-VITE_API_BASE_URL=https://YOUR-APP.up.railway.app/api/v1
-VITE_BACKEND_ORIGIN=https://YOUR-APP.up.railway.app
+VITE_API_BASE_URL=https://sedsp-api-production.up.railway.app/api/v1
+VITE_BACKEND_ORIGIN=https://sedsp-api-production.up.railway.app
 ```
 
-Sau khi đổi `VITE_*` phải **Redeploy** FE (build lại).
+Sau khi đổi `VITE_*` trên Vercel Dashboard phải **Redeploy** (build lại).
+
+**Flow thanh toán:** VNPay/MoMo return → FE `/cart?pay=success|failed|cancelled` + banner/toast.

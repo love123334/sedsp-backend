@@ -7,26 +7,41 @@ import com.example.secdsp.modules.order.entity.OrderStatus;
 import com.example.secdsp.modules.order.repository.OrderItemRepository;
 import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Executor;
 
 /**
  * Gửi email vòng đời đơn cho người mua + từng người bán (không làm fail transaction).
+ * Đọc DB trên thread request, gửi mail trên pool — không chặn cập nhật trạng thái.
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class OrderNotificationService {
 
     private final EmailService emailService;
     private final UserRepository userRepository;
     private final OrderItemRepository orderItemRepository;
+    private final Executor mailExecutor;
+
+    public OrderNotificationService(
+        EmailService emailService,
+        UserRepository userRepository,
+        OrderItemRepository orderItemRepository,
+        @Qualifier("mailExecutor") Executor mailExecutor
+    ) {
+        this.emailService = emailService;
+        this.userRepository = userRepository;
+        this.orderItemRepository = orderItemRepository;
+        this.mailExecutor = mailExecutor;
+    }
 
     public void notifyOrderCreated(Order order) {
         notifyParties(order, OrderStatus.PENDING, "Đơn mới — chờ xác nhận",
@@ -43,22 +58,24 @@ public class OrderNotificationService {
     }
 
     private void notifyParties(Order order, OrderStatus status, String statusLabel, String message) {
-        List<OrderItem> items = orderItemRepository.findByOrder_Id(order.getId());
+        Long orderId = order.getId();
+        List<OrderItem> items = orderItemRepository.findByOrder_Id(orderId);
         String itemsHtml = buildItemsHtml(items);
         String detail = "<p>" + message + "</p>"
             + "<p>Tổng tiền: <strong>" + money(order.getTotalAmount()) + " VND</strong></p>"
             + "<p>Địa chỉ: " + escape(order.getShippingAddress()) + "</p>"
             + itemsHtml;
 
-        // Buyer
+        record MailJob(String email, String name, String role) {}
+        List<MailJob> jobs = new ArrayList<>();
+
         User buyer = order.getUser();
         if (buyer != null && buyer.getId() != null) {
             userRepository.findById(buyer.getId()).ifPresent(u ->
-                safeSend(u.getEmail(), displayName(u), "Người mua", order.getId(), statusLabel, detail)
+                jobs.add(new MailJob(u.getEmail(), displayName(u), "Người mua"))
             );
         }
 
-        // Sellers (unique)
         Set<Long> sellerIds = new HashSet<>();
         for (OrderItem item : items) {
             if (item.getSeller() != null && item.getSeller().getId() != null) {
@@ -67,7 +84,13 @@ public class OrderNotificationService {
         }
         for (Long sellerId : sellerIds) {
             userRepository.findById(sellerId).ifPresent(u ->
-                safeSend(u.getEmail(), displayName(u), "Người bán", order.getId(), statusLabel, detail)
+                jobs.add(new MailJob(u.getEmail(), displayName(u), "Người bán"))
+            );
+        }
+
+        for (MailJob job : jobs) {
+            mailExecutor.execute(() ->
+                safeSend(job.email(), job.name(), job.role(), orderId, statusLabel, detail)
             );
         }
     }
@@ -99,7 +122,7 @@ public class OrderNotificationService {
             case PROCESSING -> "Đã xác nhận / đang xử lý";
             case SHIPPING -> "Đang giao hàng";
             case DELIVERED -> "Đã giao thành công";
-            case CANCELLED -> "Đã hủy";
+            case CANCELLED -> "Đơn đã hủy";
             case REFUNDED -> "Hoàn tiền";
         };
     }

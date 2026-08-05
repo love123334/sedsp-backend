@@ -85,9 +85,9 @@ public class MoMoCallbackController {
         }
 
         String target = frontendBaseUrl.replaceAll("/$", "")
-            + "/payment/result?gateway=momo&orderId="
-            + (orderId != null ? orderId : "")
-            + "&status=" + (success ? "success" : "failed");
+            + "/cart?pay=" + (success ? "success" : "failed")
+            + "&gateway=momo"
+            + "&orderId=" + (orderId != null ? orderId : "");
 
         return ResponseEntity.status(HttpStatus.FOUND)
             .header(HttpHeaders.LOCATION, target)

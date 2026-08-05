@@ -35,9 +35,8 @@ public class VnPayCallbackController {
     private String frontendBaseUrl;
 
     /**
-     * Browser return after VNPay (QR / ATM / card). Always redirect to FE result page.
-     * Only mark SUCCESS on responseCode=00. Customer cancel (24) keeps order PENDING
-     * so user can confirm/retry from FE.
+     * Browser return after VNPay (QR / ATM / card). Always redirect to FE cart
+     * with pay=success|failed|cancelled banner. Cancel (24) keeps order PENDING.
      */
     @GetMapping("/vnpay-return")
     public ResponseEntity<Void> handleReturn(
@@ -77,10 +76,11 @@ public class VnPayCallbackController {
         }
 
         String statusParam = success ? "success" : (customerCancel ? "cancelled" : "failed");
+        // Always land on cart with a pay banner (success / fail / cancel)
         String target = frontendBaseUrl.replaceAll("/$", "")
-            + "/payment/result?gateway=vnpay"
+            + "/cart?pay=" + statusParam
+            + "&gateway=vnpay"
             + "&orderId=" + encode(orderId)
-            + "&status=" + statusParam
             + "&code=" + encode(responseCode == null ? "" : responseCode)
             + (txnRef != null ? "&txnRef=" + encode(txnRef) : "");
 
