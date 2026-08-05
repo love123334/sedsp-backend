@@ -3,7 +3,6 @@ package com.example.secdsp.modules.product.service;
 import com.example.secdsp.modules.product.dto.internal.PriceHistoryInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductSummaryInfo;
-import com.example.secdsp.modules.product.dto.internal.PriceHistoryInfo;
 import com.example.secdsp.modules.product.dto.request.CreateProductRequest;
 import com.example.secdsp.modules.product.dto.request.UpdateProductRequest;
 import com.example.secdsp.modules.product.dto.response.PriceHistoryResponse;
@@ -14,7 +13,6 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.time.LocalDate;
 
 public interface ProductService {
 

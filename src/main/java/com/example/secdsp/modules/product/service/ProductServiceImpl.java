@@ -11,7 +11,6 @@ import com.example.secdsp.modules.category.service.CategoryService;
 import com.example.secdsp.modules.product.dto.internal.PriceHistoryInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductSummaryInfo;
-import com.example.secdsp.modules.product.dto.internal.PriceHistoryInfo;
 import com.example.secdsp.modules.product.dto.request.*;
 import com.example.secdsp.modules.product.dto.response.PriceHistoryResponse;
 import com.example.secdsp.modules.product.dto.response.ProductDetailResponse;
