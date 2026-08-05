@@ -6,9 +6,9 @@
 --   password: password
 --
 -- The seed creates 121 days of sales, realistic order-status distributions and
--- three historical price changes. It uses at most 20 active products owned by
--- active SELLER users. Existing products are preferred; four demo sellers,
--- twelve customers and ten products are added so an empty development database
+-- three historical price changes. It uses all 35 demo products owned by
+-- active SELLER users. Existing products are preferred; five demo sellers,
+-- twelve customers and 35 products are added so an empty development database
 -- is also immediately usable for DSS and platform-performance reporting.
 
 BEGIN;
@@ -74,6 +74,7 @@ SELECT
 FROM roles r
 CROSS JOIN (
     VALUES
+        ('seller.dss.demo.1', 'seller.dss.demo.1@example.com', 'DSS Tech Seller', 'DSS Tech Accessories Store'),
         ('seller.dss.demo.2', 'seller.dss.demo.2@example.com', 'DSS Fashion Seller', 'DSS Fashion Store'),
         ('seller.dss.demo.3', 'seller.dss.demo.3@example.com', 'DSS Sports Seller', 'DSS Sports Store'),
         ('seller.dss.demo.4', 'seller.dss.demo.4@example.com', 'DSS Home Seller', 'DSS Home Store')
@@ -169,7 +170,8 @@ CROSS JOIN (
         ('Wireless Mouse Pro', 'dss-demo-wireless-mouse-pro', 350000.00::NUMERIC, 210000.00::NUMERIC),
         ('Mechanical Keyboard K87', 'dss-demo-mechanical-keyboard-k87', 1290000.00::NUMERIC, 780000.00::NUMERIC),
         ('Noise Cancelling Headphones', 'dss-demo-noise-cancelling-headphones', 1890000.00::NUMERIC, 1150000.00::NUMERIC),
-        ('USB-C Hub 8-in-1', 'dss-demo-usb-c-hub-8-in-1', 990000.00::NUMERIC, 590000.00::NUMERIC)
+        ('USB-C Hub 8-in-1', 'dss-demo-usb-c-hub-8-in-1', 990000.00::NUMERIC, 590000.00::NUMERIC),
+        ('Full HD Webcam C200', 'dss-demo-full-hd-webcam-c200', 820000.00::NUMERIC, 490000.00::NUMERIC)
 ) AS demo(name, slug, price, cost_price)
 WHERE seller.email = 'seller.dss.demo@example.com'
   AND category.slug = 'dss-demo-electronics'
@@ -207,12 +209,36 @@ FROM users seller
 CROSS JOIN categories category
 JOIN (
     VALUES
+        ('seller.dss.demo.1@example.com', 'Portable SSD 1TB', 'dss-demo-portable-ssd-1tb', 2190000.00::NUMERIC, 1390000.00::NUMERIC),
+        ('seller.dss.demo.1@example.com', 'Bluetooth Speaker Mini', 'dss-demo-bluetooth-speaker-mini', 680000.00::NUMERIC, 410000.00::NUMERIC),
+        ('seller.dss.demo.1@example.com', 'Laptop Stand Aluminum', 'dss-demo-laptop-stand-aluminum', 540000.00::NUMERIC, 320000.00::NUMERIC),
+        ('seller.dss.demo.1@example.com', 'Wireless Charger 15W', 'dss-demo-wireless-charger-15w', 450000.00::NUMERIC, 270000.00::NUMERIC),
+        ('seller.dss.demo.1@example.com', 'Gaming Mouse Pad XL', 'dss-demo-gaming-mouse-pad-xl', 290000.00::NUMERIC, 160000.00::NUMERIC),
+        ('seller.dss.demo.1@example.com', 'USB Microphone M10', 'dss-demo-usb-microphone-m10', 1250000.00::NUMERIC, 760000.00::NUMERIC),
         ('seller.dss.demo.2@example.com', 'Urban Travel Backpack', 'dss-demo-urban-travel-backpack', 750000.00::NUMERIC, 450000.00::NUMERIC),
         ('seller.dss.demo.2@example.com', 'Premium Cotton Jacket', 'dss-demo-premium-cotton-jacket', 1450000.00::NUMERIC, 870000.00::NUMERIC),
+        ('seller.dss.demo.2@example.com', 'Classic Denim Jeans', 'dss-demo-classic-denim-jeans', 890000.00::NUMERIC, 520000.00::NUMERIC),
+        ('seller.dss.demo.2@example.com', 'Linen Casual Shirt', 'dss-demo-linen-casual-shirt', 620000.00::NUMERIC, 360000.00::NUMERIC),
+        ('seller.dss.demo.2@example.com', 'Leather Crossbody Bag', 'dss-demo-leather-crossbody-bag', 980000.00::NUMERIC, 590000.00::NUMERIC),
+        ('seller.dss.demo.2@example.com', 'Everyday Sneakers', 'dss-demo-everyday-sneakers', 1150000.00::NUMERIC, 690000.00::NUMERIC),
+        ('seller.dss.demo.2@example.com', 'Wool Blend Scarf', 'dss-demo-wool-blend-scarf', 390000.00::NUMERIC, 220000.00::NUMERIC),
         ('seller.dss.demo.3@example.com', 'Running Shoes X1', 'dss-demo-running-shoes-x1', 1650000.00::NUMERIC, 990000.00::NUMERIC),
         ('seller.dss.demo.3@example.com', 'Fitness Smart Watch', 'dss-demo-fitness-smart-watch', 2490000.00::NUMERIC, 1540000.00::NUMERIC),
+        ('seller.dss.demo.3@example.com', 'Yoga Mat Pro', 'dss-demo-yoga-mat-pro', 520000.00::NUMERIC, 300000.00::NUMERIC),
+        ('seller.dss.demo.3@example.com', 'Adjustable Dumbbell Set', 'dss-demo-adjustable-dumbbell-set', 1850000.00::NUMERIC, 1120000.00::NUMERIC),
+        ('seller.dss.demo.3@example.com', 'Cycling Helmet Aero', 'dss-demo-cycling-helmet-aero', 1350000.00::NUMERIC, 810000.00::NUMERIC),
+        ('seller.dss.demo.3@example.com', 'Resistance Band Kit', 'dss-demo-resistance-band-kit', 420000.00::NUMERIC, 240000.00::NUMERIC),
+        ('seller.dss.demo.3@example.com', 'Insulated Sports Bottle', 'dss-demo-insulated-sports-bottle', 360000.00::NUMERIC, 200000.00::NUMERIC),
+        ('seller.dss.demo.3@example.com', 'Training Duffel Bag', 'dss-demo-training-duffel-bag', 790000.00::NUMERIC, 470000.00::NUMERIC),
         ('seller.dss.demo.4@example.com', 'Digital Coffee Maker', 'dss-demo-digital-coffee-maker', 1750000.00::NUMERIC, 1050000.00::NUMERIC),
-        ('seller.dss.demo.4@example.com', 'Smart Air Fryer', 'dss-demo-smart-air-fryer', 2200000.00::NUMERIC, 1350000.00::NUMERIC)
+        ('seller.dss.demo.4@example.com', 'Smart Air Fryer', 'dss-demo-smart-air-fryer', 2200000.00::NUMERIC, 1350000.00::NUMERIC),
+        ('seller.dss.demo.4@example.com', 'Robot Vacuum Compact', 'dss-demo-robot-vacuum-compact', 4290000.00::NUMERIC, 2780000.00::NUMERIC),
+        ('seller.dss.demo.4@example.com', 'Electric Kettle Glass', 'dss-demo-electric-kettle-glass', 690000.00::NUMERIC, 410000.00::NUMERIC),
+        ('seller.dss.demo.4@example.com', 'Portable Blender', 'dss-demo-portable-blender', 580000.00::NUMERIC, 340000.00::NUMERIC),
+        ('seller.dss.demo.4@example.com', 'Steam Iron Ceramic', 'dss-demo-steam-iron-ceramic', 850000.00::NUMERIC, 510000.00::NUMERIC),
+        ('seller.dss.demo.4@example.com', 'Digital Kitchen Scale', 'dss-demo-digital-kitchen-scale', 420000.00::NUMERIC, 230000.00::NUMERIC),
+        ('seller.dss.demo.4@example.com', 'Smart LED Desk Lamp', 'dss-demo-smart-led-desk-lamp', 760000.00::NUMERIC, 450000.00::NUMERIC),
+        ('seller.dss.demo.4@example.com', 'Ultrasonic Humidifier', 'dss-demo-ultrasonic-humidifier', 950000.00::NUMERIC, 570000.00::NUMERIC)
 ) AS demo(seller_email, name, slug, price, cost_price)
   ON demo.seller_email = seller.email
 WHERE category.slug = 'dss-demo-electronics'
@@ -259,14 +285,14 @@ FROM products p
 JOIN users seller ON seller.id = p.seller_id
 JOIN roles role ON role.id = seller.role_id
 WHERE p.deleted_at IS NULL
+  AND p.slug LIKE 'dss-demo-%'
   AND p.status = 'ACTIVE'
   AND p.price > 0
   AND p.cost_price IS NOT NULL
   AND seller.deleted_at IS NULL
   AND seller.status = 'ACTIVE'
   AND role.name = 'SELLER'
-ORDER BY p.id
-LIMIT 20;
+ORDER BY p.id;
 
 -- ---------------------------------------------------------------------------
 -- Price regimes
@@ -387,7 +413,9 @@ FROM (
         ('CANCELLED'::order_status, 8, 1),
         ('PROCESSING'::order_status, 10, 3),
         ('PENDING'::order_status, 14, 5),
-        ('SHIPPING'::order_status, 18, 7)
+        ('SHIPPING'::order_status, 18, 7),
+        ('PAID'::order_status, 20, 9),
+        ('REFUNDED'::order_status, 24, 11)
 ) AS outcome(order_status, every_days, customer_offset)
 CROSS JOIN LATERAL GENERATE_SERIES(
     CURRENT_DATE - 120,
@@ -607,7 +635,7 @@ SELECT
     'DSS-DEMO-STATUS-' || status_order.id,
     'VND',
     CASE
-        WHEN status_order.status IN ('PROCESSING', 'SHIPPING')
+        WHEN status_order.status IN ('PAID', 'PROCESSING', 'SHIPPING', 'REFUNDED')
             THEN status_order.created_at + INTERVAL '5 minutes'
         ELSE NULL
     END,
@@ -660,6 +688,8 @@ SELECT
             THEN 'CONFIRMED'::order_tracking_event
         WHEN status_order.status = 'SHIPPING'
             THEN 'SHIPPED'::order_tracking_event
+        WHEN status_order.status IN ('PAID', 'REFUNDED')
+            THEN 'PAYMENT_SUCCESS'::order_tracking_event
         ELSE 'CREATED'::order_tracking_event
     END,
     'Order outcome generated by platform performance demo seed.',
