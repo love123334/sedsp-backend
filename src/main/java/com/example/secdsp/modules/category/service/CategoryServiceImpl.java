@@ -1,6 +1,8 @@
 package com.example.secdsp.modules.category.service;
 
 import com.example.secdsp.common.exception.BusinessException;
+import com.example.secdsp.common.exception.ErrorCode;
+import com.example.secdsp.common.exception.ResourceAlreadyExistsException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.modules.category.dto.internal.CategoryInfo;
 import com.example.secdsp.modules.category.dto.request.CreateCategoryRequest;
@@ -38,77 +40,58 @@ public class CategoryServiceImpl implements CategoryService {
 
         log.info("Attempting to create category with name: {}", request.getName());
 
-        if (categoryRepository.existsByNameAndParent_Id(
-            request.getName(), request.getParentId())) {
-
-            throw new BusinessException(
-                "Category with name '" + request.getName() + "' already exists."
-            );
-        }
-
         Category category = categoryMapper.toEntity(request);
 
         category.setSlug(generateUniqueSlug(request.getName(), null));
 
-        if (request.getParentId() == null) {
-
-            if (categoryRepository.existsByNameAndParentIsNull(request.getName())) {
-                throw new BusinessException(
-                    "Root category with name '" + request.getName() + "' already exists."
-                );
-            }
-
-        } else {
-
-            if (categoryRepository.existsByNameAndParent_Id(
-                request.getName(),
-                request.getParentId()
-            )) {
-
-                throw new BusinessException(
-                    "Category with name '" + request.getName() + "' already exists in this parent."
-                );
-            }
-        }
+        validateDuplicateCategoryName(
+            request.getName(),
+            request.getParentId(),
+            null
+        );
 
         try {
             return categoryMapper.toResponse(categoryRepository.save(category));
         } catch (DataIntegrityViolationException ex) {
-            throw new BusinessException("Slug conflict occurred. Please retry.");
+            throw new BusinessException(
+                ErrorCode.BUSINESS_ERROR,
+                "Slug conflict occurred. Please retry."
+            );
         }
     }
 
     @Override
     @Transactional
     public CategoryResponse updateCategory(Long id, UpdateCategoryRequest request) {
+
         log.info("Attempting to update category with ID: {}", id);
+
         Category existingCategory = getActiveCategory(id);
 
-        if (!existingCategory.getName().equals(request.getName())) {
+        boolean nameChanged = !existingCategory.getName().equals(request.getName());
 
-            if (request.getParentId() == null) {
+        boolean parentChanged = !Objects.equals(
+            existingCategory.getParent() == null
+                ? null
+                : existingCategory.getParent().getId(),
+            request.getParentId()
+        );
 
-                categoryRepository
-                    .findByNameAndParentIsNullAndIdNot(request.getName(), id)
-                    .ifPresent(c -> {
-                        throw new BusinessException("Root category name already exists.");
-                    });
-
-            } else {
-
-                categoryRepository
-                    .findByNameAndParent_IdAndIdNot(
-                        request.getName(),
-                        request.getParentId(),
-                        id
-                    )
-                    .ifPresent(c -> {
-                        throw new BusinessException("Category name already exists in this parent.");
-                    });
-            }
+        if (nameChanged || parentChanged) {
+            validateDuplicateCategoryName(
+                request.getName(),
+                request.getParentId(),
+                id
+            );
         }
 
         categoryMapper.updateEntityFromDto(request, existingCategory);
+
+        if (nameChanged) {
+            existingCategory.setSlug(
+                generateUniqueSlug(request.getName(), id)
+            );
+        }
 
         if (request.getParentId() == null) {
 
@@ -118,6 +101,7 @@ public class CategoryServiceImpl implements CategoryService {
 
             if (id.equals(request.getParentId())) {
                 throw new BusinessException(
+                    ErrorCode.INVALID_REQUEST,
                     "Category cannot be its own parent."
                 );
             }
@@ -126,6 +110,7 @@ public class CategoryServiceImpl implements CategoryService {
 
             if (isCircular(parent, existingCategory)) {
                 throw new BusinessException(
+                    ErrorCode.BUSINESS_ERROR,
                     "Circular hierarchy detected."
                 );
             }
@@ -134,7 +119,9 @@ public class CategoryServiceImpl implements CategoryService {
         }
 
         Category updatedCategory = categoryRepository.save(existingCategory);
+
         log.info("Category updated successfully with ID: {}", updatedCategory.getId());
+
         return categoryMapper.toResponse(updatedCategory);
     }
 
@@ -148,13 +135,15 @@ public class CategoryServiceImpl implements CategoryService {
 
         if (categoryRepository.existsByParent_Id(id)) {
             throw new BusinessException(
+                ErrorCode.BUSINESS_ERROR,
                 "Cannot delete category with child categories."
             );
         }
 
         if (productRepository.existsByCategory_Id(id)) {
             throw new BusinessException(
-                "Cannot delete category as it has active products associated with it."
+                ErrorCode.BUSINESS_ERROR,
+                "Cannot delete category because it contains products."
             );
         }
 
@@ -167,8 +156,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional(readOnly = true)
     public CategoryResponse getCategoryById(Long id) {
         log.debug("Fetching category by ID: {}", id);
-        Category category = categoryRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Category", id));
+        Category category = getActiveCategory(id);
         return categoryMapper.toResponse(category);
     }
 
@@ -242,16 +230,15 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     private boolean isCircular(Category potentialParent, Category child) {
-        Set<Long> visited = new java.util.HashSet<>();
+        Set<Long> visited = new HashSet<>();
         Category current = potentialParent;
         while (current != null) {
             if (current.getId().equals(child.getId())) {
-                return true; // Found a circular reference
+                return true;
             }
             if (!visited.add(current.getId())) {
-                // This should not happen with a valid parent structure but acts as a safeguard
                 log.warn("Circular path detected in parent traversal for category ID: {}", potentialParent.getId());
-                return true; // Loop detected during traversal
+                return true;
             }
             current = current.getParent();
         }
@@ -282,6 +269,42 @@ public class CategoryServiceImpl implements CategoryService {
             }
 
             slug = baseSlug + "-" + counter++;
+        }
+    }
+
+    private void validateDuplicateCategoryName(
+        String name,
+        Long parentId,
+        Long currentId
+    ) {
+
+        boolean exists;
+
+        if (parentId == null) {
+
+            exists = currentId == null
+                ? categoryRepository.existsByNameAndParentIsNull(name)
+                : categoryRepository
+                .findByNameAndParentIsNullAndIdNot(name, currentId)
+                .isPresent();
+
+        } else {
+
+            exists = currentId == null
+                ? categoryRepository.existsByNameAndParent_Id(name, parentId)
+                : categoryRepository
+                .findByNameAndParent_IdAndIdNot(name, parentId, currentId)
+                .isPresent();
+        }
+
+        if (exists) {
+
+            String message =
+                parentId == null
+                    ? "Root category name already exists."
+                    : "Category name already exists in this parent.";
+
+            throw new ResourceAlreadyExistsException(message);
         }
     }
 }
