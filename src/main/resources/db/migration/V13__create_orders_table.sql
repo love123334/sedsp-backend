@@ -3,9 +3,7 @@ CREATE TABLE orders
     id               BIGSERIAL PRIMARY KEY,
 
     user_id          BIGINT         NOT NULL
-        REFERENCES users (id)
-            ON DELETE RESTRICT
-            ON UPDATE CASCADE,
+        REFERENCES users (id),
 
     subtotal_amount  NUMERIC(12, 2) NOT NULL DEFAULT 0,
     shipping_fee     NUMERIC(12, 2) NOT NULL DEFAULT 0,
@@ -17,8 +15,8 @@ CREATE TABLE orders
 
     shipping_address TEXT           NOT NULL,
 
-    created_at       TIMESTAMPTZ    NOT NULL DEFAULT now(),
-    updated_at       TIMESTAMPTZ    NOT NULL DEFAULT now(),
+    created_at       TIMESTAMP               DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP               DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_order_subtotal
         CHECK (subtotal_amount >= 0),
@@ -34,8 +32,8 @@ CREATE TABLE orders
 
     CONSTRAINT chk_order_total_correct
         CHECK (
-            ROUND(total_amount, 2) =
-            ROUND(subtotal_amount + shipping_fee - discount_amount, 2)
+            total_amount =
+            subtotal_amount + shipping_fee - discount_amount
             )
 );
 
@@ -44,6 +42,3 @@ CREATE INDEX idx_orders_user
 
 CREATE INDEX idx_orders_status
     ON orders (status);
-
-CREATE INDEX idx_orders_user_status_created
-    ON orders (user_id, status, created_at DESC);

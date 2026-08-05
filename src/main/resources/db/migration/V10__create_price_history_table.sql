@@ -2,7 +2,7 @@ CREATE TABLE price_history
 (
     id         BIGSERIAL PRIMARY KEY,
 
-    product_id BIGINT      NOT NULL
+    product_id BIGINT NOT NULL
         REFERENCES products (id)
             ON DELETE CASCADE,
 
@@ -12,20 +12,14 @@ CREATE TABLE price_history
     changed_by BIGINT
         REFERENCES users (id),
 
-    changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_old_price
         CHECK (old_price IS NULL OR old_price >= 0),
 
     CONSTRAINT chk_new_price
-        CHECK (new_price IS NULL OR new_price >= 0),
-
-    CONSTRAINT chk_price_changed
-        CHECK (old_price IS NULL OR new_price IS NULL OR old_price <> new_price)
+        CHECK (new_price IS NULL OR new_price >= 0)
 );
 
 CREATE INDEX idx_price_history_product
     ON price_history (product_id);
-
-CREATE INDEX idx_price_history_product_changed
-    ON price_history (product_id, changed_at DESC);

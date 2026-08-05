@@ -3,9 +3,9 @@ CREATE TABLE roles
     id          BIGSERIAL PRIMARY KEY,
     name        VARCHAR(50) NOT NULL UNIQUE,
     description TEXT,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at  TIMESTAMPTZ
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at  TIMESTAMP
 );
 
 INSERT INTO roles (name, description)

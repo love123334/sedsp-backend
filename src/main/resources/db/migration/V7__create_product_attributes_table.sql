@@ -1,18 +1,18 @@
 CREATE TABLE product_attributes
 (
-    id              BIGSERIAL PRIMARY KEY,
+    id                BIGSERIAL PRIMARY KEY,
 
-    product_id      BIGINT       NOT NULL
-        REFERENCES products (id)
+    product_id        BIGINT NOT NULL
+        REFERENCES products(id)
             ON DELETE CASCADE,
 
-    attribute_name  VARCHAR(100) NOT NULL,
-    attribute_value VARCHAR(255) NOT NULL,
+    attribute_name    VARCHAR(100) NOT NULL,
+    attribute_value   VARCHAR(255) NOT NULL,
 
-    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    deleted_at      TIMESTAMPTZ
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at   TIMESTAMP
 );
 
 CREATE INDEX idx_product_attributes_product
-    ON product_attributes (product_id);
+    ON product_attributes(product_id);

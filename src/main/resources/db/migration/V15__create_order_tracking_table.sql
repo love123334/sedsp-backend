@@ -13,11 +13,8 @@ CREATE TABLE order_tracking
     updated_by BIGINT               NOT NULL
         REFERENCES users (id),
 
-    created_at TIMESTAMPTZ          NOT NULL DEFAULT now()
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_order_tracking_order
     ON order_tracking (order_id);
-
-CREATE INDEX idx_order_tracking_order_created
-    ON order_tracking (order_id, created_at DESC);

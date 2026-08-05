@@ -1,23 +1,20 @@
 CREATE TABLE email_otps
 (
-    id           BIGSERIAL PRIMARY KEY,
-    email        VARCHAR(150) NOT NULL,
-    otp          VARCHAR(10)  NOT NULL,
-    expiry_time  TIMESTAMPTZ  NOT NULL,
-    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    resend_count INT          NOT NULL DEFAULT 0,
-    verified     BOOLEAN      NOT NULL DEFAULT FALSE,
-    used         BOOLEAN      NOT NULL DEFAULT FALSE
+    id          BIGSERIAL PRIMARY KEY,
+    email       VARCHAR(150) NOT NULL,
+    otp         VARCHAR(10)  NOT NULL,
+    expiry_time TIMESTAMP    NOT NULL,
+    used        BOOLEAN      NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX idx_email_otps_email
     ON email_otps (email);
 
-CREATE INDEX idx_email_otps_expiry
-    ON email_otps (expiry_time);
+ALTER TABLE email_otps
+    ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT NOW();
 
-CREATE INDEX idx_email_otps_email_used
-    ON email_otps (email, used);
+ALTER TABLE email_otps
+    ADD COLUMN resend_count INT NOT NULL DEFAULT 0;
 
-CREATE INDEX idx_email_otps_email_valid
-    ON email_otps (email, expiry_time DESC) WHERE used = FALSE;
+ALTER TABLE email_otps
+    ADD COLUMN verified BOOLEAN NOT NULL DEFAULT FALSE;
