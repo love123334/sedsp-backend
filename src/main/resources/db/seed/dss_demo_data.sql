@@ -1,4 +1,4 @@
-﻿-- DSS demo dataset for FR01, FR03 and FR07.
+-- DSS demo dataset for FR01, FR03 and FR07.
 -- PostgreSQL only. Also applied automatically by Flyway V43 on migrate.
 --
 -- Primary demo seller login:
@@ -32,7 +32,7 @@ INSERT INTO users (
 SELECT
     'seller.dss.demo',
     'seller.dss.demo@example.com',
-    '$2a$10$MDes8qRTuKmeopk7NxNZv/GZuQ/MI8e9OPSQ10K4YW3WRPuHnBhB8yELbcucpi',
+    '$2b$10$gFbkZBWE1FRG/GZuQ/MI8e9OPSQ10K4YW3WRPuHnBhB8yELbcucpi',
     'DSS Demo Seller',
     'ACTIVE'::user_status,
     r.id,
@@ -63,7 +63,7 @@ INSERT INTO users (
 SELECT
     demo.username,
     demo.email,
-    '$2a$10$MDes8qRTuKmeopk7NxNZv/GZuQ/MI8e9OPSQ10K4YW3WRPuHnBhB8yELbcucpi',
+    '$2b$10$gFbkZBWE1FRG/GZuQ/MI8e9OPSQ10K4YW3WRPuHnBhB8yELbcucpi',
     demo.full_name,
     'ACTIVE'::user_status,
     r.id,
@@ -98,7 +98,7 @@ INSERT INTO users (
 SELECT
     demo.username,
     demo.email,
-    '$2a$10$MDes8qRTuKmeopk7NxNZv/GZuQ/MI8e9OPSQ10K4YW3WRPuHnBhB8yELbcucpi',
+    '$2b$10$gFbkZBWE1FRG/GZuQ/MI8e9OPSQ10K4YW3WRPuHnBhB8yELbcucpi',
     demo.full_name,
     'ACTIVE'::user_status,
     r.id,
@@ -120,7 +120,7 @@ WHERE r.name = 'CUSTOMER'
 
 -- Keep the documented demo credential deterministic when the seed is rerun.
 UPDATE users
-SET password = '$2a$10$MDes8qRTuKmeopk7NxNZv/GZuQ/MI8e9OPSQ10K4YW3WRPuHnBhB8yELbcucpi',
+SET password = '$2b$10$gFbkZBWE1FRG/GZuQ/MI8e9OPSQ10K4YW3WRPuHnBhB8yELbcucpi',
     updated_at = CURRENT_TIMESTAMP
 WHERE email = 'seller.dss.demo@example.com'
    OR email LIKE 'seller.dss.demo.%@example.com'
