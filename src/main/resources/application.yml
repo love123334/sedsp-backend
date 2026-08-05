@@ -73,10 +73,14 @@ app:
     temperature: ${AI_TEMPERATURE:0.6}
     max-tokens: ${AI_MAX_TOKENS:900}
 
-  # --- Power BI (embed URL sau khi publish report) ---
+  # --- Power BI / Looker Studio (embed URL sau khi publish report) ---
   powerbi:
     embed-url: ${POWERBI_EMBED_URL:}
     report-title: ${POWERBI_REPORT_TITLE:SEDSP Decision Dashboard}
+
+  # Platform Looker Studio (manager revenue) — FE cũng hardcode cùng URL
+  looker:
+    studio-embed-url: ${LOOKER_STUDIO_EMBED_URL:https://datastudio.google.com/embed/reporting/8d218406-968f-42bc-85a9-dfd1f42fab43/page/ChS5F}
 
   # --- Cấu hình Payment ---
   payment:

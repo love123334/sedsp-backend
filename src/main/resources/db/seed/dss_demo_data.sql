@@ -1,14 +1,15 @@
--- DSS demo dataset for FR01, FR03 and FR07.
+﻿-- DSS demo dataset for FR01, FR03 and FR07.
 -- PostgreSQL only. Run manually in a development database.
 --
--- Demo seller login:
+-- Primary demo seller login:
 --   email:    seller.dss.demo@example.com
 --   password: password
 --
--- The seed creates 121 days of delivered sales and three historical price
--- changes. It uses at most 20 active products owned by active SELLER users.
--- Existing products are preferred; four demo products are added so that an
--- empty development database is also immediately usable.
+-- The seed creates 121 days of sales, realistic order-status distributions and
+-- three historical price changes. It uses at most 20 active products owned by
+-- active SELLER users. Existing products are preferred; four demo sellers,
+-- twelve customers and ten products are added so an empty development database
+-- is also immediately usable for DSS and platform-performance reporting.
 
 BEGIN;
 
@@ -54,6 +55,43 @@ INSERT INTO users (
     full_name,
     status,
     role_id,
+    store_name,
+    business_email,
+    created_at,
+    updated_at
+)
+SELECT
+    demo.username,
+    demo.email,
+    '$2a$10$MDes8qRTuKmeopk7NxNZv.gZV5kBFMP7cQ2SlVMMfXT6aXqqHnukK',
+    demo.full_name,
+    'ACTIVE'::user_status,
+    r.id,
+    demo.store_name,
+    demo.email,
+    CURRENT_TIMESTAMP - INTERVAL '180 days',
+    CURRENT_TIMESTAMP - INTERVAL '180 days'
+FROM roles r
+CROSS JOIN (
+    VALUES
+        ('seller.dss.demo.2', 'seller.dss.demo.2@example.com', 'DSS Fashion Seller', 'DSS Fashion Store'),
+        ('seller.dss.demo.3', 'seller.dss.demo.3@example.com', 'DSS Sports Seller', 'DSS Sports Store'),
+        ('seller.dss.demo.4', 'seller.dss.demo.4@example.com', 'DSS Home Seller', 'DSS Home Store')
+) AS demo(username, email, full_name, store_name)
+WHERE r.name = 'SELLER'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM users u
+      WHERE u.email = demo.email
+  );
+
+INSERT INTO users (
+    username,
+    email,
+    password,
+    full_name,
+    status,
+    role_id,
     created_at,
     updated_at
 )
@@ -67,12 +105,12 @@ SELECT
     CURRENT_TIMESTAMP - INTERVAL '180 days',
     CURRENT_TIMESTAMP - INTERVAL '180 days'
 FROM roles r
-CROSS JOIN (
-    VALUES
-        ('customer.dss.demo.1', 'customer.dss.demo.1@example.com', 'DSS Customer One'),
-        ('customer.dss.demo.2', 'customer.dss.demo.2@example.com', 'DSS Customer Two'),
-        ('customer.dss.demo.3', 'customer.dss.demo.3@example.com', 'DSS Customer Three')
-) AS demo(username, email, full_name)
+CROSS JOIN LATERAL (
+    SELECT 'customer.dss.demo.' || sequence_number AS username,
+           'customer.dss.demo.' || sequence_number || '@example.com' AS email,
+           'DSS Customer ' || LPAD(sequence_number::TEXT, 2, '0') AS full_name
+    FROM GENERATE_SERIES(1, 12) AS generated(sequence_number)
+) AS demo
 WHERE r.name = 'CUSTOMER'
   AND NOT EXISTS (
       SELECT 1
@@ -84,12 +122,9 @@ WHERE r.name = 'CUSTOMER'
 UPDATE users
 SET password = '$2a$10$MDes8qRTuKmeopk7NxNZv.gZV5kBFMP7cQ2SlVMMfXT6aXqqHnukK',
     updated_at = CURRENT_TIMESTAMP
-WHERE email IN (
-    'seller.dss.demo@example.com',
-    'customer.dss.demo.1@example.com',
-    'customer.dss.demo.2@example.com',
-    'customer.dss.demo.3@example.com'
-);
+WHERE email = 'seller.dss.demo@example.com'
+   OR email LIKE 'seller.dss.demo.%@example.com'
+   OR email LIKE 'customer.dss.demo.%@example.com';
 
 INSERT INTO categories (name, slug, created_at, updated_at)
 SELECT
@@ -138,6 +173,49 @@ CROSS JOIN (
 ) AS demo(name, slug, price, cost_price)
 WHERE seller.email = 'seller.dss.demo@example.com'
   AND category.slug = 'dss-demo-electronics'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM products p
+      WHERE p.slug = demo.slug
+        AND p.deleted_at IS NULL
+  );
+
+INSERT INTO products (
+    seller_id,
+    category_id,
+    name,
+    slug,
+    description,
+    price,
+    cost_price,
+    status,
+    created_at,
+    updated_at
+)
+SELECT
+    seller.id,
+    category.id,
+    demo.name,
+    demo.slug,
+    'Platform performance demonstration product with simulated sales history.',
+    demo.price,
+    demo.cost_price,
+    'ACTIVE'::product_status,
+    CURRENT_TIMESTAMP - INTERVAL '150 days',
+    CURRENT_TIMESTAMP
+FROM users seller
+CROSS JOIN categories category
+JOIN (
+    VALUES
+        ('seller.dss.demo.2@example.com', 'Urban Travel Backpack', 'dss-demo-urban-travel-backpack', 750000.00::NUMERIC, 450000.00::NUMERIC),
+        ('seller.dss.demo.2@example.com', 'Premium Cotton Jacket', 'dss-demo-premium-cotton-jacket', 1450000.00::NUMERIC, 870000.00::NUMERIC),
+        ('seller.dss.demo.3@example.com', 'Running Shoes X1', 'dss-demo-running-shoes-x1', 1650000.00::NUMERIC, 990000.00::NUMERIC),
+        ('seller.dss.demo.3@example.com', 'Fitness Smart Watch', 'dss-demo-fitness-smart-watch', 2490000.00::NUMERIC, 1540000.00::NUMERIC),
+        ('seller.dss.demo.4@example.com', 'Digital Coffee Maker', 'dss-demo-digital-coffee-maker', 1750000.00::NUMERIC, 1050000.00::NUMERIC),
+        ('seller.dss.demo.4@example.com', 'Smart Air Fryer', 'dss-demo-smart-air-fryer', 2200000.00::NUMERIC, 1350000.00::NUMERIC)
+) AS demo(seller_email, name, slug, price, cost_price)
+  ON demo.seller_email = seller.email
+WHERE category.slug = 'dss-demo-electronics'
   AND NOT EXISTS (
       SELECT 1
       FROM products p
@@ -260,13 +338,78 @@ FROM GENERATE_SERIES(
 ) AS sale(sale_date)
 JOIN users customer
   ON customer.email = 'customer.dss.demo.'
-      || (MOD((CURRENT_DATE - sale.sale_date::DATE), 3) + 1)
+      || (MOD((CURRENT_DATE - sale.sale_date::DATE), 12) + 1)
       || '@example.com'
 WHERE NOT EXISTS (
     SELECT 1
     FROM orders existing_order
     WHERE existing_order.shipping_address =
         '[DSS-DEMO] ' || TO_CHAR(sale.sale_date, 'YYYY-MM-DD')
+);
+
+-- Redistribute previously seeded daily orders when this expanded dataset is
+-- applied over the original three-customer version.
+UPDATE orders demo_order
+SET user_id = customer.id
+FROM users customer
+WHERE demo_order.shipping_address LIKE '[DSS-DEMO] %'
+  AND customer.email = 'customer.dss.demo.'
+      || (MOD((CURRENT_DATE - demo_order.created_at::DATE), 12) + 1)
+      || '@example.com';
+
+-- Add realistic non-delivered order outcomes. Their cadence produces a stable
+-- mix suitable for completion/cancellation-rate reporting without altering the
+-- delivered sales history used by DSS calculations.
+INSERT INTO orders (
+    user_id,
+    subtotal_amount,
+    shipping_fee,
+    discount_amount,
+    total_amount,
+    status,
+    shipping_address,
+    created_at,
+    updated_at
+)
+SELECT
+    customer.id,
+    0.00,
+    15000.00,
+    0.00,
+    15000.00,
+    outcome.order_status,
+    '[DSS-DEMO-' || outcome.order_status::TEXT || '] '
+        || TO_CHAR(sale.sale_date, 'YYYY-MM-DD'),
+    sale.sale_date + TIME '14:00:00',
+    sale.sale_date + TIME '16:00:00'
+FROM (
+    VALUES
+        ('CANCELLED'::order_status, 8, 1),
+        ('PROCESSING'::order_status, 10, 3),
+        ('PENDING'::order_status, 14, 5),
+        ('SHIPPING'::order_status, 18, 7)
+) AS outcome(order_status, every_days, customer_offset)
+CROSS JOIN LATERAL GENERATE_SERIES(
+    CURRENT_DATE - 120,
+    CURRENT_DATE,
+    outcome.every_days * INTERVAL '1 day'
+) AS sale(sale_date)
+JOIN users customer
+  ON customer.email = 'customer.dss.demo.'
+      || (
+          MOD(
+              CURRENT_DATE - sale.sale_date::DATE
+                  + outcome.customer_offset,
+              12
+          ) + 1
+      )
+      || '@example.com'
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM orders existing_order
+    WHERE existing_order.shipping_address =
+        '[DSS-DEMO-' || outcome.order_status::TEXT || '] '
+            || TO_CHAR(sale.sale_date, 'YYYY-MM-DD')
 );
 
 INSERT INTO order_items (
@@ -335,6 +478,46 @@ WHERE demo_order.shipping_address LIKE '[DSS-DEMO] %'
         AND existing_item.product_id = product.id
   );
 
+INSERT INTO order_items (
+    order_id,
+    product_id,
+    seller_id,
+    product_name_at_purchase,
+    quantity,
+    unit_price_at_purchase,
+    subtotal
+)
+SELECT
+    status_order.id,
+    product.id,
+    product.seller_id,
+    product.name,
+    quantity.value,
+    product.price,
+    ROUND(product.price * quantity.value, 2)
+FROM orders status_order
+JOIN LATERAL (
+    SELECT seeded_product.*
+    FROM dss_seed_products seeded_product
+    ORDER BY seeded_product.id
+    OFFSET MOD(
+        status_order.id::INTEGER,
+        (SELECT COUNT(*)::INTEGER FROM dss_seed_products)
+    )
+    LIMIT 1
+) product ON TRUE
+CROSS JOIN LATERAL (
+    SELECT (1 + MOD(status_order.id::INTEGER, 3)) AS value
+) quantity
+WHERE status_order.shipping_address LIKE '[DSS-DEMO-%] %'
+  AND status_order.created_at::DATE
+      BETWEEN CURRENT_DATE - 120 AND CURRENT_DATE
+  AND NOT EXISTS (
+      SELECT 1
+      FROM order_items existing_item
+      WHERE existing_item.order_id = status_order.id
+  );
+
 UPDATE orders demo_order
 SET subtotal_amount = totals.subtotal,
     total_amount = totals.subtotal + demo_order.shipping_fee
@@ -347,6 +530,19 @@ FROM (
 ) totals
 WHERE totals.order_id = demo_order.id
   AND demo_order.shipping_address LIKE '[DSS-DEMO] %';
+
+UPDATE orders status_order
+SET subtotal_amount = totals.subtotal,
+    total_amount = totals.subtotal + status_order.shipping_fee
+        - status_order.discount_amount,
+    updated_at = status_order.created_at + INTERVAL '2 hours'
+FROM (
+    SELECT item.order_id, ROUND(SUM(item.subtotal), 2) AS subtotal
+    FROM order_items item
+    GROUP BY item.order_id
+) totals
+WHERE totals.order_id = status_order.id
+  AND status_order.shipping_address LIKE '[DSS-DEMO-%] %';
 
 INSERT INTO payments (
     order_id,
@@ -381,6 +577,49 @@ WHERE demo_order.shipping_address LIKE '[DSS-DEMO] %'
       WHERE payment.order_id = demo_order.id
   );
 
+INSERT INTO payments (
+    order_id,
+    payment_method,
+    gateway_name,
+    amount,
+    status,
+    transaction_id,
+    currency,
+    paid_at,
+    created_at
+)
+SELECT
+    status_order.id,
+    CASE
+        WHEN MOD(status_order.id, 2) = 0
+            THEN 'MOMO'::payment_method_enum
+        ELSE 'VNPAY'::payment_method_enum
+    END,
+    'DSS_DEMO_GATEWAY',
+    status_order.total_amount,
+    CASE
+        WHEN status_order.status = 'CANCELLED'
+            THEN 'FAILED'::payment_status
+        WHEN status_order.status = 'PENDING'
+            THEN 'PENDING'::payment_status
+        ELSE 'SUCCESS'::payment_status
+    END,
+    'DSS-DEMO-STATUS-' || status_order.id,
+    'VND',
+    CASE
+        WHEN status_order.status IN ('PROCESSING', 'SHIPPING')
+            THEN status_order.created_at + INTERVAL '5 minutes'
+        ELSE NULL
+    END,
+    status_order.created_at + INTERVAL '5 minutes'
+FROM orders status_order
+WHERE status_order.shipping_address LIKE '[DSS-DEMO-%] %'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM payments payment
+      WHERE payment.order_id = status_order.id
+  );
+
 INSERT INTO order_tracking (
     order_id,
     event,
@@ -404,6 +643,36 @@ WHERE demo_order.shipping_address LIKE '[DSS-DEMO] %'
         AND tracking.event = 'DELIVERED'
   )
 GROUP BY demo_order.id, demo_order.created_at;
+
+INSERT INTO order_tracking (
+    order_id,
+    event,
+    note,
+    updated_by,
+    created_at
+)
+SELECT
+    status_order.id,
+    CASE
+        WHEN status_order.status = 'CANCELLED'
+            THEN 'CANCELLED_BY_USER'::order_tracking_event
+        WHEN status_order.status = 'PROCESSING'
+            THEN 'CONFIRMED'::order_tracking_event
+        WHEN status_order.status = 'SHIPPING'
+            THEN 'SHIPPED'::order_tracking_event
+        ELSE 'CREATED'::order_tracking_event
+    END,
+    'Order outcome generated by platform performance demo seed.',
+    item.seller_id,
+    status_order.created_at + INTERVAL '2 hours'
+FROM orders status_order
+JOIN order_items item ON item.order_id = status_order.id
+WHERE status_order.shipping_address LIKE '[DSS-DEMO-%] %'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM order_tracking tracking
+      WHERE tracking.order_id = status_order.id
+  );
 
 -- Seed one valid 90-day FR01 result per product. This lets FR07 run before the
 -- user manually calls FR01; a later FR01 call will naturally become the latest.

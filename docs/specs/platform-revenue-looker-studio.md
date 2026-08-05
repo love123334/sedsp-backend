@@ -22,10 +22,14 @@ rows would duplicate platform revenue.
 | `reporting.platform_category_daily` | One day and one current product category | Category ranking |
 | `reporting.platform_activity_daily` | One calendar day | New seller, customer, product and category trends |
 | `reporting.platform_current_summary` | Current platform snapshot | Current account/product/category scorecards |
+| `reporting.platform_customer_purchase_daily` | One day and one customer with delivered orders | Exact distinct customer metrics (V38) |
 
 Daily platform, order-status, payment-method and activity views include zero
 rows for calendar dates without activity. Ranking views only contain rows with
 delivered sales.
+
+Flyway `V38__create_customer_purchase_reporting_view.sql` adds the customer-grain
+view used for accurate distinct-customer counts across arbitrary date ranges.
 
 ## Metric definitions
 

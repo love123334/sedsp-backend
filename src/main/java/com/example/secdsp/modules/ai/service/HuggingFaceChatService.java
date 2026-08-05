@@ -124,7 +124,7 @@ public class HuggingFaceChatService {
 
     public String generateInsightPlan(String metricsBrief) {
         if (!isConfigured()) {
-            return sanitizeInsightCommentary(ruleBasedPlan());
+            return sanitizeInsightCommentary(ruleBasedPlan(metricsBrief));
         }
 
         AiChatRequest req = new AiChatRequest();
@@ -134,15 +134,15 @@ public class HuggingFaceChatService {
         system.setRole("system");
         system.setContent(
             """
-            Bạn là cố vấn kinh doanh SEDSP cho người bán trên sàn thương mại điện tử.
-            Viết tiếng Việt có đầy đủ dấu, giọng chuyên nghiệp, dễ hiểu.
+            Bạn là cố vấn kinh doanh SEDSP cho người bán trên sàn thương mại điện tử Việt Nam.
+            Viết tiếng Việt có đầy đủ dấu, giọng chuyên nghiệp, ngắn gọn, dễ hành động.
 
             BẮT BUỘC đúng 3 mục markdown (không thiếu mục nào):
             ## Nhận xét tình hình
-            (3–5 câu, nêu tồn kho và sản phẩm bán chạy bằng tên thương mại)
+            (3–5 câu: nêu tồn kho, mặt hàng bán chạy bằng tên thương mại, và tín hiệu nhu cầu/giá nếu có)
 
             ## Kế hoạch hành động
-            (4–6 bước đánh số, cụ thể, có thể làm ngay)
+            (5–7 bước đánh số, cụ thể trong 7 ngày tới; nhắc dùng DSS: dự báo nhu cầu, gợi ý giá, what-if giảm giá, tồn kho)
 
             ## Rủi ro cần theo dõi
             (2–4 gạch đầu dòng; KHÔNG được để trống)
@@ -153,14 +153,16 @@ public class HuggingFaceChatService {
             - Endpoint API, đường dẫn /api/..., tên biến kỹ thuật (topProducts, productId, lowStockCount, inventoryMessage, ROP, SKU JSON…)
             - JSON thô, metrics snapshot, hướng dẫn cấu hình token
 
-            Chỉ dùng số liệu trong phần tóm tắt người dùng cung cấp; không bịa thêm.
+            Chỉ dùng số liệu trong phần tóm tắt người dùng cung cấp; không bịa thêm doanh thu/số lượng.
             """.stripIndent()
         );
         turns.add(system);
 
         AiChatRequest.ChatTurn user = new AiChatRequest.ChatTurn();
         user.setRole("user");
-        user.setContent(metricsBrief);
+        user.setContent(metricsBrief == null || metricsBrief.isBlank()
+            ? "Chưa có số liệu chi tiết. Viết kế hoạch kiểm tra DSS chung."
+            : metricsBrief);
         turns.add(user);
 
         req.setMessages(turns);
@@ -168,14 +170,14 @@ public class HuggingFaceChatService {
             return sanitizeInsightCommentary(chat(req).getContent());
         } catch (Exception e) {
             log.warn("Insight AI fallback: {}", e.getMessage());
-            return sanitizeInsightCommentary(ruleBasedPlan());
+            return sanitizeInsightCommentary(ruleBasedPlan(metricsBrief));
         }
     }
 
     /** Làm sạch / chuẩn hóa commentary trước khi trả UI */
     static String sanitizeInsightCommentary(String raw) {
         if (raw == null || raw.isBlank()) {
-            return ruleBasedPlan();
+            return ruleBasedPlan(null);
         }
         String text = raw.trim();
         // Bỏ đường dẫn API / endpoint
@@ -202,7 +204,7 @@ public class HuggingFaceChatService {
         boolean hasKeHoach = text.matches("(?is).*##\\s*Kế hoạch.*");
         boolean hasRuiRo = text.matches("(?is).*##\\s*Rủi ro.*");
         if (!hasNhanXet || !hasKeHoach) {
-            return ruleBasedPlan();
+            return ruleBasedPlan(null);
         }
         if (!hasRuiRo || risksSectionEmpty(text)) {
             text = text.replaceAll("(?is)\\n*##\\s*Rủi ro[^\\n]*\\s*$", "").trim();
@@ -224,23 +226,48 @@ public class HuggingFaceChatService {
         return after.isEmpty() || after.startsWith("##");
     }
 
-    private static String ruleBasedPlan() {
+    private static String ruleBasedPlan(String metricsBrief) {
+        String lowHint = "";
+        String topHint = "";
+        if (metricsBrief != null && !metricsBrief.isBlank()) {
+            java.util.regex.Matcher low = java.util.regex.Pattern
+                .compile("Số mặt hàng cần nhập thêm:\\s*(\\d+)")
+                .matcher(metricsBrief);
+            if (low.find()) {
+                lowHint = low.group(1);
+            }
+            java.util.regex.Matcher top = java.util.regex.Pattern
+                .compile("(?m)^\\s*\\d+\\.\\s+(.+?)\\s+—")
+                .matcher(metricsBrief);
+            if (top.find()) {
+                topHint = top.group(1).trim();
+            }
+        }
+
+        String situation = "Hệ thống đã tổng hợp tình hình bán hàng và tồn kho hiện có trên SEDSP. "
+            + (lowHint.isBlank()
+                ? "Bạn nên ưu tiên các mặt hàng bán chạy và kiểm tra sản phẩm sắp hết để tránh gián đoạn bán."
+                : ("Hiện có khoảng " + lowHint + " mặt hàng cần bổ sung tồn. "
+                    + (topHint.isBlank()
+                        ? "Ưu tiên nhập hàng và giữ nguồn cung ổn định."
+                        : ("Đặc biệt giữ nguồn cung cho \"" + topHint + "\" đang bán chạy."))));
+
         return """
             ## Nhận xét tình hình
-            Hệ thống đã tổng hợp tình hình bán hàng và tồn kho hiện có trên SEDSP.
-            Bạn nên ưu tiên các mặt hàng bán chạy và kiểm tra sản phẩm sắp hết để tránh gián đoạn bán.
+            %s
 
             ## Kế hoạch hành động
-            1. Rà soát sản phẩm tồn thấp và lên lịch nhập hàng trong tuần này.
-            2. Đảm bảo nguồn cung cho các mặt hàng đang bán chạy.
-            3. Thử giảm giá nhẹ (5–10%) với sản phẩm bán chậm để đẩy hàng.
-            4. Theo dõi doanh thu và tồn kho mỗi ngày trên trang DSS / Doanh số.
-            5. Sau 7 ngày, đánh giá lại hiệu quả nhập hàng và điều chỉnh kế hoạch.
+            1. Mở **Dự báo nhu cầu** cho 2–3 SKU bán chạy và sản phẩm tồn thấp.
+            2. Chạy **Gợi ý giá** để kiểm tra biên lợi nhuận trước khi giảm giá.
+            3. Dùng **What-if giảm giá** (5–10%%) trên SKU tồn cao để đẩy hàng có kiểm soát.
+            4. Rà soát **Khuyến nghị tồn kho** và lên lịch nhập trong tuần này.
+            5. Theo dõi đơn bán / doanh số mỗi ngày; ưu tiên giao đơn đang chờ.
+            6. Sau 7 ngày, so lại nhu cầu thực tế với dự báo và điều chỉnh kế hoạch.
 
             ## Rủi ro cần theo dõi
             - Nhập chậm có thể khiến mặt hàng bán chạy bị hết tồn.
             - Dữ liệu đơn hàng ít sẽ làm dự báo nhu cầu kém chính xác hơn.
             - Khuyến mãi đột xuất có thể làm lệch nhu cầu so với kế hoạch ban đầu.
-            """.stripIndent();
+            """.formatted(situation).stripIndent();
     }
 }

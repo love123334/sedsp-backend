@@ -362,6 +362,7 @@ public class DssAnalyticsService {
                     .append("đ\n");
             }
         }
+        sb.append("- Gợi ý module DSS nên nhắc: dự báo nhu cầu, gợi ý giá, what-if giảm giá, khuyến nghị tồn kho.\n");
         return sb.toString();
     }
 
