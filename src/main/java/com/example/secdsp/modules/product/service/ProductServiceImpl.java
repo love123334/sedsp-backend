@@ -39,6 +39,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -290,11 +291,12 @@ public class ProductServiceImpl implements ProductService {
         LocalDate fromDate,
         LocalDate toDate
     ) {
+        ZoneId zone = ZoneId.of("Asia/Ho_Chi_Minh");
         return priceHistoryRepository
             .findByProductAndDateRange(
                 productId,
-                fromDate.atStartOfDay(),
-                toDate.plusDays(1).atStartOfDay()
+                fromDate.atStartOfDay(zone).toOffsetDateTime(),
+                toDate.plusDays(1).atStartOfDay(zone).toOffsetDateTime()
             )
             .stream()
             .map(history -> new PriceHistoryInfo(
