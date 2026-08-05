@@ -6,6 +6,7 @@ import com.example.secdsp.modules.payment.gateway.vnpay.VnPayService;
 import com.example.secdsp.modules.payment.repository.PaymentRepository;
 import com.example.secdsp.modules.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -15,9 +16,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
@@ -30,6 +34,11 @@ public class VnPayCallbackController {
     @Value("${app.frontend.base-url:http://localhost:5173}")
     private String frontendBaseUrl;
 
+    /**
+     * Browser return after VNPay (QR / ATM / card). Always redirect to FE result page.
+     * Only mark SUCCESS on responseCode=00. Customer cancel (24) keeps order PENDING
+     * so user can confirm/retry from FE.
+     */
     @GetMapping("/vnpay-return")
     public ResponseEntity<Void> handleReturn(
         @RequestParam Map<String, String> params
@@ -40,23 +49,40 @@ public class VnPayCallbackController {
         String txnRef = params.get("vnp_TxnRef");
         String responseCode = params.get("vnp_ResponseCode");
         boolean success = valid && "00".equals(responseCode);
+        boolean customerCancel = "24".equals(responseCode);
 
         if (valid && txnRef != null) {
-            paymentService.updatePaymentStatusByTxnRef(
-                txnRef,
-                success ? PaymentStatus.SUCCESS : PaymentStatus.FAILED
-            );
+            try {
+                if (success) {
+                    paymentService.updatePaymentStatusByTxnRef(txnRef, PaymentStatus.SUCCESS);
+                } else if (!customerCancel) {
+                    // Definitive gateway failure — cancel order
+                    paymentService.updatePaymentStatusByTxnRef(txnRef, PaymentStatus.FAILED);
+                } else {
+                    log.info("VNPay return: customer cancelled txnRef={} — keep PENDING", txnRef);
+                }
+            } catch (Exception e) {
+                log.error("VNPay return status update failed txnRef={}: {}", txnRef, e.getMessage());
+            }
+        } else if (!valid) {
+            log.warn("VNPay return: invalid signature txnRef={}", txnRef);
         }
 
-        String orderId = paymentRepository.findByTransactionId(txnRef)
-            .map(Payment::getOrder)
-            .map(o -> String.valueOf(o.getId()))
-            .orElse("");
+        String orderId = "";
+        if (txnRef != null) {
+            orderId = paymentRepository.findByTransactionId(txnRef)
+                .map(Payment::getOrder)
+                .map(o -> String.valueOf(o.getId()))
+                .orElse("");
+        }
 
+        String statusParam = success ? "success" : (customerCancel ? "cancelled" : "failed");
         String target = frontendBaseUrl.replaceAll("/$", "")
-            + "/payment/result?gateway=vnpay&orderId="
-            + orderId
-            + "&status=" + (success ? "success" : "failed");
+            + "/payment/result?gateway=vnpay"
+            + "&orderId=" + encode(orderId)
+            + "&status=" + statusParam
+            + "&code=" + encode(responseCode == null ? "" : responseCode)
+            + (txnRef != null ? "&txnRef=" + encode(txnRef) : "");
 
         return ResponseEntity.status(HttpStatus.FOUND)
             .header(HttpHeaders.LOCATION, target)
@@ -77,13 +103,21 @@ public class VnPayCallbackController {
         String txnRef = params.get("vnp_TxnRef");
         String responseCode = params.get("vnp_ResponseCode");
 
-        if (txnRef != null) {
-            paymentService.updatePaymentStatusByTxnRef(
-                txnRef,
-                "00".equals(responseCode) ? PaymentStatus.SUCCESS : PaymentStatus.FAILED
-            );
+        try {
+            if (txnRef != null && "00".equals(responseCode)) {
+                paymentService.updatePaymentStatusByTxnRef(txnRef, PaymentStatus.SUCCESS);
+            } else if (txnRef != null && !"24".equals(responseCode)) {
+                paymentService.updatePaymentStatusByTxnRef(txnRef, PaymentStatus.FAILED);
+            }
+        } catch (Exception e) {
+            log.error("VNPay IPN update failed txnRef={}: {}", txnRef, e.getMessage());
+            return ResponseEntity.ok(Map.of("RspCode", "99", "Message", "Update failed"));
         }
 
         return ResponseEntity.ok(Map.of("RspCode", "00", "Message", "Confirm Success"));
+    }
+
+    private static String encode(String value) {
+        return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
     }
 }

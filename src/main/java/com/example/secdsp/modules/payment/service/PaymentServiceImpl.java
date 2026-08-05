@@ -250,7 +250,7 @@ public class PaymentServiceImpl implements PaymentService {
                 order,
                 OrderTrackingEvent.PAYMENT_FAILED
             );
-            orderNotificationService.notifyCancelled(order, "Thanh toan that bai ? don da huy.");
+            orderNotificationService.notifyCancelled(order, "Thanh toán thất bại — đơn đã hủy.");
         }
 
         return paymentMapper.toResponse(payment);
@@ -383,7 +383,7 @@ public class PaymentServiceImpl implements PaymentService {
                 }
 
                 insertTracking(order, OrderTrackingEvent.PAYMENT_FAILED);
-                orderNotificationService.notifyCancelled(order, "Thanh toan that bai ? don da huy.");
+                orderNotificationService.notifyCancelled(order, "Thanh toán thất bại — đơn đã hủy.");
             }
         }
     }
@@ -398,10 +398,18 @@ public class PaymentServiceImpl implements PaymentService {
         tracking.setEvent(event);
 
         Long currentUserId = SecurityUtils.getCurrentUserId();
+        // Gateway callbacks (VNPay return/IPN) have no JWT — use buyer as actor
+        // (updated_by is NOT NULL + FK users). Never use 0L.
+        Long actorId = currentUserId;
+        if (actorId == null && order.getUser() != null) {
+            actorId = order.getUser().getId();
+        }
+        if (actorId == null) {
+            throw new BusinessException("Cannot record order tracking without an actor user.");
+        }
 
         User actor = new User();
-        actor.setId(currentUserId != null ? currentUserId : 0L);
-
+        actor.setId(actorId);
         tracking.setUpdatedBy(actor);
 
         orderTrackingRepository.save(tracking);

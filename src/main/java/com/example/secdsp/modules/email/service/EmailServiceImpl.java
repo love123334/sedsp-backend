@@ -57,18 +57,18 @@ public class EmailServiceImpl implements EmailService {
         String statusLabel,
         String detailHtml
     ) {
-        String subject = "SEDSP - Don #" + orderId + " - " + statusLabel;
+        String subject = "SEDSP - Đơn #" + orderId + " - " + statusLabel;
         String html = """
             <div style="font-family:Arial,sans-serif;background:#f4f6f8;padding:32px;">
               <div style="max-width:560px;margin:auto;background:#fff;padding:28px;border-radius:12px;">
                 <img src='cid:logoImage' width="120" style="margin-bottom:18px"/>
-                <h2 style="color:#0f172a;margin:0 0 12px;">Cap nhat don hang #%s</h2>
-                <p style="color:#475569;">Xin chao <strong>%s</strong> (%s),</p>
-                <p style="color:#334155;">Trang thai: <strong style="color:#0d9488;">%s</strong></p>
+                <h2 style="color:#0f172a;margin:0 0 12px;">Cập nhật đơn hàng #%s</h2>
+                <p style="color:#475569;">Xin chào <strong>%s</strong> (%s),</p>
+                <p style="color:#334155;">Trạng thái: <strong style="color:#0d9488;">%s</strong></p>
                 <div style="margin:16px 0;padding:14px;background:#f8fafc;border-radius:8px;color:#334155;font-size:14px;">
                   %s
                 </div>
-                <p style="font-size:12px;color:#94a3b8;">Day la email tu dong tu he thong SEDSP.</p>
+                <p style="font-size:12px;color:#94a3b8;">Đây là email tự động từ hệ thống SEDSP.</p>
               </div>
             </div>
             """.formatted(

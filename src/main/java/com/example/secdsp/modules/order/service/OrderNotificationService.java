@@ -29,8 +29,8 @@ public class OrderNotificationService {
     private final OrderItemRepository orderItemRepository;
 
     public void notifyOrderCreated(Order order) {
-        notifyParties(order, OrderStatus.PENDING, "Don moi — cho xac nhan",
-            "Don hang da duoc tao va dang cho nguoi ban xac nhan.");
+        notifyParties(order, OrderStatus.PENDING, "Đơn mới — chờ xác nhận",
+            "Đơn hàng đã được tạo và đang chờ người bán xác nhận / thanh toán.");
     }
 
     public void notifyStatusChanged(Order order, OrderStatus status) {
@@ -38,23 +38,23 @@ public class OrderNotificationService {
     }
 
     public void notifyCancelled(Order order, String reason) {
-        notifyParties(order, OrderStatus.CANCELLED, "Don da huy",
-            reason != null ? reason : "Don hang da bi huy.");
+        notifyParties(order, OrderStatus.CANCELLED, "Đơn đã hủy",
+            reason != null ? reason : "Đơn hàng đã bị hủy.");
     }
 
     private void notifyParties(Order order, OrderStatus status, String statusLabel, String message) {
         List<OrderItem> items = orderItemRepository.findByOrder_Id(order.getId());
         String itemsHtml = buildItemsHtml(items);
         String detail = "<p>" + message + "</p>"
-            + "<p>Tong tien: <strong>" + money(order.getTotalAmount()) + " VND</strong></p>"
-            + "<p>Dia chi: " + escape(order.getShippingAddress()) + "</p>"
+            + "<p>Tổng tiền: <strong>" + money(order.getTotalAmount()) + " VND</strong></p>"
+            + "<p>Địa chỉ: " + escape(order.getShippingAddress()) + "</p>"
             + itemsHtml;
 
         // Buyer
         User buyer = order.getUser();
         if (buyer != null && buyer.getId() != null) {
             userRepository.findById(buyer.getId()).ifPresent(u ->
-                safeSend(u.getEmail(), displayName(u), "Nguoi mua", order.getId(), statusLabel, detail)
+                safeSend(u.getEmail(), displayName(u), "Người mua", order.getId(), statusLabel, detail)
             );
         }
 
@@ -67,7 +67,7 @@ public class OrderNotificationService {
         }
         for (Long sellerId : sellerIds) {
             userRepository.findById(sellerId).ifPresent(u ->
-                safeSend(u.getEmail(), displayName(u), "Nguoi ban", order.getId(), statusLabel, detail)
+                safeSend(u.getEmail(), displayName(u), "Người bán", order.getId(), statusLabel, detail)
             );
         }
     }
@@ -86,6 +86,7 @@ public class OrderNotificationService {
         }
         try {
             emailService.sendOrderLifecycleEmail(email, name, role, orderId, statusLabel, detail);
+            log.info("Order email queued/sent to {} for order #{} [{}]", email, orderId, statusLabel);
         } catch (Exception e) {
             log.error("Failed order email to {} for order {}: {}", email, orderId, e.getMessage());
         }
@@ -93,25 +94,25 @@ public class OrderNotificationService {
 
     private static String statusLabel(OrderStatus status) {
         return switch (status) {
-            case PENDING -> "Cho xac nhan";
-            case PAID -> "Da thanh toan";
-            case PROCESSING -> "Da xac nhan / dang xu ly";
-            case SHIPPING -> "Dang giao hang";
-            case DELIVERED -> "Da giao thanh cong";
-            case CANCELLED -> "Da huy";
-            case REFUNDED -> "Hoan tien";
+            case PENDING -> "Chờ xác nhận";
+            case PAID -> "Đã thanh toán";
+            case PROCESSING -> "Đã xác nhận / đang xử lý";
+            case SHIPPING -> "Đang giao hàng";
+            case DELIVERED -> "Đã giao thành công";
+            case CANCELLED -> "Đã hủy";
+            case REFUNDED -> "Hoàn tiền";
         };
     }
 
     private static String statusMessage(OrderStatus status) {
         return switch (status) {
-            case PENDING -> "Don hang dang cho xac nhan.";
-            case PAID -> "Thanh toan thanh cong. Shop se xu ly don.";
-            case PROCESSING -> "Nguoi ban da xac nhan va dang chuan bi hang.";
-            case SHIPPING -> "Don hang dang tren duong giao den ban.";
-            case DELIVERED -> "Don da giao thanh cong. Ban co the danh gia san pham trong 30 ngay.";
-            case CANCELLED -> "Don hang da bi huy.";
-            case REFUNDED -> "Don hang da duoc hoan tien.";
+            case PENDING -> "Đơn hàng đang chờ xác nhận.";
+            case PAID -> "Thanh toán thành công qua cổng thanh toán. Shop sẽ xử lý đơn.";
+            case PROCESSING -> "Người bán đã xác nhận và đang chuẩn bị hàng.";
+            case SHIPPING -> "Đơn hàng đang trên đường giao đến bạn.";
+            case DELIVERED -> "Đơn đã giao thành công. Bạn có thể đánh giá sản phẩm trong 30 ngày.";
+            case CANCELLED -> "Đơn hàng đã bị hủy.";
+            case REFUNDED -> "Đơn hàng đã được hoàn tiền.";
         };
     }
 
