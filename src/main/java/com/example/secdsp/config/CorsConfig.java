@@ -25,8 +25,7 @@ public class CorsConfig {
         "http://localhost:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:3000",
-        "https://*.vercel.app",
-        "https://*--*.vercel.app"
+        "https://*.vercel.app"
     );
 
     @Value("${app.cors.allowed-origins:}")
