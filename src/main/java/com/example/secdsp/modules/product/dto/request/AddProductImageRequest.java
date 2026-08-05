@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.product.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.AccessLevel;
@@ -21,5 +22,6 @@ public class AddProductImageRequest {
     /** Cloudinary public_id — nếu thiếu sẽ tự sinh khi lưu */
     String publicId;
 
+    @JsonProperty("isPrimary")
     boolean isPrimary = false;
 }

@@ -29,8 +29,13 @@ public class ProductImageController {
             throw new BusinessException("File must not be empty");
         }
 
-        if (file.getSize() > 2 * 1024 * 1024) {
-            throw new BusinessException("File size must be <= 2MB");
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new BusinessException("File size must be <= 5MB");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
+            throw new BusinessException("Only image files are allowed.");
         }
 
         CloudinaryUploadResult imageUrl = cloudinaryService.uploadImage(file);

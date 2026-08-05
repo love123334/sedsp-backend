@@ -58,6 +58,7 @@ public class ProductServiceImpl implements ProductService {
     private final Slugify slugify;
     private final CloudinaryService cloudinaryService;
 
+    private static final int MIN_PRODUCT_IMAGES = 3;
     private static final int MAX_PRODUCT_IMAGES = 5;
 
     @Override
@@ -102,7 +103,7 @@ public class ProductServiceImpl implements ProductService {
         if (request.getImages() != null) {
             handleProductImagesForCreate(product, request.getImages());
         } else {
-            padProductImagesToThree(product);
+            padProductImagesToMinimum(product);
         }
 
         if (request.getAttributes() != null) {
@@ -170,6 +171,10 @@ public class ProductServiceImpl implements ProductService {
             categoryRef.setId(categoryInfo.id());
 
             existingProduct.setCategory(categoryRef);
+        }
+
+        if (request.getImages() != null) {
+            handleProductImagesForUpdate(existingProduct, request.getImages());
         }
 
         Product updatedProduct = productRepository.save(existingProduct);
@@ -321,9 +326,13 @@ public class ProductServiceImpl implements ProductService {
         Product product,
         List<AddProductImageRequest> imageRequests
     ) {
+        if (imageRequests == null || imageRequests.isEmpty()) {
+            padProductImagesToMinimum(product);
+            return;
+        }
 
         if (imageRequests.size() > MAX_PRODUCT_IMAGES) {
-            throw new BusinessException("Maximum 5 images allowed per product.");
+            throw new BusinessException("Mỗi sản phẩm chỉ được tối đa " + MAX_PRODUCT_IMAGES + " ảnh.");
         }
 
         Set<String> imageUrls = new HashSet<>();
@@ -359,21 +368,31 @@ public class ProductServiceImpl implements ProductService {
             product.getProductImages().get(0).setPrimary(true);
         }
 
-        padProductImagesToThree(product);
+        padProductImagesToMinimum(product);
     }
 
-    /** Ensure catalog/PDP always have 3 gallery slots. */
-    private void padProductImagesToThree(Product product) {
+    /** Ensure catalog/PDP always have at least 3 gallery slots (max 5). */
+    private void padProductImagesToMinimum(Product product) {
         List<ProductImage> images = product.getProductImages();
         int index = images.size();
-        while (images.size() < 3) {
-            index++;
+        String[] pads = {
+            "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80",
+            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80",
+            "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&q=80",
+        };
+        while (images.size() < MIN_PRODUCT_IMAGES) {
             ProductImage pad = new ProductImage();
             pad.setProduct(product);
             pad.setPrimary(images.isEmpty());
-            pad.setPublicId("secdsp/products/pad-" + (product.getId() != null ? product.getId() : "new") + "-" + index);
-            pad.setImageUrl("https://picsum.photos/seed/pad-" + pad.getPublicId() + "/800/800");
+            pad.setPublicId(
+                "secdsp/products/pad-"
+                    + (product.getId() != null ? product.getId() : "new")
+                    + "-"
+                    + index
+            );
+            pad.setImageUrl(pads[index % pads.length] + "&sig=" + pad.getPublicId());
             images.add(pad);
+            index++;
         }
     }
 
@@ -395,8 +414,17 @@ public class ProductServiceImpl implements ProductService {
         List<UpdateProductImageRequest> imageRequests
     ) {
 
+        if (imageRequests == null || imageRequests.isEmpty()) {
+            return;
+        }
+
         if (imageRequests.size() > MAX_PRODUCT_IMAGES) {
-            throw new BusinessException("Maximum 5 images allowed per product.");
+            throw new BusinessException("Mỗi sản phẩm chỉ được tối đa " + MAX_PRODUCT_IMAGES + " ảnh.");
+        }
+        if (imageRequests.size() < MIN_PRODUCT_IMAGES) {
+            throw new BusinessException(
+                "Mỗi sản phẩm cần ít nhất " + MIN_PRODUCT_IMAGES + " ảnh (tối đa " + MAX_PRODUCT_IMAGES + ")."
+            );
         }
 
         Set<String> imageUrls = new HashSet<>();

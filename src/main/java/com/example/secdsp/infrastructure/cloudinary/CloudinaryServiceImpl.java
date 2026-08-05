@@ -20,23 +20,34 @@ public class CloudinaryServiceImpl implements CloudinaryService {
     @Override
     public CloudinaryUploadResult uploadImage(MultipartFile file) {
         try {
-
+            // Keep upload options simple — invalid "transformation" strings break Cloudinary uploads
+            @SuppressWarnings("rawtypes")
             Map uploadResult = cloudinary.uploader().upload(
                 file.getBytes(),
                 ObjectUtils.asMap(
                     "folder", "secdsp/products",
                     "resource_type", "image",
-                    "transformation", "q_auto,f_auto,w_800,h_800,c_limit"
+                    "overwrite", false,
+                    "unique_filename", true
                 )
             );
 
+            Object secureUrl = uploadResult.get("secure_url");
+            Object publicId = uploadResult.get("public_id");
+            if (secureUrl == null || publicId == null) {
+                Object err = uploadResult.get("error");
+                throw new RuntimeException(
+                    "Cloudinary upload failed: " + (err != null ? err : uploadResult)
+                );
+            }
+
             return new CloudinaryUploadResult(
-                uploadResult.get("secure_url").toString(),
-                uploadResult.get("public_id").toString()
+                secureUrl.toString(),
+                publicId.toString()
             );
 
         } catch (IOException e) {
-            throw new RuntimeException("Failed to upload image", e);
+            throw new RuntimeException("Failed to upload image: " + e.getMessage(), e);
         }
     }
 

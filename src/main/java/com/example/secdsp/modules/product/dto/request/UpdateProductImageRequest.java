@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.product.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.AccessLevel;
@@ -23,5 +24,6 @@ public class UpdateProductImageRequest {
     @NotBlank(message = "Public ID is required")
     String publicId;
 
+    @JsonProperty("isPrimary")
     boolean isPrimary = false;
 }
