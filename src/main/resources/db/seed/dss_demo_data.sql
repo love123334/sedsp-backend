@@ -3,7 +3,7 @@
 --
 -- Primary demo seller login:
 --   email:    seller.dss.demo@example.com
---   password: 12345678
+--   password: password
 --
 -- The seed creates 121 days of sales, realistic order-status distributions and
 -- three historical price changes. It uses at most 20 active products owned by
@@ -32,7 +32,7 @@ INSERT INTO users (
 SELECT
     'seller.dss.demo',
     'seller.dss.demo@example.com',
-    '$2b$10$gFbkZBWE1FRG/GZuQ/MI8e9OPSQ10K4YW3WRPuHnBhB8yELbcucpi',
+    '$2a$10$MDes8qRTuKmeopk7NxNZv.gZV5kBFMP7cQ2SlVMMfXT6aXqqHnukK',
     'DSS Demo Seller',
     'ACTIVE'::user_status,
     r.id,
@@ -63,7 +63,7 @@ INSERT INTO users (
 SELECT
     demo.username,
     demo.email,
-    '$2b$10$gFbkZBWE1FRG/GZuQ/MI8e9OPSQ10K4YW3WRPuHnBhB8yELbcucpi',
+    '$2a$10$MDes8qRTuKmeopk7NxNZv.gZV5kBFMP7cQ2SlVMMfXT6aXqqHnukK',
     demo.full_name,
     'ACTIVE'::user_status,
     r.id,
@@ -98,7 +98,7 @@ INSERT INTO users (
 SELECT
     demo.username,
     demo.email,
-    '$2b$10$gFbkZBWE1FRG/GZuQ/MI8e9OPSQ10K4YW3WRPuHnBhB8yELbcucpi',
+    '$2a$10$MDes8qRTuKmeopk7NxNZv.gZV5kBFMP7cQ2SlVMMfXT6aXqqHnukK',
     demo.full_name,
     'ACTIVE'::user_status,
     r.id,
@@ -120,7 +120,7 @@ WHERE r.name = 'CUSTOMER'
 
 -- Keep the documented demo credential deterministic when the seed is rerun.
 UPDATE users
-SET password = '$2b$10$gFbkZBWE1FRG/GZuQ/MI8e9OPSQ10K4YW3WRPuHnBhB8yELbcucpi',
+SET password = '$2a$10$MDes8qRTuKmeopk7NxNZv.gZV5kBFMP7cQ2SlVMMfXT6aXqqHnukK',
     updated_at = CURRENT_TIMESTAMP
 WHERE email = 'seller.dss.demo@example.com'
    OR email LIKE 'seller.dss.demo.%@example.com'
