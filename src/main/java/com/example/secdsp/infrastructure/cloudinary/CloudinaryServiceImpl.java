@@ -2,6 +2,7 @@ package com.example.secdsp.infrastructure.cloudinary;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import com.example.secdsp.config.CloudinaryConfig;
 import com.example.secdsp.modules.product.dto.response.CloudinaryUploadResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,9 +17,15 @@ import java.util.Map;
 public class CloudinaryServiceImpl implements CloudinaryService {
 
     private final Cloudinary cloudinary;
+    private final CloudinaryConfig cloudinaryConfig;
 
     @Override
     public CloudinaryUploadResult uploadImage(MultipartFile file) {
+        if (!cloudinaryConfig.isConfigured()) {
+            throw new RuntimeException(
+                "Cloudinary chua cau hinh. Dat CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET tren Railway."
+            );
+        }
         try {
             // Keep upload options simple — invalid "transformation" strings break Cloudinary uploads
             @SuppressWarnings("rawtypes")

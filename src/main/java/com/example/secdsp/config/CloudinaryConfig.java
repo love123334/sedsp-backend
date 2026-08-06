@@ -22,9 +22,15 @@ public class CloudinaryConfig {
     @Bean
     public Cloudinary cloudinary() {
         return new Cloudinary(Map.of(
-            "cloud_name", cloudName,
-            "api_key", apiKey,
-            "api_secret", apiSecret
+            "cloud_name", cloudName != null ? cloudName : "",
+            "api_key", apiKey != null ? apiKey : "",
+            "api_secret", apiSecret != null ? apiSecret : ""
         ));
+    }
+
+    public boolean isConfigured() {
+        return cloudName != null && !cloudName.isBlank() && !cloudName.startsWith("your_")
+            && apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("your_")
+            && apiSecret != null && !apiSecret.isBlank() && !apiSecret.startsWith("your_");
     }
 }

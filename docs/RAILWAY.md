@@ -114,6 +114,11 @@ VNPAY_PAY_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
 VNPAY_RETURN_URL=https://sedsp-api-production.up.railway.app/api/v1/payments/vnpay-return
 VNPAY_IPN_URL=https://sedsp-api-production.up.railway.app/api/v1/payments/vnpay-ipn
 
+# Cloudinary — bắt buộc upload ảnh SP (lỗi "Unknown API key your_api_key" = thiếu biến)
+CLOUDINARY_CLOUD_NAME=<cloud name>
+CLOUDINARY_API_KEY=<api key>
+CLOUDINARY_API_SECRET=<api secret>
+
 # Local test IPN: VNPay/MoMo gọi server→server nên localhost không nhận được.
 # Chạy `ngrok http 8080`, rồi set trong application-dev.yml:
 #   app.payment.vnpay.ipn-url=https://xxxx.ngrok-free.dev/api/v1/payments/vnpay-ipn
