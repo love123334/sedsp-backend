@@ -19,11 +19,26 @@ public interface OrderRepository
     @EntityGraph(attributePaths = {"items"})
     Page<Order> findByUser_Id(Long userId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"items", "user"})
-    @Query("""
-        select distinct o from Order o
-        join o.items i
-        where i.seller.id = :sellerId
-        """)
+    /**
+     * Prefer EXISTS over DISTINCT + bag EntityGraph: the old pattern forced Hibernate to
+     * hydrate the full join result in memory before paging, which timed out / returned
+     * empty pages after large DSS demo seeds. Items are loaded in the service layer.
+     */
+    @Query(
+        value = """
+            select o from Order o
+            where exists (
+                select 1 from OrderItem i
+                where i.order = o and i.seller.id = :sellerId
+            )
+            """,
+        countQuery = """
+            select count(o) from Order o
+            where exists (
+                select 1 from OrderItem i
+                where i.order = o and i.seller.id = :sellerId
+            )
+            """
+    )
     Page<Order> findDistinctBySellerId(@Param("sellerId") Long sellerId, Pageable pageable);
 }

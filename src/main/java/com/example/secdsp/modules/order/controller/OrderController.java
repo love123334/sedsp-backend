@@ -100,7 +100,8 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('SELLER','ADMIN','MANAGER')")
     public ResponseEntity<BaseResponse<Page<OrderResponse>>>
     getSellerOrders(
-        @PageableDefault(size = 20) Pageable pageable
+        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+        Pageable pageable
     ) {
         return ResponseEntity.ok(
             BaseResponse.success(
