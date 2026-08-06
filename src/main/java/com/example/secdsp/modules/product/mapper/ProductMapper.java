@@ -32,6 +32,7 @@ public interface ProductMapper {
     @Mapping(target = "sellerEmail", source = "seller.email")
     @Mapping(target = "sellerPhone", source = "seller.phone")
     @Mapping(target = "primaryImageUrl", expression = "java(resolvePrimaryImageUrl(product))")
+    @Mapping(target = "availableQuantity", ignore = true)
     ProductResponse toProductResponse(Product product);
 
     List<ProductResponse> toProductResponseList(List<Product> products);
@@ -43,6 +44,7 @@ public interface ProductMapper {
     @Mapping(target = "sellerStoreName", source = "seller.fullName")
     @Mapping(target = "images", source = "productImages")
     @Mapping(target = "attributes", source = "productAttributes")
+    @Mapping(target = "availableQuantity", ignore = true)
     ProductDetailResponse toProductDetailResponse(Product product);
 
 

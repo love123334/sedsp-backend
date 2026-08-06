@@ -17,6 +17,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/inventory")
 @RequiredArgsConstructor
@@ -27,6 +29,18 @@ import org.springframework.web.bind.annotation.*;
 public class InventoryController {
 
     private final InventoryService inventoryService;
+
+    @GetMapping
+    public ResponseEntity<BaseResponse<List<InventoryResponse>>> getInventories(
+        @Parameter(description = "Product identifiers (comma-separated)", example = "101,102")
+        @RequestParam List<Long> productIds
+    ) {
+        return ResponseEntity.ok(
+            BaseResponse.success(
+                inventoryService.getInventoriesByProductIds(productIds)
+            )
+        );
+    }
 
     @Operation(
         summary = "Get inventory by product",

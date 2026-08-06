@@ -21,7 +21,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -50,6 +56,38 @@ public class InventoryServiceImpl implements InventoryService {
                              ));
 
         return buildResponse(inventory);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InventoryResponse> getInventoriesByProductIds(List<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> uniqueIds = productIds.stream()
+            .filter(Objects::nonNull)
+            .distinct()
+            .limit(200)
+            .toList();
+        if (uniqueIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Inventory> byProduct = inventoryRepository.findByProduct_IdIn(uniqueIds)
+            .stream()
+            .collect(Collectors.toMap(
+                inv -> inv.getProduct().getId(),
+                Function.identity(),
+                (a, b) -> a,
+                LinkedHashMap::new
+            ));
+        List<InventoryResponse> out = new ArrayList<>(byProduct.size());
+        for (Long id : uniqueIds) {
+            Inventory inventory = byProduct.get(id);
+            if (inventory != null) {
+                out.add(buildResponse(inventory));
+            }
+        }
+        return out;
     }
 
     @Override

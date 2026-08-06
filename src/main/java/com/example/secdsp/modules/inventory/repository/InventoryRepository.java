@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +18,12 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
     Optional<Inventory> findByProduct_IdForUpdate(@Param("productId") Long productId);
 
     Optional<Inventory> findByProduct_Id(Long productId);
+
+    @Query("""
+        select i from Inventory i
+        where i.product.id in :productIds
+        """)
+    List<Inventory> findByProduct_IdIn(@Param("productIds") Collection<Long> productIds);
 
     @Query("""
         select count(i)

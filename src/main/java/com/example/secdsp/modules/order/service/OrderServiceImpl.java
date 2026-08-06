@@ -44,6 +44,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -163,7 +165,7 @@ public class OrderServiceImpl implements OrderService {
         Page<Order> orders =
             orderRepository.findByUser_Id(userId, pageable);
 
-        return orders.map(this::buildOrderResponse);
+        return mapOrderPage(orders);
     }
 
     @Override
@@ -175,14 +177,14 @@ public class OrderServiceImpl implements OrderService {
         }
         if (SecurityUtils.hasRole(UserRole.ADMIN)
             || SecurityUtils.hasRole(UserRole.MANAGER)) {
-            return orderRepository.findAll(pageable).map(this::buildOrderResponse);
+            return mapOrderPage(orderRepository.findAll(pageable));
         }
         if (!SecurityUtils.hasRole(UserRole.SELLER)) {
             throw new UnauthorizedException("Only sellers can view seller orders.");
         }
-        return orderRepository
-            .findDistinctBySellerId(sellerId, pageable)
-            .map(this::buildOrderResponse);
+        return mapOrderPage(
+            orderRepository.findDistinctBySellerId(sellerId, pageable)
+        );
     }
 
     @Override
@@ -441,11 +443,32 @@ public class OrderServiceImpl implements OrderService {
             .sum();
     }
 
+    private Page<OrderResponse> mapOrderPage(Page<Order> orders) {
+        List<Order> content = orders.getContent();
+        if (content.isEmpty()) {
+            return orders.map(order -> buildOrderResponse(order, List.of()));
+        }
+        List<Long> orderIds = content.stream().map(Order::getId).toList();
+        Map<Long, List<OrderItem>> itemsByOrder = orderItemRepository
+            .findByOrder_IdIn(orderIds)
+            .stream()
+            .collect(Collectors.groupingBy(item -> item.getOrder().getId()));
+        return orders.map(order ->
+            buildOrderResponse(
+                order,
+                itemsByOrder.getOrDefault(order.getId(), List.of())
+            )
+        );
+    }
+
     private OrderResponse buildOrderResponse(Order order) {
+        return buildOrderResponse(
+            order,
+            orderItemRepository.findByOrder_Id(order.getId())
+        );
+    }
 
-        List<OrderItem> items =
-            orderItemRepository.findByOrder_Id(order.getId());
-
+    private OrderResponse buildOrderResponse(Order order, List<OrderItem> items) {
         List<OrderItemResponse> itemResponses =
             items.stream().map(item ->
                                    OrderItemResponse.builder()

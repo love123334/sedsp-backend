@@ -9,12 +9,20 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface OrderItemRepository
     extends JpaRepository<OrderItem, Long> {
 
     List<OrderItem> findByOrder_Id(Long orderId);
+
+    @Query("""
+        select oi from OrderItem oi
+        join fetch oi.product
+        where oi.order.id in :orderIds
+        """)
+    List<OrderItem> findByOrder_IdIn(@Param("orderIds") Collection<Long> orderIds);
 
     long countBySeller_IdAndOrder_Status(
         Long sellerId,

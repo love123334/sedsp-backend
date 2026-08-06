@@ -10,6 +10,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -55,6 +56,9 @@ public class ProductDetailResponse {
 
     @Schema(description = "Seller store name", example = "Apple Store")
     String sellerStoreName;
+
+    @Schema(description = "Available sellable stock quantity", example = "42")
+    Integer availableQuantity;
 
     @Schema(
         description = "Creation timestamp",

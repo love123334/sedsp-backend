@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -54,6 +55,9 @@ public class ProductResponse {
 
     @Schema(description = "Primary product image for catalog cards")
     String primaryImageUrl;
+
+    @Schema(description = "Available sellable stock quantity", example = "42")
+    Integer availableQuantity;
 
     @Schema(
         description = "Creation timestamp",

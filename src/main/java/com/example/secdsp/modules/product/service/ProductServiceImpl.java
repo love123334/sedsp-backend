@@ -114,7 +114,13 @@ public class ProductServiceImpl implements ProductService {
         Product saved = productRepository.save(product);
         ensureInventoryRow(saved);
         log.info("Product created successfully with ID: {}", saved.getId());
-        return productMapper.toProductResponse(saved);
+        ProductResponse response = productMapper.toProductResponse(saved);
+        response.setAvailableQuantity(
+            inventoryRepository.findByProduct_Id(saved.getId())
+                .map(Inventory::getAvailableQuantity)
+                .orElse(0)
+        );
+        return response;
     }
 
     @Transactional
@@ -228,7 +234,13 @@ public class ProductServiceImpl implements ProductService {
         log.debug("Fetching product by ID: {}", id);
         Product product = productRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Product", id));
-        return productMapper.toProductDetailResponse(product);
+        ProductDetailResponse response = productMapper.toProductDetailResponse(product);
+        response.setAvailableQuantity(
+            inventoryRepository.findByProduct_Id(id)
+                .map(Inventory::getAvailableQuantity)
+                .orElse(0)
+        );
+        return response;
     }
 
     @Override
@@ -243,8 +255,30 @@ public class ProductServiceImpl implements ProductService {
             "Fetching products with keyword: {}, categoryId: {}, sellerId: {}, pageable: {}",
             keyword, categoryId, sellerId, pageable
         );
-        return productRepository.searchProducts(keyword, categoryId, sellerId, pageable)
-            .map(productMapper::toProductResponse);
+        Page<Product> page =
+            productRepository.searchProducts(keyword, categoryId, sellerId, pageable);
+        Map<Long, Integer> stockByProduct = loadAvailableQuantities(
+            page.getContent().stream().map(Product::getId).toList()
+        );
+        return page.map(product -> {
+            ProductResponse response = productMapper.toProductResponse(product);
+            response.setAvailableQuantity(
+                stockByProduct.getOrDefault(product.getId(), 0)
+            );
+            return response;
+        });
+    }
+
+    private Map<Long, Integer> loadAvailableQuantities(List<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return Map.of();
+        }
+        return inventoryRepository.findByProduct_IdIn(productIds).stream()
+            .collect(Collectors.toMap(
+                inv -> inv.getProduct().getId(),
+                Inventory::getAvailableQuantity,
+                (a, b) -> a
+            ));
     }
 
     @Override
