@@ -34,6 +34,9 @@ public interface ProductMapper {
     @Mapping(target = "sellerPhone", source = "seller.phone")
     @Mapping(target = "primaryImageUrl", expression = "java(resolvePrimaryImageUrl(product))")
     @Mapping(target = "availableQuantity", ignore = true)
+    @Mapping(target = "averageRating", ignore = true)
+    @Mapping(target = "reviewCount", ignore = true)
+    @Mapping(target = "soldCount", ignore = true)
     ProductResponse toProductResponse(Product product);
 
     List<ProductResponse> toProductResponseList(List<Product> products);

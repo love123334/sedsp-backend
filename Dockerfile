@@ -2,14 +2,17 @@
 FROM eclipse-temurin:17-jdk-jammy AS builder
 WORKDIR /build
 
+ENV GRADLE_OPTS="-Dorg.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m -Dorg.gradle.daemon=false"
+
 COPY gradlew settings.gradle.kts build.gradle.kts ./
 COPY gradle ./gradle
 RUN chmod +x gradlew && ./gradlew --version
 
 COPY . .
 RUN chmod +x gradlew \
-  && ./gradlew bootJar -x test --no-daemon \
+  && ./gradlew bootJar -x test --no-daemon --stacktrace \
   && JAR="$(ls -1 build/libs/*.jar | grep -v plain | head -n 1)" \
+  && test -n "$JAR" \
   && cp "$JAR" /build/app.jar \
   && echo "Packed $JAR -> /build/app.jar"
 

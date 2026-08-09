@@ -3,7 +3,6 @@ package com.example.secdsp.common.util;
 import com.example.secdsp.config.UploadProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 import java.net.URI;
 
@@ -18,10 +17,13 @@ public class PublicAssetUrlResolver {
     private final UploadProperties uploadProperties;
 
     public String resolve(String url) {
-        if (!StringUtils.hasText(url)) {
-            return url;
+        if (url == null) {
+            return null;
         }
         String trimmed = url.trim();
+        if (trimmed.isEmpty()) {
+            return trimmed;
+        }
         String base = uploadProperties.resolvePublicBaseUrl();
 
         if (trimmed.startsWith("/uploads/")) {
