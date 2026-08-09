@@ -32,6 +32,7 @@ import com.example.secdsp.modules.product.entity.ProductStatus;
 import com.example.secdsp.modules.product.service.ProductService;
 import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.user.entity.UserRole;
+import com.example.secdsp.modules.voucher.service.VoucherService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -65,6 +66,7 @@ public class OrderServiceImpl implements OrderService {
     private final InventoryInternalService inventoryInternalService;
     private final ProductService productService;
     private final OrderNotificationService orderNotificationService;
+    private final VoucherService voucherService;
 
     @Override
     @Transactional
@@ -81,6 +83,11 @@ public class OrderServiceImpl implements OrderService {
 
         // 2. Tạo đơn hàng PENDING
         Order order = createOrderEntity(userId, request, subtotal);
+
+        if (request.getVoucherCode() != null && !request.getVoucherCode().isBlank()) {
+            voucherService.applyToOrder(order, request.getVoucherCode(), cartItems, userId);
+            orderRepository.save(order);
+        }
 
         // 3. Tạo các OrderItem (Snapshot Giá & Tên) + Giữ chỗ tồn kho Atomically
         createOrderItemsAndReserveInventory(order, cartItems);

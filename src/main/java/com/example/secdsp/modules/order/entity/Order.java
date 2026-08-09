@@ -58,6 +58,12 @@ public class Order {
     @Column(name = "updated_at", nullable = false)
     OffsetDateTime updatedAt;
 
+    @Column(name = "voucher_id")
+    Long voucherId;
+
+    @Column(name = "voucher_code", length = 50)
+    String voucherCode;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     List<OrderItem> items = new ArrayList<>();
 

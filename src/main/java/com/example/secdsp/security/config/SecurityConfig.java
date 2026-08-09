@@ -62,7 +62,8 @@ public class SecurityConfig {
                 .requestMatchers(
                     HttpMethod.GET,
                     "/api/v1/products/**",
-                    "/api/v1/categories/**"
+                    "/api/v1/categories/**",
+                    "/api/v1/vouchers/public"
                 ).permitAll()
 
                 // Local product images (Cloudinary fallback)

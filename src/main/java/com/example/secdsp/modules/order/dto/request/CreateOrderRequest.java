@@ -36,4 +36,7 @@ public class CreateOrderRequest {
     )
     @NotNull
     PaymentMethod paymentMethod;
+
+    @Schema(description = "Optional voucher / discount code")
+    String voucherCode;
 }
