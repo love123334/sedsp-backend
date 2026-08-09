@@ -188,6 +188,13 @@ public class ProductController {
         @RequestParam(required = false)
         Long sellerId,
 
+        @Parameter(
+            description = "Catalog sort: popular, newest, price-asc, price-desc, rating-desc, rating-asc",
+            example = "popular"
+        )
+        @RequestParam(required = false, defaultValue = "popular")
+        String sort,
+
         @ParameterObject
         @PageableDefault(
             size = 10,
@@ -202,6 +209,7 @@ public class ProductController {
                 keyword,
                 categoryId,
                 sellerId,
+                sort,
                 pageable
             );
 

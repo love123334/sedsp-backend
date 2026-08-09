@@ -42,4 +42,12 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, Lo
 
     List<ProductReview>
     findTop5ByProduct_Seller_IdOrderByCreatedAtDesc(Long sellerId);
+
+    @Query("""
+            SELECT r.product.id, AVG(r.rating), COUNT(r)
+            FROM ProductReview r
+            WHERE r.product.id IN :productIds
+            GROUP BY r.product.id
+        """)
+    List<Object[]> getRatingSummariesByProductIds(@Param("productIds") List<Long> productIds);
 }

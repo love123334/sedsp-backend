@@ -182,4 +182,13 @@ public interface OrderItemRepository
           AND o.status = 'DELIVERED'
         """, nativeQuery = true)
     LocalDate findFirstCompletedSaleDateByProduct(Long productId);
+
+    @Query("""
+            SELECT oi.product.id, COALESCE(SUM(oi.quantity), 0)
+            FROM OrderItem oi
+            WHERE oi.product.id IN :productIds
+              AND oi.order.status IN ('PAID', 'PROCESSING', 'SHIPPING', 'DELIVERED')
+            GROUP BY oi.product.id
+        """)
+    List<Object[]> getSoldQuantitiesByProductIds(@Param("productIds") List<Long> productIds);
 }

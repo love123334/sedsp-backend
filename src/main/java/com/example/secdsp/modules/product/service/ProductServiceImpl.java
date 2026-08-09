@@ -19,9 +19,12 @@ import com.example.secdsp.modules.product.entity.*;
 import com.example.secdsp.modules.product.mapper.PriceHistoryMapper;
 import com.example.secdsp.modules.product.mapper.ProductMapper;
 import com.example.secdsp.modules.product.repository.PriceHistoryRepository;
+import com.example.secdsp.modules.product.repository.ProductCatalogQueryRepository;
 import com.example.secdsp.modules.product.repository.ProductRepository;
 import com.example.secdsp.modules.inventory.entity.Inventory;
 import com.example.secdsp.modules.inventory.repository.InventoryRepository;
+import com.example.secdsp.modules.order.repository.OrderItemRepository;
+import com.example.secdsp.modules.review.repository.ProductReviewRepository;
 import com.example.secdsp.modules.user.dto.internal.UserInfo;
 import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.user.entity.UserRole;
@@ -50,6 +53,9 @@ import java.util.stream.Collectors;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
+    private final ProductCatalogQueryRepository productCatalogQueryRepository;
+    private final ProductReviewRepository productReviewRepository;
+    private final OrderItemRepository orderItemRepository;
     private final PriceHistoryRepository priceHistoryRepository;
     private final InventoryRepository inventoryRepository;
     private final ProductMapper productMapper;
@@ -249,25 +255,91 @@ public class ProductServiceImpl implements ProductService {
         String keyword,
         Long categoryId,
         Long sellerId,
+        String sort,
         Pageable pageable
     ) {
         log.debug(
-            "Fetching products with keyword: {}, categoryId: {}, sellerId: {}, pageable: {}",
-            keyword, categoryId, sellerId, pageable
+            "Fetching products with keyword: {}, categoryId: {}, sellerId: {}, sort: {}, pageable: {}",
+            keyword, categoryId, sellerId, sort, pageable
         );
-        Page<Product> page =
-            productRepository.searchProducts(keyword, categoryId, sellerId, pageable);
-        Map<Long, Integer> stockByProduct = loadAvailableQuantities(
-            page.getContent().stream().map(Product::getId).toList()
+
+        Page<Long> idPage = productCatalogQueryRepository.searchProductIds(
+            keyword,
+            categoryId,
+            sellerId,
+            sort,
+            pageable
         );
-        return page.map(product -> {
-            ProductResponse response = productMapper.toProductResponse(product);
-            response.setAvailableQuantity(
-                stockByProduct.getOrDefault(product.getId(), 0)
-            );
-            return response;
-        });
+        List<Long> ids = idPage.getContent();
+        if (ids.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        Map<Long, Product> productById = productRepository.findByIdIn(ids).stream()
+            .collect(Collectors.toMap(Product::getId, Function.identity(), (a, b) -> a));
+        List<Product> orderedProducts = ids.stream()
+            .map(productById::get)
+            .filter(Objects::nonNull)
+            .toList();
+
+        Map<Long, Integer> stockByProduct = loadAvailableQuantities(ids);
+        CatalogStats stats = loadCatalogStats(ids);
+
+        List<ProductResponse> content = orderedProducts.stream()
+            .map(product -> toCatalogProductResponse(product, stockByProduct, stats))
+            .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(content, pageable, idPage.getTotalElements());
     }
+
+    private ProductResponse toCatalogProductResponse(
+        Product product,
+        Map<Long, Integer> stockByProduct,
+        CatalogStats stats
+    ) {
+        ProductResponse response = productMapper.toProductResponse(product);
+        response.setAvailableQuantity(stockByProduct.getOrDefault(product.getId(), 0));
+        RatingStats rating = stats.ratings().get(product.getId());
+        if (rating != null) {
+            response.setAverageRating(rating.average());
+            response.setReviewCount(rating.count());
+        } else {
+            response.setAverageRating(0.0);
+            response.setReviewCount(0L);
+        }
+        response.setSoldCount(stats.soldCounts().getOrDefault(product.getId(), 0L));
+        return response;
+    }
+
+    private CatalogStats loadCatalogStats(List<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return new CatalogStats(Map.of(), Map.of());
+        }
+
+        Map<Long, RatingStats> ratings = new HashMap<>();
+        for (Object[] row : productReviewRepository.getRatingSummariesByProductIds(productIds)) {
+            Long productId = ((Number) row[0]).longValue();
+            double average = row[1] != null ? ((Number) row[1]).doubleValue() : 0.0;
+            long count = row[2] != null ? ((Number) row[2]).longValue() : 0L;
+            ratings.put(productId, new RatingStats(average, count));
+        }
+
+        Map<Long, Long> soldCounts = new HashMap<>();
+        for (Object[] row : orderItemRepository.getSoldQuantitiesByProductIds(productIds)) {
+            Long productId = ((Number) row[0]).longValue();
+            long qty = row[1] != null ? ((Number) row[1]).longValue() : 0L;
+            soldCounts.put(productId, qty);
+        }
+
+        return new CatalogStats(ratings, soldCounts);
+    }
+
+    private record RatingStats(double average, long count) {}
+
+    private record CatalogStats(
+        Map<Long, RatingStats> ratings,
+        Map<Long, Long> soldCounts
+    ) {}
 
     private Map<Long, Integer> loadAvailableQuantities(List<Long> productIds) {
         if (productIds == null || productIds.isEmpty()) {

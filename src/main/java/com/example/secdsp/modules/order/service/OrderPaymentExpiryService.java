@@ -65,6 +65,7 @@ public class OrderPaymentExpiryService {
         }
         PaymentMethod method = payment.getPaymentMethod();
         return method == PaymentMethod.VNPAY || method == PaymentMethod.MOMO;
+        // MOMO_QR: seller confirms manually — do not auto-cancel on gateway timeout
     }
 
     private void cancelExpiredOrder(Order order) {

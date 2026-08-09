@@ -127,6 +127,12 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
         }
 
+        if (request.getPaymentMethod() == PaymentMethod.MOMO_QR) {
+            throw new BusinessException(
+                "MoMo chuyen khoan shop khong dung cong thanh toan. Xem huong dan tren trang don hang."
+            );
+        }
+
         PaymentGatewayResponse response;
 
         if (request.getPaymentMethod() == PaymentMethod.VNPAY) {

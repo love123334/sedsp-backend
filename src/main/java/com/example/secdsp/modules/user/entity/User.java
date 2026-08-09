@@ -65,4 +65,10 @@ public class User extends BaseEntity {
 
     @Column(name = "seller_description", columnDefinition = "TEXT")
     String sellerDescription;
+
+    @Column(name = "momo_phone", length = 20)
+    String momoPhone;
+
+    @Column(name = "momo_qr_url", columnDefinition = "TEXT")
+    String momoQrUrl;
 }

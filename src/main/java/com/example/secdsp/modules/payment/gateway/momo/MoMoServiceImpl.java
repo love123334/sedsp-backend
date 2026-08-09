@@ -28,13 +28,17 @@ public class MoMoServiceImpl implements MoMoService {
     public PaymentGatewayResponse createPayment(
         PaymentGatewayRequest request
     ) {
+        requireConfigured();
 
         String requestId = UUID.randomUUID().toString();
         String orderId = String.valueOf(request.getOrderId());
+        long amount = request.getAmount()
+            .setScale(0, java.math.RoundingMode.HALF_UP)
+            .longValueExact();
 
         String rawHash =
             "accessKey=" + properties.getAccessKey()
-                + "&amount=" + request.getAmount().toPlainString()
+                + "&amount=" + amount
                 + "&extraData="
                 + "&ipnUrl=" + properties.getNotifyUrl()
                 + "&orderId=" + orderId
@@ -51,7 +55,7 @@ public class MoMoServiceImpl implements MoMoService {
         body.put("partnerCode", properties.getPartnerCode());
         body.put("accessKey", properties.getAccessKey());
         body.put("requestId", requestId);
-        body.put("amount", request.getAmount().toPlainString());
+        body.put("amount", String.valueOf(amount));
         body.put("orderId", orderId);
         body.put("orderInfo", request.getOrderInfo());
         body.put("redirectUrl", properties.getReturnUrl());
@@ -68,8 +72,20 @@ public class MoMoServiceImpl implements MoMoService {
             );
 
         Map<String, Object> result = response.getBody();
+        if (result == null) {
+            throw new PaymentGatewayException("MoMo khong tra ve du lieu.");
+        }
+
+        Object resultCode = result.get("resultCode");
+        if (resultCode == null || !"0".equals(String.valueOf(resultCode))) {
+            String message = String.valueOf(result.getOrDefault("message", "Loi MoMo"));
+            throw new PaymentGatewayException("MoMo tu choi: " + message);
+        }
 
         String payUrl = (String) result.get("payUrl");
+        if (payUrl == null || payUrl.isBlank()) {
+            throw new PaymentGatewayException("MoMo khong tra payUrl.");
+        }
 
         return PaymentGatewayResponse.builder()
             .redirectUrl(payUrl)
@@ -125,5 +141,25 @@ public class MoMoServiceImpl implements MoMoService {
         } catch (Exception e) {
             throw new PaymentGatewayException("MoMo hash error", e);
         }
+    }
+
+    private void requireConfigured() {
+        if (isBlank(properties.getPartnerCode())
+            || properties.getPartnerCode().startsWith("YOUR_")
+            || isBlank(properties.getAccessKey())
+            || properties.getAccessKey().startsWith("YOUR_")
+            || isBlank(properties.getSecretKey())
+            || properties.getSecretKey().startsWith("YOUR_")
+            || isBlank(properties.getEndpoint())
+            || isBlank(properties.getReturnUrl())
+            || isBlank(properties.getNotifyUrl())) {
+            throw new IllegalStateException(
+                "MoMo chua cau hinh. Dat MOMO_PARTNER_CODE, MOMO_ACCESS_KEY, MOMO_SECRET_KEY, MOMO_RETURN_URL, MOMO_NOTIFY_URL tren Railway."
+            );
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

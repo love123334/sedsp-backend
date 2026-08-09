@@ -15,6 +15,7 @@ import com.example.secdsp.modules.order.dto.internal.RecentOrderInfo;
 import com.example.secdsp.modules.order.dto.internal.TopProductSalesInfo;
 import com.example.secdsp.modules.order.dto.request.CreateOrderRequest;
 import com.example.secdsp.modules.order.dto.request.UpdateOrderStatusRequest;
+import com.example.secdsp.modules.order.dto.response.MomoTransferInfo;
 import com.example.secdsp.modules.order.dto.response.OrderDetailResponse;
 import com.example.secdsp.modules.order.dto.response.OrderItemResponse;
 import com.example.secdsp.modules.order.dto.response.OrderResponse;
@@ -30,7 +31,10 @@ import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.entity.ProductStatus;
 import com.example.secdsp.modules.product.service.ProductService;
+import com.example.secdsp.modules.order.support.MomoTransferSupport;
+import com.example.secdsp.modules.user.repository.UserRepository;
 import com.example.secdsp.modules.user.entity.User;
+import com.example.secdsp.modules.user.service.SellerMomoServiceImpl;
 import com.example.secdsp.modules.user.entity.UserRole;
 import com.example.secdsp.modules.voucher.service.VoucherService;
 import lombok.RequiredArgsConstructor;
@@ -44,9 +48,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -67,6 +74,7 @@ public class OrderServiceImpl implements OrderService {
     private final ProductService productService;
     private final OrderNotificationService orderNotificationService;
     private final VoucherService voucherService;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
@@ -91,6 +99,10 @@ public class OrderServiceImpl implements OrderService {
 
         // 3. Tạo các OrderItem (Snapshot Giá & Tên) + Giữ chỗ tồn kho Atomically
         createOrderItemsAndReserveInventory(order, cartItems);
+
+        if (request.getPaymentMethod() == PaymentMethod.MOMO_QR) {
+            validateMomoQrCart(cartItems);
+        }
 
         // 4. Tạo lịch sử theo dõi (Order Tracking)
         createTracking(order, userId);
@@ -156,8 +168,130 @@ public class OrderServiceImpl implements OrderService {
                     ? payment.getPaymentMethod()
                     : null
             )
+            .momoTransfer(buildMomoTransferInfo(order, payment))
             .tracking(trackingEvents)
             .build();
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse confirmMomoTransfer(Long id) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        if (userId == null) {
+            throw new UnauthorizedException("Authentication required.");
+        }
+
+        Order order = orderRepository.findWithItemsById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Order", id));
+
+        boolean isSellerOwner = order.getItems().stream()
+            .anyMatch(i -> i.getSeller() != null && userId.equals(i.getSeller().getId()));
+        if (!isSellerOwner
+            && !SecurityUtils.hasRole(UserRole.ADMIN)
+            && !SecurityUtils.hasRole(UserRole.MANAGER)) {
+            throw new UnauthorizedException("You cannot confirm this payment.");
+        }
+
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new BusinessException("Only pending orders can be confirmed.");
+        }
+
+        Payment payment = paymentRepository.findByOrder_Id(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Payment", id));
+
+        if (payment.getPaymentMethod() != PaymentMethod.MOMO_QR) {
+            throw new BusinessException("Order is not a MoMo QR transfer.");
+        }
+        if (payment.getStatus() == PaymentStatus.SUCCESS) {
+            return buildOrderResponse(order);
+        }
+
+        payment.setStatus(PaymentStatus.SUCCESS);
+        payment.setPaidAt(OffsetDateTime.now());
+        order.setStatus(OrderStatus.PAID);
+
+        OrderTracking tracking = new OrderTracking();
+        tracking.setOrder(order);
+        tracking.setEvent(OrderTrackingEvent.PAYMENT_SUCCESS);
+        tracking.setNote("Seller confirmed MoMo transfer received.");
+        User actor = new User();
+        actor.setId(userId);
+        tracking.setUpdatedBy(actor);
+        orderTrackingRepository.save(tracking);
+
+        orderRepository.save(order);
+        orderNotificationService.notifyStatusChanged(order, OrderStatus.PAID);
+        log.info("MoMo QR transfer confirmed for order {} by user {}", id, userId);
+        return buildOrderResponse(order);
+    }
+
+    private MomoTransferInfo buildMomoTransferInfo(Order order, Payment payment) {
+        if (payment == null || payment.getPaymentMethod() != PaymentMethod.MOMO_QR) {
+            return null;
+        }
+
+        User seller = resolveSingleSeller(order.getId());
+        if (seller == null) {
+            return MomoTransferInfo.builder()
+                .amount(order.getTotalAmount())
+                .transferNote(payment.getTransferNote())
+                .configured(false)
+                .build();
+        }
+
+        return MomoTransferInfo.builder()
+            .amount(payment.getAmount())
+            .transferNote(
+                payment.getTransferNote() != null
+                    ? payment.getTransferNote()
+                    : MomoTransferSupport.transferNote(order.getId())
+            )
+            .sellerMomoPhone(seller.getMomoPhone())
+            .sellerMomoQrUrl(seller.getMomoQrUrl())
+            .sellerStoreName(seller.getStoreName())
+            .configured(SellerMomoServiceImpl.isConfigured(seller))
+            .build();
+    }
+
+    private User resolveSingleSeller(Long orderId) {
+        List<OrderItem> items = orderItemRepository.findByOrder_Id(orderId);
+        Set<Long> sellerIds = new HashSet<>();
+        for (OrderItem item : items) {
+            if (item.getSeller() != null) {
+                sellerIds.add(item.getSeller().getId());
+            }
+        }
+        if (sellerIds.size() != 1) {
+            return null;
+        }
+        Long sellerId = sellerIds.iterator().next();
+        return userRepository.findById(sellerId).orElse(null);
+    }
+
+    private void validateMomoQrCart(List<CartItem> cartItems) {
+        Long sellerId = null;
+        for (CartItem item : cartItems) {
+            Product product = item.getProduct();
+            if (product.getSeller() == null) {
+                throw new BusinessException("Product has no seller.");
+            }
+            Long currentSellerId = product.getSeller().getId();
+            if (sellerId == null) {
+                sellerId = currentSellerId;
+            } else if (!sellerId.equals(currentSellerId)) {
+                throw new BusinessException(
+                    "Chuyen MoMo shop chi ap dung khi gio hang chi co san pham tu mot cua hang."
+                );
+            }
+        }
+        Long resolvedSellerId = sellerId;
+        User seller = userRepository.findById(resolvedSellerId)
+            .orElseThrow(() -> new ResourceNotFoundException("Seller", resolvedSellerId));
+        if (!SellerMomoServiceImpl.isConfigured(seller)) {
+            throw new BusinessException(
+                "Cua hang chua cau hinh so MoMo hoac anh QR. Vui long chon phuong thuc khac."
+            );
+        }
     }
 
     @Override
@@ -656,9 +790,12 @@ public class OrderServiceImpl implements OrderService {
         payment.setStatus(PaymentStatus.PENDING);
         payment.setCurrency("VND");
 
-        paymentRepository.save(payment);
+        if (method == PaymentMethod.MOMO_QR) {
+            payment.setGatewayName("MOMO_QR");
+            payment.setTransferNote(MomoTransferSupport.transferNote(order.getId()));
+        }
 
-        // TODO: Integrate payment gateway here
+        paymentRepository.save(payment);
     }
 
     private void clearCart(Cart cart) {

@@ -65,6 +65,9 @@ public class Payment {
     @Column(name = "paid_at")
     OffsetDateTime paidAt;
 
+    @Column(name = "transfer_note", length = 120)
+    String transferNote;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     OffsetDateTime createdAt;
 

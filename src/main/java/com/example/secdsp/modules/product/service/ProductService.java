@@ -28,6 +28,7 @@ public interface ProductService {
         String keyword,
         Long categoryId,
         Long sellerId,
+        String sort,
         Pageable pageable
     );
 

@@ -64,4 +64,13 @@ public class ProductResponse {
         example = "2026-08-03T10:30:00Z"
     )
     OffsetDateTime createdAt;
+
+    @Schema(description = "Average customer rating (1-5)", example = "4.6")
+    Double averageRating;
+
+    @Schema(description = "Number of published reviews", example = "12")
+    Long reviewCount;
+
+    @Schema(description = "Units sold from paid/delivered orders", example = "48")
+    Long soldCount;
 }

@@ -156,6 +156,19 @@ public class OrderController {
         );
     }
 
+    @PostMapping("/{id}/confirm-momo")
+    @PreAuthorize("hasAnyRole('SELLER','ADMIN','MANAGER')")
+    public ResponseEntity<BaseResponse<OrderResponse>> confirmMomoTransfer(
+        @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(
+            BaseResponse.success(
+                "MoMo transfer confirmed",
+                orderService.confirmMomoTransfer(id)
+            )
+        );
+    }
+
     @Operation(
         summary = "Cancel order",
         description = """

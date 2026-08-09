@@ -31,6 +31,9 @@ public class OrderDetailResponse {
     )
     PaymentMethod paymentMethod;
 
+    @Schema(description = "MoMo manual transfer instructions (MOMO_QR only)")
+    MomoTransferInfo momoTransfer;
+
     @Schema(
         description = "Tracking history"
     )
