@@ -89,6 +89,10 @@ app:
   looker:
     studio-embed-url: ${LOOKER_STUDIO_EMBED_URL:https://datastudio.google.com/embed/reporting/88f0776f-62a9-409c-8c78-40e9cd4b9f26/page/Y0b5F}
 
+  order:
+    payment-timeout-minutes: ${ORDER_PAYMENT_TIMEOUT_MINUTES:15}
+    payment-expiry-check-ms: ${ORDER_PAYMENT_EXPIRY_CHECK_MS:60000}
+
   # --- Cấu hình Payment ---
   payment:
     vnpay:

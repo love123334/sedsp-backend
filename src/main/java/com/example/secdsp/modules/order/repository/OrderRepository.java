@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface OrderRepository
@@ -41,4 +43,13 @@ public interface OrderRepository
             """
     )
     Page<Order> findDistinctBySellerId(@Param("sellerId") Long sellerId, Pageable pageable);
+
+    @Query(
+        """
+        select o from Order o
+        where o.status = com.example.secdsp.modules.order.entity.OrderStatus.PENDING
+          and o.createdAt < :cutoff
+        """
+    )
+    List<Order> findPendingOlderThan(@Param("cutoff") OffsetDateTime cutoff);
 }
