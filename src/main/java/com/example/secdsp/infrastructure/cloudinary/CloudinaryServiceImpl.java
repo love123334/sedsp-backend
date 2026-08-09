@@ -64,6 +64,10 @@ public class CloudinaryServiceImpl implements CloudinaryService {
             );
 
         } catch (CloudinaryException e) {
+            if (isInvalidCloudName(e.getMessage())) {
+                log.warn("Cloudinary từ chối cloud_name — fallback local: {}", e.getMessage());
+                return localImageStorageService.store(file);
+            }
             throw e;
         } catch (IOException e) {
             throw new CloudinaryException("Không đọc được file ảnh: " + e.getMessage(), e);

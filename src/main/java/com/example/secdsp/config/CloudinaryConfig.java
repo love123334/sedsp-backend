@@ -45,10 +45,20 @@ public class CloudinaryConfig {
     }
 
     public boolean isConfigured() {
-        return isValidCredential(cloudName)
-            && isValidCredential(apiKey)
-            && isValidCredential(apiSecret)
-            && !INVALID_CLOUD_NAMES.contains(cloudName.trim().toLowerCase(Locale.ROOT));
+        if (!isValidCredential(cloudName)
+            || !isValidCredential(apiKey)
+            || !isValidCredential(apiSecret)) {
+            return false;
+        }
+        String normalized = cloudName.trim().toLowerCase(Locale.ROOT);
+        if (INVALID_CLOUD_NAMES.contains(normalized)) {
+            return false;
+        }
+        // Real Cloudinary cloud_name values are lowercase (e.g. flvb615r), not project labels like SEDSP.
+        if (cloudName.equals(cloudName.toUpperCase(Locale.ROOT))) {
+            return false;
+        }
+        return true;
     }
 
     private static boolean isValidCredential(String value) {
