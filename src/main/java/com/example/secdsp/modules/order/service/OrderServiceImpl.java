@@ -35,6 +35,7 @@ import com.example.secdsp.modules.user.entity.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -343,29 +344,27 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public OrderDashboardInfo getSellerOrderSummary(Long sellerId) {
 
-        long pending =
-            orderItemRepository.countBySeller_IdAndOrder_Status(
-                sellerId,
-                OrderStatus.PENDING
-            );
+        long pending = orderRepository.countBySellerIdAndStatus(
+            sellerId,
+            OrderStatus.PENDING
+        );
 
         long processing =
-            orderItemRepository.countBySeller_IdAndOrder_Status(
-                sellerId,
-                OrderStatus.PROCESSING
-            );
+            orderRepository.countBySellerIdAndStatus(sellerId, OrderStatus.PAID)
+                + orderRepository.countBySellerIdAndStatus(
+                    sellerId,
+                    OrderStatus.PROCESSING
+                );
 
-        long shipping =
-            orderItemRepository.countBySeller_IdAndOrder_Status(
-                sellerId,
-                OrderStatus.SHIPPING
-            );
+        long shipping = orderRepository.countBySellerIdAndStatus(
+            sellerId,
+            OrderStatus.SHIPPING
+        );
 
-        long delivered =
-            orderItemRepository.countBySeller_IdAndOrder_Status(
-                sellerId,
-                OrderStatus.DELIVERED
-            );
+        long delivered = orderRepository.countBySellerIdAndStatus(
+            sellerId,
+            OrderStatus.DELIVERED
+        );
 
         return OrderDashboardInfo.builder()
             .pending(pending)
@@ -379,20 +378,16 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public List<RecentOrderInfo> getRecentOrders(Long sellerId) {
 
-        return orderItemRepository
-            .findTop5BySeller_IdOrderByOrder_CreatedAtDesc(sellerId)
+        return orderRepository
+            .findDistinctBySellerId(sellerId, PageRequest.of(0, 5))
             .stream()
-            .map(item ->
+            .map(order ->
                      RecentOrderInfo.builder()
-                         .orderId(item.getOrder().getId())
-                         .customer(
-                             item.getOrder()
-                                 .getUser()
-                                 .getUsername()
-                         )
-                         .total(item.getOrder().getTotalAmount())
-                         .status(item.getOrder().getStatus())
-                         .createdAt(item.getOrder().getCreatedAt())
+                         .orderId(order.getId())
+                         .customer(order.getUser().getUsername())
+                         .total(order.getTotalAmount())
+                         .status(order.getStatus())
+                         .createdAt(order.getCreatedAt())
                          .build()
             ).toList();
     }

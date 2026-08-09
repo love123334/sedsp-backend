@@ -1,6 +1,7 @@
 package com.example.secdsp.modules.order.repository;
 
 import com.example.secdsp.modules.order.entity.Order;
+import com.example.secdsp.modules.order.entity.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -43,6 +44,21 @@ public interface OrderRepository
             """
     )
     Page<Order> findDistinctBySellerId(@Param("sellerId") Long sellerId, Pageable pageable);
+
+    @Query(
+        """
+        select count(o) from Order o
+        where o.status = :status
+          and exists (
+              select 1 from OrderItem i
+              where i.order = o and i.seller.id = :sellerId
+          )
+        """
+    )
+    long countBySellerIdAndStatus(
+        @Param("sellerId") Long sellerId,
+        @Param("status") OrderStatus status
+    );
 
     @Query(
         """
