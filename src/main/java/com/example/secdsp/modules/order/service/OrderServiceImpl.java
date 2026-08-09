@@ -9,7 +9,6 @@ import com.example.secdsp.modules.cart.entity.Cart;
 import com.example.secdsp.modules.cart.entity.CartItem;
 import com.example.secdsp.modules.cart.repository.CartItemRepository;
 import com.example.secdsp.modules.cart.repository.CartRepository;
-import com.example.secdsp.modules.cart.service.CartService;
 import com.example.secdsp.modules.inventory.service.InventoryInternalService;
 import com.example.secdsp.modules.order.dto.internal.OrderDashboardInfo;
 import com.example.secdsp.modules.order.dto.internal.RecentOrderInfo;
@@ -67,7 +66,6 @@ public class OrderServiceImpl implements OrderService {
     private final OrderTrackingRepository orderTrackingRepository;
     private final PaymentRepository paymentRepository;
 
-    private final CartService cartService;
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
 

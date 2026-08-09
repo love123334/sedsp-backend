@@ -82,7 +82,10 @@ public class ProductCatalogQueryRepositoryImpl implements ProductCatalogQueryRep
     }
 
     private static FilterClause buildFilterClause(String keyword, Long categoryId, Long sellerId) {
-        StringBuilder sql = new StringBuilder(" WHERE p.deleted_at IS NULL ");
+        StringBuilder sql = new StringBuilder("""
+             WHERE p.deleted_at IS NULL
+               AND p.status = 'ACTIVE'
+            """);
         Map<String, Object> params = new HashMap<>();
 
         if (StringUtils.hasText(keyword)) {
