@@ -9,5 +9,6 @@ import org.mapstruct.Mapping;
 public interface PaymentMapper {
 
     @Mapping(target = "orderId", source = "order.id")
+    @Mapping(target = "redirectUrl", ignore = true)
     PaymentResponse toResponse(Payment payment);
 }

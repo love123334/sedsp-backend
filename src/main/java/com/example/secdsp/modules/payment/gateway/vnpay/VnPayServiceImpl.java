@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.payment.gateway.vnpay;
 
+import com.example.secdsp.common.exception.PaymentGatewayException;
 import com.example.secdsp.config.VnPayProperties;
 import com.example.secdsp.modules.payment.dto.request.PaymentGatewayRequest;
 import com.example.secdsp.modules.payment.dto.response.PaymentGatewayResponse;
@@ -164,7 +165,7 @@ public class VnPayServiceImpl implements VnPayService {
             mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA512"));
             return HexFormat.of().formatHex(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
-            throw new RuntimeException("Error generating VNPay hash", e);
+            throw new PaymentGatewayException("Error generating VNPay hash", e);
         }
     }
 

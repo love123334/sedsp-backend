@@ -109,3 +109,8 @@ logging:
     com.zaxxer.hikari: INFO
     org.flywaydb: INFO
     org.springframework.mail: INFO
+
+# Absolute URL for /uploads when Cloudinary is missing/misconfigured
+app:
+  upload:
+    public-base-url: ${APP_PUBLIC_BASE_URL:https://sedsp-api-production.up.railway.app}

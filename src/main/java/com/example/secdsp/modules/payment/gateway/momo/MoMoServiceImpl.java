@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.payment.gateway.momo;
 
+import com.example.secdsp.common.exception.PaymentGatewayException;
 import com.example.secdsp.config.MoMoProperties;
 import com.example.secdsp.modules.payment.dto.request.PaymentGatewayRequest;
 import com.example.secdsp.modules.payment.dto.response.PaymentGatewayResponse;
@@ -122,7 +123,7 @@ public class MoMoServiceImpl implements MoMoService {
             return HexFormat.of().formatHex(hash);
 
         } catch (Exception e) {
-            throw new RuntimeException("MoMo hash error", e);
+            throw new PaymentGatewayException("MoMo hash error", e);
         }
     }
 }

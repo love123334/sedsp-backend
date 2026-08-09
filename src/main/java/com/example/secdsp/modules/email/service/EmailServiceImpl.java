@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.email.service;
 
+import com.example.secdsp.common.exception.EmailServiceException;
 import com.example.secdsp.config.MailProperties;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -130,20 +131,20 @@ public class EmailServiceImpl implements EmailService {
                 Map.class
             );
             if (!res.getStatusCode().is2xxSuccessful()) {
-                throw new RuntimeException("Resend HTTP " + res.getStatusCode().value()
+                throw new EmailServiceException("Resend HTTP " + res.getStatusCode().value()
                     + (res.getBody() != null ? ": " + res.getBody() : ""));
             }
             Object id = res.getBody() != null ? res.getBody().get("id") : null;
             log.info("Email sent via Resend to {} id={}", toEmail, id);
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
             log.error("Resend API HTTP {} for {}: {}", e.getStatusCode().value(), toEmail, e.getResponseBodyAsString());
-            throw new RuntimeException(
+            throw new EmailServiceException(
                 "Unable to send email via Resend (" + e.getStatusCode().value() + "): "
                     + e.getResponseBodyAsString()
             );
         } catch (RestClientException e) {
             log.error("Resend API failed for {}", toEmail, e);
-            throw new RuntimeException("Unable to send email via Resend: " + e.getMessage());
+            throw new EmailServiceException("Unable to send email via Resend: " + e.getMessage());
         }
     }
 
@@ -161,7 +162,7 @@ public class EmailServiceImpl implements EmailService {
         String from = mailProperties.getFrom();
         if ((from == null || from.isBlank() || from.startsWith("your_email"))
             && (username == null || username.isBlank())) {
-            throw new RuntimeException(
+            throw new EmailServiceException(
                 "Mail chua cau hinh. Dat RESEND_API_KEY (+ MAIL_FROM) tren Railway, "
                     + "hoac MAIL_USERNAME / MAIL_PASSWORD / MAIL_FROM (SMTP — can Pro)."
             );
@@ -192,7 +193,7 @@ public class EmailServiceImpl implements EmailService {
             log.info("Email sent via SMTP to {}", toEmail);
         } catch (Exception e) {
             log.error("Error sending email to {}", toEmail, e);
-            throw new RuntimeException("Unable to send email at the moment: " + e.getMessage());
+            throw new EmailServiceException("Unable to send email at the moment: " + e.getMessage());
         }
     }
 

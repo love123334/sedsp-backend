@@ -36,10 +36,16 @@ app:
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
   # --- Cấu hình Cloudinary (Thêm cho tính năng Ảnh sản phẩm) ---
+  # Nếu cloud_name sai (vd. SEDSP) hoặc thiếu key → BE tự lưu vào /uploads và serve public.
   cloudinary:
     cloud-name: ${CLOUDINARY_CLOUD_NAME:your_cloud_name}
     api-key: ${CLOUDINARY_API_KEY:your_api_key}
     api-secret: ${CLOUDINARY_API_SECRET:your_api_secret}
+
+  upload:
+    dir: ${UPLOAD_DIR:uploads}
+    # Railway: để trống để dùng https://$RAILWAY_PUBLIC_DOMAIN, hoặc set URL public của service
+    public-base-url: ${APP_PUBLIC_BASE_URL:}
 
   # --- Cấu hình Mail Tùy chỉnh ---
   mail:

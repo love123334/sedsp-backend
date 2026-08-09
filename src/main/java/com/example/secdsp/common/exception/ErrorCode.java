@@ -20,6 +20,9 @@ public enum ErrorCode {
 
     // ===== Business =====
     BUSINESS_ERROR(HttpStatus.BAD_REQUEST, "Business error"),
+    CLOUDINARY_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Cloudinary operation failed"),
+    EMAIL_SERVICE_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Email service failed"),
+    PAYMENT_GATEWAY_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Payment gateway failed"),
 
     // ===== System =====
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected server error");

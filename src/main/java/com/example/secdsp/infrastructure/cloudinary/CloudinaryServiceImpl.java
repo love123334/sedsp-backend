@@ -2,9 +2,12 @@ package com.example.secdsp.infrastructure.cloudinary;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import com.example.secdsp.common.exception.CloudinaryException;
 import com.example.secdsp.config.CloudinaryConfig;
+import com.example.secdsp.infrastructure.storage.LocalImageStorageService;
 import com.example.secdsp.modules.product.dto.response.CloudinaryUploadResult;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -14,20 +17,24 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CloudinaryServiceImpl implements CloudinaryService {
 
     private final Cloudinary cloudinary;
     private final CloudinaryConfig cloudinaryConfig;
+    private final LocalImageStorageService localImageStorageService;
 
     @Override
     public CloudinaryUploadResult uploadImage(MultipartFile file) {
         if (!cloudinaryConfig.isConfigured()) {
-            throw new RuntimeException(
-                "Cloudinary chua cau hinh. Dat CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET tren Railway."
+            log.warn(
+                "Cloudinary chưa cấu hình đúng (cloud_name hiện tại={}). Dùng lưu ảnh local.",
+                cloudinaryConfig.getCloudName()
             );
+            return localImageStorageService.store(file);
         }
+
         try {
-            // Keep upload options simple — invalid "transformation" strings break Cloudinary uploads
             @SuppressWarnings("rawtypes")
             Map uploadResult = cloudinary.uploader().upload(
                 file.getBytes(),
@@ -43,9 +50,12 @@ public class CloudinaryServiceImpl implements CloudinaryService {
             Object publicId = uploadResult.get("public_id");
             if (secureUrl == null || publicId == null) {
                 Object err = uploadResult.get("error");
-                throw new RuntimeException(
-                    "Cloudinary upload failed: " + (err != null ? err : uploadResult)
-                );
+                String errMsg = String.valueOf(err != null ? err : uploadResult);
+                if (isInvalidCloudName(errMsg)) {
+                    log.warn("Cloudinary từ chối cloud_name — fallback local: {}", errMsg);
+                    return localImageStorageService.store(file);
+                }
+                throw new CloudinaryException("Upload Cloudinary thất bại: " + errMsg);
             }
 
             return new CloudinaryUploadResult(
@@ -53,32 +63,68 @@ public class CloudinaryServiceImpl implements CloudinaryService {
                 publicId.toString()
             );
 
+        } catch (CloudinaryException e) {
+            throw e;
         } catch (IOException e) {
-            throw new RuntimeException("Failed to upload image: " + e.getMessage(), e);
+            throw new CloudinaryException("Không đọc được file ảnh: " + e.getMessage(), e);
+        } catch (Exception e) {
+            String msg = e.getMessage() != null ? e.getMessage() : e.toString();
+            if (isInvalidCloudName(msg) || !cloudinaryConfig.isConfigured()) {
+                log.warn("Cloudinary lỗi ({}) — fallback lưu local", msg);
+                return localImageStorageService.store(file);
+            }
+            throw new CloudinaryException(
+                "Upload ảnh thất bại: " + msg
+                    + ". Kiểm tra CLOUDINARY_CLOUD_NAME / API_KEY / API_SECRET trên Railway "
+                    + "(không dùng giá trị giả như SEDSP).",
+                e
+            );
         }
     }
 
     @Override
     public void deleteImage(String publicId) {
+        if (publicId != null && publicId.startsWith("local/")) {
+            localImageStorageService.deleteIfLocal(publicId);
+            return;
+        }
+        if (!cloudinaryConfig.isConfigured()) {
+            return;
+        }
         try {
             cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
         } catch (IOException e) {
-            throw new RuntimeException("Failed to delete image", e);
+            throw new CloudinaryException("Không xóa được ảnh Cloudinary", e);
         }
     }
 
     @Override
     public void deleteImagesBulk(Collection<String> publicIds) {
-
-        try {
-
-            cloudinary.api().deleteResources(
-                publicIds,
-                ObjectUtils.emptyMap()
-            );
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to bulk delete images", e);
+        for (String id : publicIds) {
+            if (id != null && id.startsWith("local/")) {
+                localImageStorageService.deleteIfLocal(id);
+            }
         }
+        var remote = publicIds.stream()
+            .filter(id -> id != null && !id.startsWith("local/"))
+            .toList();
+        if (remote.isEmpty() || !cloudinaryConfig.isConfigured()) {
+            return;
+        }
+        try {
+            cloudinary.api().deleteResources(remote, ObjectUtils.emptyMap());
+        } catch (Exception e) {
+            throw new CloudinaryException("Không xóa hàng loạt ảnh Cloudinary", e);
+        }
+    }
+
+    private static boolean isInvalidCloudName(String message) {
+        if (message == null) {
+            return false;
+        }
+        String lower = message.toLowerCase();
+        return lower.contains("invalid cloud_name")
+            || lower.contains("unknown cloud_name")
+            || lower.contains("cloud_name is invalid");
     }
 }

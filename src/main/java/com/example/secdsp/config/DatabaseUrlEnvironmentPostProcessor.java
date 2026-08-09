@@ -35,6 +35,13 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
         System.out.println("[datasource] EnvironmentPostProcessor running");
 
+        // Skip processor for local development with explicit config
+        String localProfile = environment.getProperty("spring.profiles.active", "");
+        if (localProfile.contains("dev") || localProfile.contains("local")) {
+            System.out.println("[datasource] Skipping processor for local development (profile: " + localProfile + ")");
+            return;
+        }
+
         for (String key : URL_KEYS) {
             String raw = firstEnv(environment, key);
             if (!StringUtils.hasText(raw)) {

@@ -7,13 +7,29 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Configuration
 @ConfigurationProperties(prefix = "app.cloudinary")
 @Getter
 @Setter
 public class CloudinaryConfig {
+
+    /** Placeholders / project names that are NOT real Cloudinary cloud_name values. */
+    private static final Set<String> INVALID_CLOUD_NAMES = Set.of(
+        "sedsp",
+        "secdsp",
+        "your_cloud_name",
+        "your-cloud-name",
+        "cloud_name",
+        "demo",
+        "changeme",
+        "example",
+        "test",
+        "localhost"
+    );
 
     private String cloudName;
     private String apiKey;
@@ -29,8 +45,19 @@ public class CloudinaryConfig {
     }
 
     public boolean isConfigured() {
-        return cloudName != null && !cloudName.isBlank() && !cloudName.startsWith("your_")
-            && apiKey != null && !apiKey.isBlank() && !apiKey.startsWith("your_")
-            && apiSecret != null && !apiSecret.isBlank() && !apiSecret.startsWith("your_");
+        return isValidCredential(cloudName)
+            && isValidCredential(apiKey)
+            && isValidCredential(apiSecret)
+            && !INVALID_CLOUD_NAMES.contains(cloudName.trim().toLowerCase(Locale.ROOT));
+    }
+
+    private static boolean isValidCredential(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        String v = value.trim();
+        return !v.startsWith("your_")
+            && !v.startsWith("YOUR_")
+            && !v.equalsIgnoreCase("changeme");
     }
 }
