@@ -642,7 +642,7 @@ public class ProductServiceImpl implements ProductService {
         }
         Inventory inventory = Inventory.builder()
             .product(product)
-            .availableQuantity(0)
+            .availableQuantity(50)
             .reservedQuantity(0)
             .updatedAt(java.time.OffsetDateTime.now())
             .build();
