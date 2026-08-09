@@ -234,6 +234,15 @@ public class DssAnalyticsService {
             row.put("recommendedOrder", recommendedOrder);
             row.put("status", status);
             row.put("statusLabel", "need".equals(status) ? "Can bo sung" : "Ton kho du");
+            List<Map<String, Object>> historicalSales = new ArrayList<>();
+            int dayIdx = 1;
+            for (Object[] d : daily) {
+                Map<String, Object> pt = new LinkedHashMap<>();
+                pt.put("day", dayIdx++);
+                pt.put("qty", ((Number) d[1]).longValue());
+                historicalSales.add(pt);
+            }
+            row.put("historicalSales", historicalSales);
             rows.add(row);
         }
 

@@ -1,6 +1,7 @@
 package com.example.secdsp.modules.order.service;
 
 import com.example.secdsp.modules.email.service.EmailService;
+import com.example.secdsp.modules.notification.service.CustomerNotificationService;
 import com.example.secdsp.modules.order.entity.Order;
 import com.example.secdsp.modules.order.entity.OrderItem;
 import com.example.secdsp.modules.order.entity.OrderStatus;
@@ -26,20 +27,47 @@ import java.util.concurrent.Executor;
 @Component
 public class OrderNotificationService {
 
+    private static final class MailJob {
+        private final String email;
+        private final String name;
+        private final String role;
+
+        private MailJob(String email, String name, String role) {
+            this.email = email;
+            this.name = name;
+            this.role = role;
+        }
+
+        private String email() {
+            return email;
+        }
+
+        private String name() {
+            return name;
+        }
+
+        private String role() {
+            return role;
+        }
+    }
+
     private final EmailService emailService;
     private final UserRepository userRepository;
     private final OrderItemRepository orderItemRepository;
+    private final CustomerNotificationService customerNotificationService;
     private final Executor mailExecutor;
 
     public OrderNotificationService(
         EmailService emailService,
         UserRepository userRepository,
         OrderItemRepository orderItemRepository,
+        CustomerNotificationService customerNotificationService,
         @Qualifier("mailExecutor") Executor mailExecutor
     ) {
         this.emailService = emailService;
         this.userRepository = userRepository;
         this.orderItemRepository = orderItemRepository;
+        this.customerNotificationService = customerNotificationService;
         this.mailExecutor = mailExecutor;
     }
 
@@ -66,14 +94,19 @@ public class OrderNotificationService {
             + "<p>Địa chỉ: " + escape(order.getShippingAddress()) + "</p>"
             + itemsHtml;
 
-        record MailJob(String email, String name, String role) {}
         List<MailJob> jobs = new ArrayList<>();
 
         User buyer = order.getUser();
         if (buyer != null && buyer.getId() != null) {
-            userRepository.findById(buyer.getId()).ifPresent(u ->
-                jobs.add(new MailJob(u.getEmail(), displayName(u), "Người mua"))
-            );
+            userRepository.findById(buyer.getId()).ifPresent(u -> {
+                jobs.add(new MailJob(u.getEmail(), displayName(u), "Người mua"));
+                customerNotificationService.createOrderStatusNotification(
+                    u.getId(),
+                    orderId,
+                    "Đơn #" + orderId + " · " + statusLabel,
+                    message + " Hỏi chatbot \"đơn " + orderId + "\" để xem chi tiết."
+                );
+            });
         }
 
         Set<Long> sellerIds = new HashSet<>();
