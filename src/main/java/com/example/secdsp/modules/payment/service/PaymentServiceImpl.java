@@ -238,6 +238,7 @@ public class PaymentServiceImpl implements PaymentService {
                 OrderTrackingEvent.PAYMENT_SUCCESS
             );
             orderNotificationService.notifyStatusChanged(order, OrderStatus.PAID);
+            commitInventoryForPaidOrder(order);
 
         } else if (request.getStatus() == PaymentStatus.FAILED) {
 
@@ -369,6 +370,7 @@ public class PaymentServiceImpl implements PaymentService {
                 order.setStatus(OrderStatus.PAID);
                 insertTracking(order, OrderTrackingEvent.PAYMENT_SUCCESS);
                 orderNotificationService.notifyStatusChanged(order, OrderStatus.PAID);
+                commitInventoryForPaidOrder(order);
             }
 
         } else if (status == PaymentStatus.FAILED) {
@@ -391,6 +393,15 @@ public class PaymentServiceImpl implements PaymentService {
                 insertTracking(order, OrderTrackingEvent.PAYMENT_FAILED);
                 orderNotificationService.notifyCancelled(order, "Thanh toán thất bại — đơn đã hủy.");
             }
+        }
+    }
+
+    private void commitInventoryForPaidOrder(Order order) {
+        for (OrderItem item : orderItemRepository.findByOrder_Id(order.getId())) {
+            inventoryInternalService.commitReservedForPaidOrder(
+                item.getProduct().getId(),
+                item.getQuantity()
+            );
         }
     }
 

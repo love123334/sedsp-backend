@@ -67,7 +67,7 @@ public class ProductServiceImpl implements ProductService {
     private final CloudinaryService cloudinaryService;
     private final PublicAssetUrlResolver publicAssetUrlResolver;
 
-    private static final int MIN_PRODUCT_IMAGES = 3;
+    private static final int MIN_PRODUCT_IMAGES = 1;
     private static final int MAX_PRODUCT_IMAGES = 5;
 
     @Override
@@ -112,7 +112,9 @@ public class ProductServiceImpl implements ProductService {
         if (request.getImages() != null) {
             handleProductImagesForCreate(product, request.getImages());
         } else {
-            padProductImagesToMinimum(product);
+            throw new BusinessException(
+                "Mỗi sản phẩm cần ít nhất " + MIN_PRODUCT_IMAGES + " ảnh."
+            );
         }
 
         if (request.getAttributes() != null) {
@@ -450,8 +452,9 @@ public class ProductServiceImpl implements ProductService {
         List<AddProductImageRequest> imageRequests
     ) {
         if (imageRequests == null || imageRequests.isEmpty()) {
-            padProductImagesToMinimum(product);
-            return;
+            throw new BusinessException(
+                "Mỗi sản phẩm cần ít nhất " + MIN_PRODUCT_IMAGES + " ảnh."
+            );
         }
 
         if (imageRequests.size() > MAX_PRODUCT_IMAGES) {
@@ -489,33 +492,6 @@ public class ProductServiceImpl implements ProductService {
 
         if (!primaryFound && !product.getProductImages().isEmpty()) {
             product.getProductImages().get(0).setPrimary(true);
-        }
-
-        padProductImagesToMinimum(product);
-    }
-
-    /** Ensure catalog/PDP always have at least 3 gallery slots (max 5). */
-    private void padProductImagesToMinimum(Product product) {
-        List<ProductImage> images = product.getProductImages();
-        int index = images.size();
-        String[] pads = {
-            "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80",
-            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80",
-            "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&q=80",
-        };
-        while (images.size() < MIN_PRODUCT_IMAGES) {
-            ProductImage pad = new ProductImage();
-            pad.setProduct(product);
-            pad.setPrimary(images.isEmpty());
-            pad.setPublicId(
-                "secdsp/products/pad-"
-                    + (product.getId() != null ? product.getId() : "new")
-                    + "-"
-                    + index
-            );
-            pad.setImageUrl(pads[index % pads.length] + "&sig=" + pad.getPublicId());
-            images.add(pad);
-            index++;
         }
     }
 

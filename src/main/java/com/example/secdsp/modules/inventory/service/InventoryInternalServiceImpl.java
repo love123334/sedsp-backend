@@ -54,6 +54,28 @@ public class InventoryInternalServiceImpl implements InventoryInternalService {
 
     @Override
     @Transactional
+    public void commitReservedForPaidOrder(Long productId, int quantity) {
+        if (quantity <= 0) {
+            return;
+        }
+
+        Inventory inventory = inventoryRepository
+            .findByProduct_IdForUpdate(productId)
+            .orElseThrow(() -> new BusinessException("Inventory not found for product " + productId));
+
+        int previousReserved = inventory.getReservedQuantity();
+        int toCommit = Math.min(quantity, previousReserved);
+        if (toCommit <= 0) {
+            log.warn("No reserved stock to commit for product {} (requested {})", productId, quantity);
+            return;
+        }
+
+        inventory.setReservedQuantity(previousReserved - toCommit);
+        log.info("Committed {} reserved units for product {}", toCommit, productId);
+    }
+
+    @Override
+    @Transactional
     public void releaseForCancel(Long productId, int quantity) {
 
         if (quantity <= 0) {
@@ -68,7 +90,11 @@ public class InventoryInternalServiceImpl implements InventoryInternalService {
         int previousReserved = inventory.getReservedQuantity();
 
         if (previousReserved < quantity) {
-            throw new BusinessException("Reserved quantity inconsistent.");
+            if (previousReserved <= 0) {
+                log.warn("Skip inventory release for product {} — nothing reserved", productId);
+                return;
+            }
+            quantity = previousReserved;
         }
 
         inventory.setAvailableQuantity(previousAvailable + quantity);

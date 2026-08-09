@@ -210,6 +210,13 @@ public class OrderServiceImpl implements OrderService {
         payment.setPaidAt(OffsetDateTime.now());
         order.setStatus(OrderStatus.PAID);
 
+        for (OrderItem item : order.getItems()) {
+            inventoryInternalService.commitReservedForPaidOrder(
+                item.getProduct().getId(),
+                item.getQuantity()
+            );
+        }
+
         OrderTracking tracking = new OrderTracking();
         tracking.setOrder(order);
         tracking.setEvent(OrderTrackingEvent.PAYMENT_SUCCESS);
