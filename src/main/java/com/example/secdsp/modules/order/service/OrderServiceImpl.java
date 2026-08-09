@@ -1,6 +1,6 @@
 package com.example.secdsp.modules.order.service;
 
-import com.example.secdsp.common.exception.BusinessException;
+import com.example.secdsp.common.util.PublicAssetUrlResolver;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
@@ -75,6 +75,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderNotificationService orderNotificationService;
     private final VoucherService voucherService;
     private final UserRepository userRepository;
+    private final PublicAssetUrlResolver publicAssetUrlResolver;
 
     @Override
     @Transactional
@@ -247,7 +248,7 @@ public class OrderServiceImpl implements OrderService {
                     : MomoTransferSupport.transferNote(order.getId())
             )
             .sellerMomoPhone(seller.getMomoPhone())
-            .sellerMomoQrUrl(seller.getMomoQrUrl())
+            .sellerMomoQrUrl(publicAssetUrlResolver.resolve(seller.getMomoQrUrl()))
             .sellerStoreName(seller.getStoreName())
             .configured(SellerMomoServiceImpl.isConfigured(seller))
             .build();

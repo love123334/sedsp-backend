@@ -3,6 +3,7 @@ package com.example.secdsp.modules.user.service;
 import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
+import com.example.secdsp.common.util.PublicAssetUrlResolver;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.user.dto.request.UpdateSellerMomoRequest;
 import com.example.secdsp.modules.user.dto.response.SellerMomoPublicResponse;
@@ -21,6 +22,7 @@ import org.springframework.util.StringUtils;
 public class SellerMomoServiceImpl implements SellerMomoService {
 
     private final UserRepository userRepository;
+    private final PublicAssetUrlResolver publicAssetUrlResolver;
 
     @Override
     @Transactional(readOnly = true)
@@ -57,7 +59,7 @@ public class SellerMomoServiceImpl implements SellerMomoService {
             .sellerId(seller.getId())
             .storeName(seller.getStoreName())
             .momoPhone(seller.getMomoPhone())
-            .momoQrUrl(seller.getMomoQrUrl())
+            .momoQrUrl(publicAssetUrlResolver.resolve(seller.getMomoQrUrl()))
             .configured(isConfigured(seller))
             .build();
     }
@@ -86,7 +88,7 @@ public class SellerMomoServiceImpl implements SellerMomoService {
     private SellerMomoSettingsResponse toSettings(User seller) {
         return SellerMomoSettingsResponse.builder()
             .momoPhone(seller.getMomoPhone())
-            .momoQrUrl(seller.getMomoQrUrl())
+            .momoQrUrl(publicAssetUrlResolver.resolve(seller.getMomoQrUrl()))
             .configured(isConfigured(seller))
             .build();
     }

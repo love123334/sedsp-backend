@@ -3,6 +3,7 @@ package com.example.secdsp.modules.product.service;
 import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
+import com.example.secdsp.common.util.PublicAssetUrlResolver;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.infrastructure.cloudinary.CloudinaryService;
 import com.example.secdsp.modules.category.dto.internal.CategoryInfo;
@@ -64,6 +65,7 @@ public class ProductServiceImpl implements ProductService {
     private final UserService userService;
     private final Slugify slugify;
     private final CloudinaryService cloudinaryService;
+    private final PublicAssetUrlResolver publicAssetUrlResolver;
 
     private static final int MIN_PRODUCT_IMAGES = 3;
     private static final int MAX_PRODUCT_IMAGES = 5;
@@ -241,6 +243,7 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Product", id));
         ProductDetailResponse response = productMapper.toProductDetailResponse(product);
+        normalizeDetailImageUrls(response);
         response.setAvailableQuantity(
             inventoryRepository.findByProduct_Id(id)
                 .map(Inventory::getAvailableQuantity)
@@ -298,6 +301,9 @@ public class ProductServiceImpl implements ProductService {
         CatalogStats stats
     ) {
         ProductResponse response = productMapper.toProductResponse(product);
+        response.setPrimaryImageUrl(
+            publicAssetUrlResolver.resolve(response.getPrimaryImageUrl())
+        );
         response.setAvailableQuantity(stockByProduct.getOrDefault(product.getId(), 0));
         RatingStats rating = stats.ratings().get(product.getId());
         if (rating != null) {
@@ -309,6 +315,15 @@ public class ProductServiceImpl implements ProductService {
         }
         response.setSoldCount(stats.soldCounts().getOrDefault(product.getId(), 0L));
         return response;
+    }
+
+    private void normalizeDetailImageUrls(ProductDetailResponse response) {
+        if (response == null || response.getImages() == null) {
+            return;
+        }
+        response.getImages().forEach(img ->
+            img.setImageUrl(publicAssetUrlResolver.resolve(img.getImageUrl()))
+        );
     }
 
     private CatalogStats loadCatalogStats(List<Long> productIds) {
