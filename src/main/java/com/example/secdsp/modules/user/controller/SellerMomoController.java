@@ -32,8 +32,8 @@ public class SellerMomoController {
     }
 
     @GetMapping("/me/momo")
-    @PreAuthorize("hasRole('SELLER')")
-    @Operation(summary = "Get authenticated seller MoMo settings")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Get authenticated user MoMo wallet settings")
     public ResponseEntity<BaseResponse<SellerMomoSettingsResponse>> getMyMomo() {
         return ResponseEntity.ok(
             BaseResponse.success(sellerMomoService.getMyMomoSettings())
@@ -41,8 +41,8 @@ public class SellerMomoController {
     }
 
     @PutMapping("/me/momo")
-    @PreAuthorize("hasRole('SELLER')")
-    @Operation(summary = "Update authenticated seller MoMo settings")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Update authenticated user MoMo wallet settings")
     public ResponseEntity<BaseResponse<SellerMomoSettingsResponse>> updateMyMomo(
         @Valid @RequestBody UpdateSellerMomoRequest request
     ) {

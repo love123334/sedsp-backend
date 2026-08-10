@@ -9,7 +9,6 @@ import com.example.secdsp.modules.user.dto.request.UpdateSellerMomoRequest;
 import com.example.secdsp.modules.user.dto.response.SellerMomoPublicResponse;
 import com.example.secdsp.modules.user.dto.response.SellerMomoSettingsResponse;
 import com.example.secdsp.modules.user.entity.User;
-import com.example.secdsp.modules.user.entity.UserRole;
 import com.example.secdsp.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,27 +26,28 @@ public class SellerMomoServiceImpl implements SellerMomoService {
     @Override
     @Transactional(readOnly = true)
     public SellerMomoSettingsResponse getMyMomoSettings() {
-        User seller = requireSeller(requireUserId());
-        return toSettings(seller);
+        User user = requireUser(requireUserId());
+        return toSettings(user);
     }
 
     @Override
     @Transactional
     public SellerMomoSettingsResponse updateMyMomoSettings(UpdateSellerMomoRequest request) {
-        User seller = requireSeller(requireUserId());
+        User user = requireUser(requireUserId());
         if (request.getMomoPhone() != null) {
-            seller.setMomoPhone(normalizePhone(request.getMomoPhone()));
+            user.setMomoPhone(normalizePhone(request.getMomoPhone()));
         }
         if (request.getMomoQrUrl() != null) {
-            seller.setMomoQrUrl(normalizeUrl(request.getMomoQrUrl()));
+            user.setMomoQrUrl(normalizeUrl(request.getMomoQrUrl()));
         }
-        if (!isConfigured(seller)) {
+        if (!isConfigured(user)) {
             throw new BusinessException(
                 "Cần ít nhất số MoMo hoặc ảnh QR.",
                 HttpStatus.BAD_REQUEST
             );
         }
-        return toSettings(seller);
+        userRepository.save(user);
+        return toSettings(user);
     }
 
     @Override
@@ -93,13 +93,9 @@ public class SellerMomoServiceImpl implements SellerMomoService {
             .build();
     }
 
-    private User requireSeller(Long userId) {
-        User user = userRepository.findById(userId)
+    private User requireUser(Long userId) {
+        return userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-        if (!UserRole.SELLER.name().equals(user.getRole().getName())) {
-            throw new UnauthorizedException("Seller role required.");
-        }
-        return user;
     }
 
     private Long requireUserId() {

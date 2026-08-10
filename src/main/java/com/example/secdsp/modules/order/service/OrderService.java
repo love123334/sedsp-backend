@@ -29,6 +29,8 @@ public interface OrderService {
 
     OrderResponse confirmMomoTransfer(Long id);
 
+    OrderResponse completeMomoTransfer(Long id);
+
     OrderDashboardInfo getSellerOrderSummary(Long sellerId);
 
     List<RecentOrderInfo> getRecentOrders(Long sellerId);

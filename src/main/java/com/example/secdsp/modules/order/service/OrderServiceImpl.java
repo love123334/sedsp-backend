@@ -192,12 +192,50 @@ public class OrderServiceImpl implements OrderService {
             throw new UnauthorizedException("You cannot confirm this payment.");
         }
 
+        return finalizeMomoQrPayment(
+            order,
+            userId,
+            "Seller confirmed MoMo transfer received."
+        );
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse completeMomoTransfer(Long id) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        if (userId == null) {
+            throw new UnauthorizedException("Authentication required.");
+        }
+
+        Order order = orderRepository.findWithItemsById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Order", id));
+
+        boolean isBuyer = order.getUser() != null && userId.equals(order.getUser().getId());
+        if (!isBuyer) {
+            throw new UnauthorizedException("You cannot complete this payment.");
+        }
+
+        return finalizeMomoQrPayment(
+            order,
+            userId,
+            "Customer completed MoMo transfer — order auto-confirmed."
+        );
+    }
+
+    private OrderResponse finalizeMomoQrPayment(
+        Order order,
+        Long actorUserId,
+        String trackingNote
+    ) {
         if (order.getStatus() != OrderStatus.PENDING) {
+            if (order.getStatus() == OrderStatus.PAID) {
+                return buildOrderResponse(order);
+            }
             throw new BusinessException("Only pending orders can be confirmed.");
         }
 
-        Payment payment = paymentRepository.findByOrder_Id(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Payment", id));
+        Payment payment = paymentRepository.findByOrder_Id(order.getId())
+            .orElseThrow(() -> new ResourceNotFoundException("Payment", order.getId()));
 
         if (payment.getPaymentMethod() != PaymentMethod.MOMO_QR) {
             throw new BusinessException("Order is not a MoMo QR transfer.");
@@ -220,15 +258,15 @@ public class OrderServiceImpl implements OrderService {
         OrderTracking tracking = new OrderTracking();
         tracking.setOrder(order);
         tracking.setEvent(OrderTrackingEvent.PAYMENT_SUCCESS);
-        tracking.setNote("Seller confirmed MoMo transfer received.");
+        tracking.setNote(trackingNote);
         User actor = new User();
-        actor.setId(userId);
+        actor.setId(actorUserId);
         tracking.setUpdatedBy(actor);
         orderTrackingRepository.save(tracking);
 
         orderRepository.save(order);
         orderNotificationService.notifyStatusChanged(order, OrderStatus.PAID);
-        log.info("MoMo QR transfer confirmed for order {} by user {}", id, userId);
+        log.info("MoMo QR payment finalized for order {} by user {}", order.getId(), actorUserId);
         return buildOrderResponse(order);
     }
 

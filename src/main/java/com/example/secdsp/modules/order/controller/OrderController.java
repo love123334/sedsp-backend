@@ -169,6 +169,19 @@ public class OrderController {
         );
     }
 
+    @PostMapping("/{id}/complete-momo")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<BaseResponse<OrderResponse>> completeMomoTransfer(
+        @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(
+            BaseResponse.success(
+                "MoMo payment completed",
+                orderService.completeMomoTransfer(id)
+            )
+        );
+    }
+
     @Operation(
         summary = "Cancel order",
         description = """
