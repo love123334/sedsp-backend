@@ -190,4 +190,26 @@ public class UserController {
             BaseResponse.success("User deactivated successfully")
         );
     }
+
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(
+        summary = "Delete user",
+        description = "Soft-delete a user account (admin only)."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "User deleted successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid delete request", content = @Content),
+        @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Access denied", content = @Content),
+        @ApiResponse(responseCode = "404", description = "User not found", content = @Content)
+    })
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<BaseResponse<Void>> deleteUser(
+        @Parameter(description = "User ID.", example = "1")
+        @PathVariable Long id
+    ) {
+        userService.deleteUser(id);
+        return ResponseEntity.ok(BaseResponse.success("User deleted successfully"));
+    }
 }

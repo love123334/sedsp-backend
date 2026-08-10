@@ -174,6 +174,33 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
+    public void deleteUser(Long userId) {
+        Long currentUserId = requireCurrentUserId();
+
+        if (currentUserId.equals(userId)) {
+            throw new BusinessException(
+                "You cannot delete your own account",
+                HttpStatus.BAD_REQUEST
+            );
+        }
+
+        User user = findActiveUser(userId);
+
+        if (UserRole.ADMIN.name().equals(user.getRole().getName())
+            && userRepository.countByRoleName(UserRole.ADMIN.name()) <= 1) {
+            throw new BusinessException(
+                "Cannot delete the last admin account",
+                HttpStatus.BAD_REQUEST
+            );
+        }
+
+        userRepository.delete(user);
+
+        log.info("User {} ({}) soft-deleted by admin {}", userId, user.getEmail(), currentUserId);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public UserInfo getUserInfo(Long id) {
         return userMapper.toUserInfo(findActiveUser(id));

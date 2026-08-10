@@ -39,4 +39,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     );
 
     boolean existsByEmail(String email);
+
+    @Query("""
+        SELECT COUNT(u)
+        FROM User u
+        JOIN u.role r
+        WHERE r.name = :roleName
+        """)
+    long countByRoleName(@Param("roleName") String roleName);
 }
