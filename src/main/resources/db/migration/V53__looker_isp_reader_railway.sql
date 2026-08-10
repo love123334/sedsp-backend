@@ -1,4 +1,5 @@
 -- Read-only Looker Studio user for Railway production (schema reporting only).
+-- Manual equivalent: scripts/looker_isp_reader_railway.sql (database name railway).
 -- Idempotent: safe to re-run on redeploy.
 
 DO $$
