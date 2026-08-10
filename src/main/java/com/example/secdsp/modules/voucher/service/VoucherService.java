@@ -4,15 +4,9 @@ import com.example.secdsp.modules.voucher.dto.*;
 import com.example.secdsp.modules.voucher.entity.*;
 import com.example.secdsp.modules.cart.entity.CartItem;
 import com.example.secdsp.modules.order.entity.Order;
-import com.example.secdsp.modules.product.dto.internal.ProductInfo;
-import com.example.secdsp.modules.product.entity.Product;
-import com.example.secdsp.modules.product.repository.ProductRepository;
-import com.example.secdsp.modules.product.service.ProductService;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
-import java.util.Set;
 
 public interface VoucherService {
 

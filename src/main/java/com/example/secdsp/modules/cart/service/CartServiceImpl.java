@@ -8,8 +8,6 @@ import com.example.secdsp.modules.cart.dto.response.CartItemResponse;
 import com.example.secdsp.modules.cart.dto.response.CartResponse;
 import com.example.secdsp.modules.cart.entity.Cart;
 import com.example.secdsp.modules.cart.entity.CartItem;
-import com.example.secdsp.modules.cart.mapper.CartItemMapper;
-import com.example.secdsp.modules.cart.mapper.CartMapper;
 import com.example.secdsp.modules.cart.repository.CartItemRepository;
 import com.example.secdsp.modules.cart.repository.CartRepository;
 import com.example.secdsp.modules.inventory.dto.response.InventoryResponse;
@@ -36,8 +34,6 @@ public class CartServiceImpl implements CartService {
 
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
-    private final CartMapper cartMapper;
-    private final CartItemMapper cartItemMapper;
 
     private final ProductService productService;
     private final ProductRepository productRepository;

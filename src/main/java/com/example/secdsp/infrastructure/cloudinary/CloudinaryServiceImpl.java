@@ -23,12 +23,15 @@ public class CloudinaryServiceImpl implements CloudinaryService {
     private final Cloudinary cloudinary;
     private final CloudinaryConfig cloudinaryConfig;
     private final LocalImageStorageService localImageStorageService;
+    private final CloudinaryStorageGuard storageGuard;
 
     @Override
     public CloudinaryUploadResult uploadImage(MultipartFile file) {
+        storageGuard.requireCloudinaryForUpload();
+
         if (!cloudinaryConfig.isConfigured()) {
             log.warn(
-                "Cloudinary chưa cấu hình đúng (cloud_name hiện tại={}). Dùng lưu ảnh local.",
+                "Cloudinary chưa cấu hình (cloud_name={}). Dùng lưu ảnh local (dev only).",
                 cloudinaryConfig.getCloudName()
             );
             return localImageStorageService.store(file);
@@ -52,8 +55,10 @@ public class CloudinaryServiceImpl implements CloudinaryService {
                 Object err = uploadResult.get("error");
                 String errMsg = String.valueOf(err != null ? err : uploadResult);
                 if (isInvalidCloudName(errMsg)) {
-                    log.warn("Cloudinary từ chối cloud_name — fallback local: {}", errMsg);
-                    return localImageStorageService.store(file);
+                    return storageGuard.fallbackToLocalOrThrow(
+                        errMsg,
+                        () -> localImageStorageService.store(file)
+                    );
                 }
                 throw new CloudinaryException("Upload Cloudinary thất bại: " + errMsg);
             }
@@ -65,8 +70,10 @@ public class CloudinaryServiceImpl implements CloudinaryService {
 
         } catch (CloudinaryException e) {
             if (isInvalidCloudName(e.getMessage())) {
-                log.warn("Cloudinary từ chối cloud_name — fallback local: {}", e.getMessage());
-                return localImageStorageService.store(file);
+                return storageGuard.fallbackToLocalOrThrow(
+                    e.getMessage(),
+                    () -> localImageStorageService.store(file)
+                );
             }
             throw e;
         } catch (IOException e) {
@@ -74,8 +81,10 @@ public class CloudinaryServiceImpl implements CloudinaryService {
         } catch (Exception e) {
             String msg = e.getMessage() != null ? e.getMessage() : e.toString();
             if (isInvalidCloudName(msg) || !cloudinaryConfig.isConfigured()) {
-                log.warn("Cloudinary lỗi ({}) — fallback lưu local", msg);
-                return localImageStorageService.store(file);
+                return storageGuard.fallbackToLocalOrThrow(
+                    msg,
+                    () -> localImageStorageService.store(file)
+                );
             }
             throw new CloudinaryException(
                 "Upload ảnh thất bại: " + msg

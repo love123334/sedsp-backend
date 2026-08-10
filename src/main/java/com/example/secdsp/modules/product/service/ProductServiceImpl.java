@@ -194,6 +194,10 @@ public class ProductServiceImpl implements ProductService {
             handleProductImagesForUpdate(existingProduct, request.getImages());
         }
 
+        if (request.getAttributes() != null) {
+            handleProductAttributesForUpdate(existingProduct, request.getAttributes());
+        }
+
         Product updatedProduct = productRepository.save(existingProduct);
 
         log.info("Product updated successfully with ID: {}", updatedProduct.getId());
