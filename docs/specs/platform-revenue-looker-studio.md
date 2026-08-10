@@ -93,14 +93,23 @@ Create the credential outside Flyway so that its password can be managed per
 environment. Never use the application or PostgreSQL administrator account.
 
 ```sql
-CREATE USER looker_reader WITH PASSWORD '<strong-environment-password>';
+CREATE USER looker_isp_reader_railway WITH PASSWORD '<strong-environment-password>';
 
-GRANT CONNECT ON DATABASE sedsp TO looker_reader;
-GRANT USAGE ON SCHEMA reporting TO looker_reader;
-GRANT SELECT ON ALL TABLES IN SCHEMA reporting TO looker_reader;
+GRANT CONNECT ON DATABASE sedsp TO looker_isp_reader_railway;
+GRANT USAGE ON SCHEMA reporting TO looker_isp_reader_railway;
+GRANT SELECT ON ALL TABLES IN SCHEMA reporting TO looker_isp_reader_railway;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA reporting
-GRANT SELECT ON TABLES TO looker_reader;
+GRANT SELECT ON TABLES TO looker_isp_reader_railway;
+```
+
+Railway production applies the same grants via Flyway `V53__looker_isp_reader_railway.sql`
+(uses `current_database()` so it works when the DB is named `railway` or `sedsp`).
+
+For local/dev you may still use `looker_reader` with a separate password:
+
+```sql
+CREATE USER looker_reader WITH PASSWORD '<strong-environment-password>';
 ```
 
 Do not grant access to business tables unless another reporting requirement
