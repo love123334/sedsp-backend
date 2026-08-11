@@ -1,7 +1,9 @@
 package com.example.secdsp.modules.dss.controller;
 
 import com.example.secdsp.common.api.BaseResponse;
+import com.example.secdsp.modules.dss.dto.request.CustomPriceScenarioRequest;
 import com.example.secdsp.modules.dss.dto.request.GeneratePricePredictionRequest;
+import com.example.secdsp.modules.dss.dto.response.CustomPriceScenarioResponse;
 import com.example.secdsp.modules.dss.dto.response.PricePredictionResponse;
 import com.example.secdsp.modules.dss.service.PricePredictionService;
 import jakarta.validation.Valid;
@@ -30,6 +32,20 @@ public class PricePredictionController {
             BaseResponse.success(
                 "Tạo khuyến nghị giá thành công.",
                 pricePredictionService.generatePrediction(request)
+            )
+        );
+    }
+
+    @PostMapping("/custom-scenario")
+    @PreAuthorize("hasRole('SELLER')")
+    public ResponseEntity<BaseResponse<CustomPriceScenarioResponse>>
+    evaluateCustomScenario(
+        @Valid @RequestBody CustomPriceScenarioRequest request
+    ) {
+        return ResponseEntity.ok(
+            BaseResponse.success(
+                "Phân tích kịch bản giá tùy chỉnh thành công.",
+                pricePredictionService.evaluateCustomPriceScenario(request)
             )
         );
     }

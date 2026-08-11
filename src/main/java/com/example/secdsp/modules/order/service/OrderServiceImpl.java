@@ -51,6 +51,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -622,6 +623,30 @@ public class OrderServiceImpl implements OrderService {
             .stream()
             .mapToLong(row -> ((Number) row[1]).longValue())
             .sum();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<LocalDate, Long> getCompletedDailySalesMap(
+        Long productId,
+        LocalDate startDate,
+        LocalDate endDate
+    ) {
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
+
+        Map<LocalDate, Long> map = new LinkedHashMap<>();
+        for (Object[] row : orderItemRepository.findCompletedDailySalesByProduct(
+            productId,
+            startDateTime,
+            endDateTime
+        )) {
+            LocalDate day = row[0] instanceof java.sql.Date sqlDate
+                ? sqlDate.toLocalDate()
+                : ((java.time.LocalDate) row[0]);
+            map.put(day, ((Number) row[1]).longValue());
+        }
+        return map;
     }
 
     private Page<OrderResponse> mapOrderPage(Page<Order> orders) {

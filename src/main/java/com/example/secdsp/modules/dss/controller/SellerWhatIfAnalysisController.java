@@ -1,8 +1,12 @@
 package com.example.secdsp.modules.dss.controller;
 
 import com.example.secdsp.common.api.BaseResponse;
+import com.example.secdsp.modules.dss.dto.request.SalesQuantityTargetRequest;
 import com.example.secdsp.modules.dss.dto.request.SellerDiscountAnalysisRequest;
+import com.example.secdsp.modules.dss.dto.request.TargetProfitAnalysisRequest;
+import com.example.secdsp.modules.dss.dto.response.SalesQuantityTargetResponse;
 import com.example.secdsp.modules.dss.dto.response.SellerDiscountAnalysisResponse;
+import com.example.secdsp.modules.dss.dto.response.TargetProfitAnalysisResponse;
 import com.example.secdsp.modules.dss.service.SellerWhatIfAnalysisService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +34,34 @@ public class SellerWhatIfAnalysisController {
             BaseResponse.success(
                 "Phân tích kịch bản giảm giá thành công.",
                 sellerWhatIfAnalysisService.analyzeDiscount(request)
+            )
+        );
+    }
+
+    @PostMapping("/target-profit")
+    @PreAuthorize("hasRole('SELLER')")
+    public ResponseEntity<BaseResponse<TargetProfitAnalysisResponse>>
+    analyzeTargetProfit(
+        @Valid @RequestBody TargetProfitAnalysisRequest request
+    ) {
+        return ResponseEntity.ok(
+            BaseResponse.success(
+                "Phân tích mục tiêu lợi nhuận thành công.",
+                sellerWhatIfAnalysisService.analyzeTargetProfit(request)
+            )
+        );
+    }
+
+    @PostMapping("/sales-quantity-target")
+    @PreAuthorize("hasRole('SELLER')")
+    public ResponseEntity<BaseResponse<SalesQuantityTargetResponse>>
+    analyzeSalesQuantityTarget(
+        @Valid @RequestBody SalesQuantityTargetRequest request
+    ) {
+        return ResponseEntity.ok(
+            BaseResponse.success(
+                "Phân tích mục tiêu số lượng bán thành công.",
+                sellerWhatIfAnalysisService.analyzeSalesQuantityTarget(request)
             )
         );
     }

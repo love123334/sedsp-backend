@@ -20,16 +20,13 @@ public class SellerDiscountAnalysisRequest {
     @Positive(message = "Product ID must be greater than 0")
     Long productId;
 
-    @NotNull(message = "Discount percentage is required")
-    @DecimalMin(
-        value = "0.01",
-        message = "Discount percentage must be greater than 0"
-    )
-    @DecimalMax(
-        value = "99.99",
-        message = "Discount percentage must be less than 100"
-    )
-    BigDecimal discountPercentage;
+    /**
+     * % thay đổi giá: âm = giảm, 0 = giữ, dương = tăng. Phạm vi ±300%.
+     */
+    @NotNull(message = "Price change percent is required")
+    @DecimalMin(value = "-300", message = "Price change must be at least -300%")
+    @DecimalMax(value = "300", message = "Price change must be at most 300%")
+    BigDecimal priceChangePercent;
 
     @NotNull(message = "Simulation period is required")
     @Positive(message = "Simulation period must be greater than 0")

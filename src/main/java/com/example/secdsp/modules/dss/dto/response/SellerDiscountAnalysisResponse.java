@@ -16,6 +16,9 @@ public class SellerDiscountAnalysisResponse {
 
     BigDecimal costPrice;
 
+    /** % thay đổi giá: âm giảm, dương tăng. */
+    BigDecimal priceChangePercent;
+
     BigDecimal discountPercentage;
 
     BigDecimal newPrice;
@@ -33,4 +36,26 @@ public class SellerDiscountAnalysisResponse {
     Long additionalUnitsRequired;
 
     String businessInsight;
+
+    Integer simulationPeriod;
+
+    String historicalPeriodLabel;
+
+    String forecastPeriodLabel;
+
+    String methodology;
+
+    BigDecimal currentRevenue;
+
+    BigDecimal expectedRevenue;
+
+    BigDecimal profitChangePercent;
+
+    DssProfitBreakdownResponse currentProfitBreakdown;
+
+    DssProfitBreakdownResponse expectedProfitBreakdown;
+
+    String recommendation;
+
+    String recommendationReason;
 }

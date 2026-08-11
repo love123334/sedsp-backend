@@ -4,8 +4,12 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ForbiddenException;
 import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.config.DssProperties;
 import com.example.secdsp.modules.dss.dto.internal.PriceRegimeInfo;
+import com.example.secdsp.modules.dss.dto.response.DssProfitBreakdownResponse;
+import com.example.secdsp.modules.dss.dto.request.CustomPriceScenarioRequest;
 import com.example.secdsp.modules.dss.dto.request.GeneratePricePredictionRequest;
+import com.example.secdsp.modules.dss.dto.response.CustomPriceScenarioResponse;
 import com.example.secdsp.modules.dss.dto.response.PricePredictionResponse;
 import com.example.secdsp.modules.dss.dto.response.PriceScenarioResponse;
 import com.example.secdsp.modules.order.service.OrderService;
@@ -36,11 +40,11 @@ public class PricePredictionServiceImpl
         "Không đủ dữ liệu để tạo khuyến nghị giá.";
     private static final int CALCULATION_SCALE = 4;
     private static final int MONEY_SCALE = 2;
-    private static final List<Integer> PRICE_CHANGE_PERCENTAGES =
-        List.of(-10, -5, 0, 5, 10);
 
     private final ProductService productService;
     private final OrderService orderService;
+    private final DssProperties dssProperties;
+    private final DssScenarioEngine scenarioEngine;
 
     @Override
     @Transactional(readOnly = true)
@@ -92,11 +96,31 @@ public class PricePredictionServiceImpl
             throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
         }
 
+        long historicalDays = ChronoUnit.DAYS.between(
+            request.getFromDate(),
+            request.getToDate()
+        ) + 1;
+        int forecastDays = dssProperties.getDefaultForecastDays();
+        BigDecimal baseDailyDemand = BigDecimal.valueOf(totalQuantitySold)
+            .divide(
+                BigDecimal.valueOf(historicalDays),
+                CALCULATION_SCALE,
+                RoundingMode.HALF_UP
+            );
+
+        DssProfitBreakdownResponse currentBreakdown = scenarioEngine.profitAt(
+            product.price(),
+            product.costPrice(),
+            Math.round(baseDailyDemand.doubleValue() * forecastDays)
+        );
+
         List<PriceScenarioResponse> scenarios = buildScenarios(
             product.price(),
             product.costPrice(),
             averageElasticity,
-            totalQuantitySold
+            baseDailyDemand,
+            forecastDays,
+            currentBreakdown.getNetProfit()
         );
 
         PriceScenarioResponse bestScenario = scenarios.stream()
@@ -105,6 +129,27 @@ public class PricePredictionServiceImpl
             ))
             .orElseThrow(() ->
                 new BusinessException(INSUFFICIENT_DATA_MESSAGE));
+
+        scenarios = scenarios.stream()
+            .map(s -> s.toBuilder()
+                .recommended(s.getPriceChangePercent()
+                    .equals(bestScenario.getPriceChangePercent()))
+                .build())
+            .toList();
+        bestScenario = scenarios.stream()
+            .filter(PriceScenarioResponse::getRecommended)
+            .findFirst()
+            .orElse(bestScenario);
+
+        String recommendation = buildRecommendation(bestScenario, forecastDays);
+        String reason = buildRecommendationReason(
+            bestScenario,
+            averageElasticity,
+            request.getFromDate(),
+            request.getToDate(),
+            forecastDays,
+            totalQuantitySold
+        );
 
         log.info(
             "Price prediction generated for product {} with best price change {}%",
@@ -123,8 +168,153 @@ public class PricePredictionServiceImpl
             .totalQuantitySold(totalQuantitySold)
             .bestScenario(bestScenario)
             .scenarios(scenarios)
+            .forecastPeriodDays(forecastDays)
+            .historicalPeriodLabel(
+                "Dữ liệu lịch sử: "
+                    + request.getFromDate()
+                    + " → "
+                    + request.getToDate()
+            )
+            .forecastPeriodLabel(scenarioEngine.forecastPeriodLabel(forecastDays))
+            .scenarioAssumptionNote(scenarioEngine.scenarioAssumptionNote())
+            .recommendation(recommendation)
+            .recommendationReason(reason)
+            .currentSituationBreakdown(currentBreakdown)
             .build();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomPriceScenarioResponse evaluateCustomPriceScenario(
+        CustomPriceScenarioRequest request
+    ) {
+        validateDateRange(request.getFromDate(), request.getToDate());
+
+        ProductInfo product = productService.getProductInfo(request.getProductId());
+        Long sellerId = requireCurrentUserId();
+        validateProductOwnership(product, sellerId);
+        validateProductPrices(product);
+
+        if (request.getCustomPrice().compareTo(product.costPrice()) <= 0) {
+            throw new BusinessException(
+                "Giá tùy chỉnh phải lớn hơn giá vốn (" + product.costPrice() + " VND)."
+            );
+        }
+
+        List<PriceHistoryInfo> priceHistories = productService.getPriceHistoryInfo(
+            product.id(),
+            request.getFromDate(),
+            request.getToDate()
+        );
+        if (priceHistories.isEmpty()) {
+            throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
+        }
+
+        List<PriceRegimeInfo> regimes = buildPriceRegimes(
+            product.id(),
+            request.getFromDate(),
+            request.getToDate(),
+            priceHistories
+        );
+        BigDecimal averageElasticity = calculateAverageElasticity(regimes);
+        long totalQuantitySold = regimes.stream()
+            .mapToLong(PriceRegimeInfo::quantitySold)
+            .sum();
+        if (totalQuantitySold <= 0) {
+            throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
+        }
+
+        long historicalDays = ChronoUnit.DAYS.between(
+            request.getFromDate(),
+            request.getToDate()
+        ) + 1;
+        int forecastDays = dssProperties.getDefaultForecastDays();
+        BigDecimal baseDailyDemand = BigDecimal.valueOf(totalQuantitySold)
+            .divide(BigDecimal.valueOf(historicalDays), CALCULATION_SCALE, RoundingMode.HALF_UP);
+
+        BigDecimal customPrice = request.getCustomPrice()
+            .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        BigDecimal priceChangeRate = customPrice
+            .subtract(product.price())
+            .divide(product.price(), CALCULATION_SCALE, RoundingMode.HALF_UP);
+        BigDecimal derivedPct = priceChangeRate
+            .multiply(ONE_HUNDRED)
+            .setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal demandChangeRate = averageElasticity.multiply(priceChangeRate);
+        long predictedDemand = BigDecimal.valueOf(forecastDays)
+            .multiply(baseDailyDemand)
+            .multiply(BigDecimal.ONE.add(demandChangeRate))
+            .max(BigDecimal.ZERO)
+            .setScale(0, RoundingMode.HALF_UP)
+            .longValue();
+
+        DssProfitBreakdownResponse currentBreakdown = scenarioEngine.profitAt(
+            product.price(),
+            product.costPrice(),
+            Math.round(baseDailyDemand.doubleValue() * forecastDays)
+        );
+        DssProfitBreakdownResponse scenarioBreakdown = scenarioEngine.profitAt(
+            customPrice,
+            product.costPrice(),
+            predictedDemand
+        );
+
+        int roundedPct = derivedPct.setScale(0, RoundingMode.HALF_UP).intValue();
+        String label = roundedPct == 0
+            ? "Giá tùy chỉnh"
+            : (roundedPct > 0
+                ? "Tăng giá ~" + roundedPct + "%"
+                : "Giảm giá ~" + Math.abs(roundedPct) + "%");
+
+        PriceScenarioResponse scenario = PriceScenarioResponse.builder()
+            .priceChangePercent(roundedPct)
+            .cost(product.costPrice())
+            .newPrice(customPrice)
+            .profitPerProduct(customPrice.subtract(product.costPrice())
+                .setScale(MONEY_SCALE, RoundingMode.HALF_UP))
+            .predictedDemand(predictedDemand)
+            .expectedProfit(scenarioBreakdown.getNetProfit())
+            .expectedRevenue(scenarioBreakdown.getRevenue())
+            .profitChangePercent(scenarioEngine.profitChangePercent(
+                currentBreakdown.getNetProfit(),
+                scenarioBreakdown.getNetProfit()
+            ))
+            .profitBreakdown(scenarioBreakdown)
+            .scenarioLabel(label)
+            .recommended(false)
+            .build();
+
+        String recommendation = "Kịch bản giá "
+            + customPrice
+            + " VND (~"
+            + derivedPct
+            + "% so với giá hiện tại) trong "
+            + forecastDays
+            + " ngày tới.";
+        String reason = "Nhu cầu dự báo "
+            + predictedDemand
+            + " SP; LN ròng ~"
+            + scenarioBreakdown.getNetProfit()
+            + " VND. Co giãn "
+            + averageElasticity.setScale(2, RoundingMode.HALF_UP)
+            + ".";
+
+        return CustomPriceScenarioResponse.builder()
+            .productId(product.id())
+            .productName(product.name())
+            .currentPrice(product.price())
+            .customPrice(customPrice)
+            .derivedPriceChangePercent(derivedPct)
+            .forecastPeriodDays(forecastDays)
+            .forecastPeriodLabel(scenarioEngine.forecastPeriodLabel(forecastDays))
+            .scenario(scenario)
+            .recommendation(recommendation)
+            .recommendationReason(reason)
+            .build();
+    }
+
+    private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
 
     @Override
     @Transactional(readOnly = true)
@@ -306,14 +496,18 @@ public class PricePredictionServiceImpl
         BigDecimal currentPrice,
         BigDecimal cost,
         BigDecimal averageElasticity,
-        long totalQuantitySold
+        BigDecimal baseDailyDemand,
+        int forecastDays,
+        BigDecimal currentNetProfit
     ) {
-        return PRICE_CHANGE_PERCENTAGES.stream()
+        return dssProperties.getPriceChangePercentages().stream()
             .map(changePercent -> buildScenario(
                 currentPrice,
                 cost,
                 averageElasticity,
-                totalQuantitySold,
+                baseDailyDemand,
+                forecastDays,
+                currentNetProfit,
                 changePercent
             ))
             .toList();
@@ -323,34 +517,41 @@ public class PricePredictionServiceImpl
         BigDecimal currentPrice,
         BigDecimal cost,
         BigDecimal averageElasticity,
-        long totalQuantitySold,
+        BigDecimal baseDailyDemand,
+        int forecastDays,
+        BigDecimal currentNetProfit,
         int priceChangePercent
     ) {
-        BigDecimal priceChangeRate = BigDecimal
-            .valueOf(priceChangePercent)
-            .divide(
-                BigDecimal.valueOf(100),
-                CALCULATION_SCALE,
-                RoundingMode.HALF_UP
-            );
-        BigDecimal newPrice = currentPrice
-            .multiply(BigDecimal.ONE.add(priceChangeRate))
-            .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
-        BigDecimal demandChangeRate = averageElasticity
-            .multiply(priceChangeRate);
-        BigDecimal predictedDemandValue = BigDecimal
-            .valueOf(totalQuantitySold)
-            .multiply(BigDecimal.ONE.add(demandChangeRate))
-            .max(BigDecimal.ZERO);
-        long predictedDemand = predictedDemandValue
-            .setScale(0, RoundingMode.HALF_UP)
-            .longValue();
+        DssScenarioEngine.DemandEstimate demand = scenarioEngine.estimateDemand(
+            baseDailyDemand,
+            forecastDays,
+            averageElasticity,
+            priceChangePercent
+        );
+        BigDecimal newPrice = scenarioEngine.newPriceFromChange(
+            currentPrice,
+            priceChangePercent
+        );
+        long predictedDemand = demand.quantity();
+        DssProfitBreakdownResponse breakdown = scenarioEngine.profitAt(
+            newPrice,
+            cost,
+            predictedDemand
+        );
         BigDecimal profitPerProduct = newPrice
             .subtract(cost)
             .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
-        BigDecimal expectedProfit = profitPerProduct
-            .multiply(BigDecimal.valueOf(predictedDemand))
-            .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        BigDecimal expectedProfit = breakdown.getNetProfit();
+        BigDecimal profitChange = scenarioEngine.profitChangePercent(
+            currentNetProfit,
+            expectedProfit
+        );
+
+        String label = priceChangePercent == 0
+            ? "Giá hiện tại"
+            : (priceChangePercent > 0
+                ? "Tăng giá " + priceChangePercent + "%"
+                : "Giảm giá " + Math.abs(priceChangePercent) + "%");
 
         return PriceScenarioResponse.builder()
             .priceChangePercent(priceChangePercent)
@@ -359,7 +560,58 @@ public class PricePredictionServiceImpl
             .profitPerProduct(profitPerProduct)
             .predictedDemand(predictedDemand)
             .expectedProfit(expectedProfit)
+            .expectedRevenue(breakdown.getRevenue())
+            .profitChangePercent(profitChange)
+            .profitBreakdown(breakdown)
+            .scenarioLabel(label)
+            .recommended(false)
             .build();
+    }
+
+    private String buildRecommendation(PriceScenarioResponse best, int forecastDays) {
+        if (best.getPriceChangePercent() == 0) {
+            return "Khuyến nghị: giữ giá hiện tại trong "
+                + forecastDays
+                + " ngày tới.";
+        }
+        String direction = best.getPriceChangePercent() > 0 ? "tăng" : "giảm";
+        return "Khuyến nghị: "
+            + direction
+            + " giá khoảng "
+            + Math.abs(best.getPriceChangePercent())
+            + "% (→ "
+            + best.getNewPrice()
+            + " VND) trong "
+            + forecastDays
+            + " ngày tới.";
+    }
+
+    private String buildRecommendationReason(
+        PriceScenarioResponse best,
+        BigDecimal elasticity,
+        LocalDate fromDate,
+        LocalDate toDate,
+        int forecastDays,
+        long totalSold
+    ) {
+        return "Dựa trên "
+            + totalSold
+            + " SP bán từ "
+            + fromDate
+            + " đến "
+            + toDate
+            + ", hệ số co giãn trung bình "
+            + elasticity.setScale(2, RoundingMode.HALF_UP)
+            + ", kịch bản «"
+            + best.getScenarioLabel()
+            + "» cho lợi nhuận ròng cao nhất (~"
+            + best.getExpectedProfit()
+            + " VND) với "
+            + best.getPredictedDemand()
+            + " SP dự kiến trong "
+            + forecastDays
+            + " ngày. "
+            + scenarioEngine.scenarioAssumptionNote();
     }
 
     private void validateDateRange(

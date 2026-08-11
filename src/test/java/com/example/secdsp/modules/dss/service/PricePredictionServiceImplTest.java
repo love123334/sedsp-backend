@@ -12,9 +12,9 @@ import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.entity.ProductStatus;
 import com.example.secdsp.modules.product.dto.response.PriceHistoryResponse;
 import com.example.secdsp.modules.product.service.ProductService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -49,8 +49,25 @@ class PricePredictionServiceImplTest {
     @Mock
     OrderService orderService;
 
-    @InjectMocks
-    PricePredictionServiceImpl pricePredictionService;
+    private DssProperties dssProperties;
+    private PricePredictionServiceImpl pricePredictionService;
+
+    @BeforeEach
+    void setUp() {
+        dssProperties = new DssProperties();
+        dssProperties.setIncludeShippingInProfit(false);
+        dssProperties.setIncludePlatformFee(false);
+        dssProperties.setOperatingCostPerUnitVnd(BigDecimal.ZERO);
+        dssProperties.setDefaultForecastDays(30);
+        DssProfitCalculator profitCalculator = new DssProfitCalculator(dssProperties);
+        DssScenarioEngine scenarioEngine = new DssScenarioEngine(dssProperties, profitCalculator);
+        pricePredictionService = new PricePredictionServiceImpl(
+            productService,
+            orderService,
+            dssProperties,
+            scenarioEngine
+        );
+    }
 
     @Test
     void generatePredictionBuildsFiveScenariosAndSelectsBestProfit() {

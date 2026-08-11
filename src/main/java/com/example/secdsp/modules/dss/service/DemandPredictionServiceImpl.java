@@ -20,8 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -31,7 +31,6 @@ public class DemandPredictionServiceImpl
 
     private static final String INSUFFICIENT_DATA_MESSAGE =
         "Không đủ dữ liệu để tạo dự báo.";
-    private static final int DEMAND_SCALE = 2;
 
     private final DemandPredictionRepository demandPredictionRepository;
     private final DemandPredictionMapper demandPredictionMapper;
@@ -71,31 +70,41 @@ public class DemandPredictionServiceImpl
             throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
         }
 
-        long totalQuantitySold = orderService
-            .getCompletedQuantitySold(
-                product.id(),
+        Map<LocalDate, Long> dailySales = orderService.getCompletedDailySalesMap(
+            product.id(),
+            startDate,
+            endDate
+        );
+
+        long totalQuantitySold = dailySales.values().stream()
+            .mapToLong(Long::longValue)
+            .sum();
+
+        if (totalQuantitySold <= 0) {
+            throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
+        }
+
+        DssForecastUtil.ForecastResult forecast = dailySales.size() >= 3
+            ? DssForecastUtil.forecast(
+                dailySales,
+                startDate,
+                endDate,
+                request.getForecastPeriod()
+            )
+            : DssForecastUtil.simpleAverage(
+                totalQuantitySold,
+                request.getHistoricalDays(),
+                request.getForecastPeriod(),
                 startDate,
                 endDate
             );
-
-        BigDecimal averageDailyDemand = BigDecimal
-            .valueOf(totalQuantitySold)
-            .divide(
-                BigDecimal.valueOf(request.getHistoricalDays()),
-                DEMAND_SCALE,
-                RoundingMode.HALF_UP
-            );
-
-        BigDecimal predictedDemand = averageDailyDemand
-            .multiply(BigDecimal.valueOf(request.getForecastPeriod()))
-            .setScale(DEMAND_SCALE, RoundingMode.HALF_UP);
 
         DemandPrediction prediction = DemandPrediction.builder()
             .product(buildProductRef(product.id()))
             .historicalDays(request.getHistoricalDays())
             .forecastPeriod(request.getForecastPeriod())
-            .averageDailyDemand(averageDailyDemand)
-            .predictedQuantity(predictedDemand)
+            .averageDailyDemand(forecast.averageDailyDemand())
+            .predictedQuantity(forecast.predictedQuantity())
             .generatedBy(buildUserRef(currentUserId))
             .build();
 
@@ -109,6 +118,16 @@ public class DemandPredictionServiceImpl
 
         DemandPredictionResponse response = demandPredictionMapper.toResponse(saved);
         response.setProductName(product.name());
+        response.setHistoricalFrom(startDate);
+        response.setHistoricalTo(endDate);
+        response.setHistoricalPeriodLabel(
+            "Dữ liệu lịch sử: " + startDate + " → " + endDate
+        );
+        response.setForecastPeriodLabel(
+            "Kỳ dự báo: " + request.getForecastPeriod() + " ngày tới"
+        );
+        response.setMethodology(forecast.methodology());
+        response.setTrendFactor(forecast.trendFactor());
         return response;
     }
 

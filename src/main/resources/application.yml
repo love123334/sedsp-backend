@@ -93,6 +93,23 @@ app:
     payment-timeout-minutes: ${ORDER_PAYMENT_TIMEOUT_MINUTES:15}
     payment-expiry-check-ms: ${ORDER_PAYMENT_EXPIRY_CHECK_MS:60000}
 
+  # --- DSS: kịch bản giá, chi phí ước tính, kỳ dự báo ---
+  dss:
+    max-price-change-percent: 300
+    price-change-percentages:
+      - -10
+      - -5
+      - 0
+      - 5
+      - 10
+    default-forecast-days: 30
+    platform-fee-percent: 2.0
+    avg-shipping-per-unit-vnd: 25000
+    operating-cost-per-unit-vnd: 0
+    include-shipping-in-profit: true
+    include-platform-fee: true
+    profit-tolerance-percent: 3.0
+
   # --- Cấu hình Payment ---
   payment:
     vnpay:

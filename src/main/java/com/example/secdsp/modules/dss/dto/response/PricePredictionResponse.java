@@ -33,4 +33,19 @@ public class PricePredictionResponse {
     PriceScenarioResponse bestScenario;
 
     List<PriceScenarioResponse> scenarios;
+
+    /** Kỳ dự báo áp dụng cho số lượng kịch bản (ngày). */
+    Integer forecastPeriodDays;
+
+    String historicalPeriodLabel;
+
+    String forecastPeriodLabel;
+
+    String scenarioAssumptionNote;
+
+    String recommendation;
+
+    String recommendationReason;
+
+    DssProfitBreakdownResponse currentSituationBreakdown;
 }

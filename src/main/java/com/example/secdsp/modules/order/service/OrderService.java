@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 public interface OrderService {
 
@@ -40,6 +41,13 @@ public interface OrderService {
     LocalDate getFirstCompletedSaleDate(Long productId);
 
     long getCompletedQuantitySold(
+        Long productId,
+        LocalDate startDate,
+        LocalDate endDate
+    );
+
+    /** Ngày → số lượng bán (DELIVERED) trong khoảng thời gian. */
+    Map<LocalDate, Long> getCompletedDailySalesMap(
         Long productId,
         LocalDate startDate,
         LocalDate endDate

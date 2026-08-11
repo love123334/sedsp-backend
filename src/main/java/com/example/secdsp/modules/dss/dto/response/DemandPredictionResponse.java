@@ -7,6 +7,7 @@ import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
@@ -26,4 +27,16 @@ public class DemandPredictionResponse {
     BigDecimal predictedDemand;
 
     LocalDateTime generatedAt;
+
+    LocalDate historicalFrom;
+
+    LocalDate historicalTo;
+
+    String historicalPeriodLabel;
+
+    String forecastPeriodLabel;
+
+    String methodology;
+
+    BigDecimal trendFactor;
 }
