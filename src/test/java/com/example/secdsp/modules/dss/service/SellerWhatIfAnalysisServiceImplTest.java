@@ -4,6 +4,7 @@ import com.example.secdsp.common.exception.ForbiddenException;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.dss.dto.request.SellerDiscountAnalysisRequest;
 import com.example.secdsp.modules.dss.dto.response.SellerDiscountAnalysisResponse;
+import com.example.secdsp.modules.dss.repository.DemandPredictionRepository;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.entity.ProductStatus;
 import com.example.secdsp.modules.product.service.ProductService;
@@ -15,9 +16,12 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +44,9 @@ class SellerWhatIfAnalysisServiceImplTest {
     @Mock
     SellerDiscountProfitCalculator calculator;
 
+    @Mock
+    DemandPredictionRepository demandPredictionRepository;
+
     @InjectMocks
     SellerWhatIfAnalysisServiceImpl service;
 
@@ -54,16 +61,22 @@ class SellerWhatIfAnalysisServiceImplTest {
 
         when(productService.getProductInfo(PRODUCT_ID))
             .thenReturn(product);
+        when(demandPredictionRepository
+            .findTopByProduct_IdOrderByCreatedAtDesc(PRODUCT_ID))
+            .thenReturn(Optional.empty());
         when(demandPredictionService.predictDemand(PRODUCT_ID, 30))
             .thenReturn(100.0);
         when(pricePredictionService.calculateElasticity(PRODUCT_ID))
             .thenReturn(-1.8);
         when(calculator.calculate(
-            product.price(),
-            product.costPrice(),
-            request.getDiscountPercentage(),
-            100.0,
-            -1.8
+            eq(product.price()),
+            eq(product.costPrice()),
+            eq(request.getPriceChangePercent()),
+            eq(100.0),
+            eq(-1.8),
+            eq(request.getSimulationPeriod()),
+            anyString(),
+            anyString()
         )).thenReturn(expected);
 
         try (MockedStatic<SecurityUtils> securityUtils =
@@ -104,7 +117,7 @@ class SellerWhatIfAnalysisServiceImplTest {
         SellerDiscountAnalysisRequest request =
             new SellerDiscountAnalysisRequest();
         request.setProductId(PRODUCT_ID);
-        request.setDiscountPercentage(new BigDecimal("10"));
+        request.setPriceChangePercent(new BigDecimal("-10"));
         request.setSimulationPeriod(30);
         return request;
     }

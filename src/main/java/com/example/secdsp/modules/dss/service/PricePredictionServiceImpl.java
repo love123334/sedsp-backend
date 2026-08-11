@@ -123,7 +123,7 @@ public class PricePredictionServiceImpl
             currentBreakdown.getNetProfit()
         );
 
-        PriceScenarioResponse bestScenario = scenarios.stream()
+        final PriceScenarioResponse maxProfitScenario = scenarios.stream()
             .max(Comparator.comparing(
                 PriceScenarioResponse::getExpectedProfit
             ))
@@ -133,13 +133,13 @@ public class PricePredictionServiceImpl
         scenarios = scenarios.stream()
             .map(s -> s.toBuilder()
                 .recommended(s.getPriceChangePercent()
-                    .equals(bestScenario.getPriceChangePercent()))
+                    .equals(maxProfitScenario.getPriceChangePercent()))
                 .build())
             .toList();
-        bestScenario = scenarios.stream()
+        PriceScenarioResponse bestScenario = scenarios.stream()
             .filter(PriceScenarioResponse::getRecommended)
             .findFirst()
-            .orElse(bestScenario);
+            .orElse(maxProfitScenario);
 
         String recommendation = buildRecommendation(bestScenario, forecastDays);
         String reason = buildRecommendationReason(

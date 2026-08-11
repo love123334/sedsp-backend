@@ -56,7 +56,9 @@ public class SellerDiscountProfitCalculator {
             );
         }
 
-        long forecastDemand = roundQuantity(forecastDemandValue);
+        long forecastDemand = roundQuantity(
+            BigDecimal.valueOf(forecastDemandValue)
+        );
         BigDecimal elasticity = BigDecimal.valueOf(elasticityValue);
         BigDecimal demandGrowthRate = elasticity.multiply(changeRate);
         long predictedDemand = roundQuantity(

@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -67,15 +68,21 @@ class DemandPredictionServiceImplTest {
                 .predictedDemand(new BigDecimal("300.00"))
                 .build();
 
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(89);
+
         when(productService.getProductInfo(PRODUCT_ID))
             .thenReturn(product);
         when(orderService.getFirstCompletedSaleDate(PRODUCT_ID))
             .thenReturn(LocalDate.now().minusDays(120));
-        when(orderService.getCompletedQuantitySold(
+        when(orderService.getCompletedDailySalesMap(
             PRODUCT_ID,
-            LocalDate.now().minusDays(89),
-            LocalDate.now()
-        )).thenReturn(900L);
+            startDate,
+            endDate
+        )).thenReturn(Map.of(
+            endDate.minusDays(1), 450L,
+            endDate, 450L
+        ));
         when(demandPredictionRepository.save(any(DemandPrediction.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
         when(demandPredictionMapper.toResponse(any(DemandPrediction.class)))
@@ -170,7 +177,7 @@ class DemandPredictionServiceImplTest {
         }
 
         verify(orderService, never())
-            .getCompletedQuantitySold(any(), any(), any());
+            .getCompletedDailySalesMap(any(), any(), any());
         verify(demandPredictionRepository, never())
             .save(any());
     }
