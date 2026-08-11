@@ -90,6 +90,15 @@ public class UserServiceImpl implements UserService {
             .orElseThrow(() -> new ResourceNotFoundException("User", id));
     }
 
+    /** Giải phóng email/username/phone để có thể đăng ký lại sau soft-delete. */
+    private void releaseUserUniqueFields(User user) {
+        Long id = user.getId();
+        user.setEmail("deleted-" + id + "@sedsp.local");
+        user.setUsername("deleted-" + id);
+        user.setPhone(null);
+        userRepository.saveAndFlush(user);
+    }
+
     @Override
     @Transactional
     public void assignRole(
@@ -195,9 +204,11 @@ public class UserServiceImpl implements UserService {
             );
         }
 
+        String originalEmail = user.getEmail();
+        releaseUserUniqueFields(user);
         userRepository.delete(user);
 
-        log.info("User {} ({}) soft-deleted by admin {}", userId, user.getEmail(), currentUserId);
+        log.info("User {} ({}) soft-deleted by admin {}", userId, originalEmail, currentUserId);
     }
 
     @Override
