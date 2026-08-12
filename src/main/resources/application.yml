@@ -77,7 +77,7 @@ app:
     api-token: ${OPENROUTER_API_KEY:${AI_API_TOKEN:${HF_API_TOKEN:}}}
     base-url: ${AI_API_BASE_URL:https://openrouter.ai/api/v1}
     model: ${AI_MODEL:openrouter/free}
-    temperature: ${AI_TEMPERATURE:0.6}
+    temperature: ${AI_TEMPERATURE:0.5}
     max-tokens: ${AI_MAX_TOKENS:900}
 
   # --- Power BI / Looker Studio (embed URL sau khi publish report) ---
