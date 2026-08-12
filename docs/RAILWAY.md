@@ -36,6 +36,32 @@ Health: `https://YOUR-APP.up.railway.app/actuator/health/liveness` → `{"status
 
 ---
 
+## Lỗi Docker build: `Unexpected end of file` khi tải Gradle
+
+Triệu chứng:
+
+```text
+Downloading https://services.gradle.org/distributions/gradle-8.14.4-bin.zip
+java.net.SocketException: Unexpected end of file from server
+./gradlew --version ... exit code 1
+```
+
+**Nguyên nhân:** Railway builder tải Gradle wrapper từ internet; mạng/build node đôi khi cắt giữa chừng.
+
+**Fix (đã áp dụng trong repo):** `Dockerfile` dùng image `gradle:8.14.4-jdk17` — Gradle có sẵn, không tải lại lúc build.
+
+**Local vẫn chạy bình thường:**
+
+```bash
+cd backend
+./gradlew bootRun          # Linux/Mac
+.\gradlew.bat bootRun      # Windows
+```
+
+Lần đầu local có thể tải Gradle vào `~/.gradle` (timeout wrapper = 60s). Railway build không phụ thuộc bước đó.
+
+---
+
 ## Lỗi Tomcat / `jpaSharedEM_entityManagerFactory` (boot crash sau khi DB đã connect)
 
 Triệu chứng:
