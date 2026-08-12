@@ -10,6 +10,9 @@ import com.example.secdsp.modules.dss.dto.response.DssProfitBreakdownResponse;
 import com.example.secdsp.modules.dss.dto.request.CustomPriceScenarioRequest;
 import com.example.secdsp.modules.dss.dto.request.GeneratePricePredictionRequest;
 import com.example.secdsp.modules.dss.dto.response.CustomPriceScenarioResponse;
+import com.example.secdsp.modules.dss.dto.response.DssHolidayImpactResponse;
+import com.example.secdsp.modules.dss.dto.response.DssPriceChangeImpactResponse;
+import com.example.secdsp.modules.dss.dto.response.DssProductContextResponse;
 import com.example.secdsp.modules.dss.dto.response.PricePredictionResponse;
 import com.example.secdsp.modules.dss.dto.response.PriceScenarioResponse;
 import com.example.secdsp.modules.order.service.OrderService;
@@ -29,6 +32,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -45,6 +49,8 @@ public class PricePredictionServiceImpl
     private final OrderService orderService;
     private final DssProperties dssProperties;
     private final DssScenarioEngine scenarioEngine;
+    private final DssProductContextService productContextService;
+    private final DssPredictionInsightService predictionInsightService;
 
     @Override
     @Transactional(readOnly = true)
@@ -157,6 +163,52 @@ public class PricePredictionServiceImpl
             bestScenario.getPriceChangePercent()
         );
 
+        LocalDate firstSaleDate = orderService.getFirstCompletedSaleDate(product.id());
+        Map<LocalDate, Long> dailySales = orderService.getCompletedDailySalesMap(
+            product.id(),
+            request.getFromDate(),
+            request.getToDate()
+        );
+        DssProductContextResponse productContext = productContextService.buildContext(
+            product.id(),
+            sellerId,
+            request.getFromDate(),
+            request.getToDate(),
+            firstSaleDate,
+            priceHistories
+        );
+        List<DssPriceChangeImpactResponse> priceChangeImpacts =
+            DssPriceImpactAnalyzer.analyze(
+                priceHistories,
+                dailySales,
+                request.getFromDate(),
+                request.getToDate()
+            );
+        LocalDate forecastStart = request.getToDate().plusDays(1);
+        List<DssHolidayImpactResponse> upcomingHolidays =
+            DssHolidayCalendar.holidaysBetween(
+                forecastStart,
+                forecastStart.plusDays(forecastDays - 1L)
+            ).stream()
+                .map(h -> DssHolidayImpactResponse.builder()
+                    .code(h.code())
+                    .label(h.label())
+                    .start(h.start())
+                    .end(h.end())
+                    .demandMultiplier(h.demandMultiplier())
+                    .note(h.note())
+                    .build())
+                .toList();
+
+        String priceFacts = buildPriceFactsBrief(
+            product,
+            averageElasticity,
+            bestScenario,
+            productContext,
+            priceChangeImpacts,
+            upcomingHolidays
+        );
+
         return PricePredictionResponse.builder()
             .productId(product.id())
             .productName(product.name())
@@ -180,7 +232,46 @@ public class PricePredictionServiceImpl
             .recommendation(recommendation)
             .recommendationReason(reason)
             .currentSituationBreakdown(currentBreakdown)
+            .productContext(productContext)
+            .priceChangeImpacts(priceChangeImpacts)
+            .upcomingHolidays(upcomingHolidays)
+            .aiInsight(predictionInsightService.generatePriceInsight(priceFacts))
             .build();
+    }
+
+    private static String buildPriceFactsBrief(
+        ProductInfo product,
+        BigDecimal elasticity,
+        PriceScenarioResponse best,
+        DssProductContextResponse ctx,
+        List<DssPriceChangeImpactResponse> impacts,
+        List<DssHolidayImpactResponse> holidays
+    ) {
+        String holidayStr = holidays.stream()
+            .map(h -> h.getLabel())
+            .reduce((a, b) -> a + ", " + b)
+            .orElse("không có sự kiện lớn");
+        String impactStr = impacts.isEmpty()
+            ? "Chưa có lần chỉnh giá trong kỳ."
+            : impacts.get(impacts.size() - 1).getSummary();
+        return String.format(
+            """
+            SP: %s | Giá hiện tại: %s | Elasticity TB: %s
+            Kịch bản đề xuất: %s%% → giá %s, lợi nhuận kỳ vọng %s
+            %s
+            Chỉnh giá: %s
+            Sự kiện TMĐT sắp tới: %s
+            """,
+            product.name(),
+            product.price(),
+            elasticity,
+            best.getPriceChangePercent(),
+            best.getNewPrice(),
+            best.getExpectedProfit(),
+            ctx.getPerformanceSummary(),
+            impactStr,
+            holidayStr
+        );
     }
 
     @Override

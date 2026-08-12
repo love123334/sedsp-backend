@@ -191,4 +191,20 @@ public interface OrderItemRepository
             GROUP BY oi.product.id
         """)
     List<Object[]> getSoldQuantitiesByProductIds(@Param("productIds") List<Long> productIds);
+
+    @Query("""
+            SELECT oi.product.id, COALESCE(SUM(oi.quantity), 0)
+            FROM OrderItem oi
+            WHERE oi.seller.id = :sellerId
+              AND oi.order.status = 'DELIVERED'
+              AND oi.order.createdAt >= :startDateTime
+              AND oi.order.createdAt < :endDateTime
+            GROUP BY oi.product.id
+            ORDER BY SUM(oi.quantity) DESC
+        """)
+    List<Object[]> findSellerProductSalesRanking(
+        @Param("sellerId") Long sellerId,
+        @Param("startDateTime") java.time.LocalDateTime startDateTime,
+        @Param("endDateTime") java.time.LocalDateTime endDateTime
+    );
 }

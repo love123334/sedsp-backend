@@ -5,6 +5,8 @@ import com.example.secdsp.config.DssProperties;
 import com.example.secdsp.common.exception.ForbiddenException;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.dss.dto.request.GeneratePricePredictionRequest;
+import com.example.secdsp.modules.dss.dto.response.DssAiInsightResponse;
+import com.example.secdsp.modules.dss.dto.response.DssProductContextResponse;
 import com.example.secdsp.modules.dss.dto.response.PricePredictionResponse;
 import com.example.secdsp.modules.dss.dto.response.PriceScenarioResponse;
 import com.example.secdsp.modules.order.service.OrderService;
@@ -29,6 +31,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -50,6 +53,12 @@ class PricePredictionServiceImplTest {
     @Mock
     OrderService orderService;
 
+    @Mock
+    DssProductContextService productContextService;
+
+    @Mock
+    DssPredictionInsightService predictionInsightService;
+
     private DssProperties dssProperties;
     private PricePredictionServiceImpl pricePredictionService;
 
@@ -66,8 +75,26 @@ class PricePredictionServiceImplTest {
             productService,
             orderService,
             dssProperties,
-            scenarioEngine
+            scenarioEngine,
+            productContextService,
+            predictionInsightService
         );
+        lenient().when(productContextService.buildContext(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any()
+        )).thenReturn(DssProductContextResponse.builder()
+            .performanceSummary("Test context")
+            .build());
+        lenient().when(predictionInsightService.generatePriceInsight(org.mockito.ArgumentMatchers.any()))
+            .thenReturn(DssAiInsightResponse.builder()
+                .title("Giá")
+                .summary("Test insight")
+                .fallback(true)
+                .build());
     }
 
     @Test
@@ -97,6 +124,16 @@ class PricePredictionServiceImplTest {
             LocalDate.of(2026, 7, 16),
             LocalDate.of(2026, 7, 30)
         )).thenReturn(40L);
+        when(orderService.getFirstCompletedSaleDate(PRODUCT_ID))
+            .thenReturn(LocalDate.of(2026, 6, 1));
+        when(orderService.getCompletedDailySalesMap(
+            PRODUCT_ID,
+            FROM_DATE,
+            TO_DATE
+        )).thenReturn(java.util.Map.of(
+            LocalDate.of(2026, 7, 10), 80L,
+            LocalDate.of(2026, 7, 20), 40L
+        ));
 
         try (MockedStatic<SecurityUtils> securityUtils =
                  mockStatic(SecurityUtils.class)) {

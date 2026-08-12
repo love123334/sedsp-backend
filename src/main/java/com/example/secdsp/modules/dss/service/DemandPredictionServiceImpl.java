@@ -6,10 +6,13 @@ import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.dss.dto.request.GenerateDemandPredictionRequest;
 import com.example.secdsp.modules.dss.dto.response.DemandPredictionResponse;
+import com.example.secdsp.modules.dss.dto.response.DssForecastDayResponse;
+import com.example.secdsp.modules.dss.dto.response.DssHolidayImpactResponse;
 import com.example.secdsp.modules.dss.entity.DemandPrediction;
 import com.example.secdsp.modules.dss.mapper.DemandPredictionMapper;
 import com.example.secdsp.modules.dss.repository.DemandPredictionRepository;
 import com.example.secdsp.modules.order.service.OrderService;
+import com.example.secdsp.modules.product.dto.internal.PriceHistoryInfo;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.service.ProductService;
@@ -21,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -36,6 +41,8 @@ public class DemandPredictionServiceImpl
     private final DemandPredictionMapper demandPredictionMapper;
     private final ProductService productService;
     private final OrderService orderService;
+    private final DssProductContextService productContextService;
+    private final DssPredictionInsightService predictionInsightService;
 
     @Override
     @Transactional
@@ -49,23 +56,17 @@ public class DemandPredictionServiceImpl
             request.getForecastPeriod()
         );
 
-        ProductInfo product = productService
-            .getProductInfo(request.getProductId());
-
+        ProductInfo product = productService.getProductInfo(request.getProductId());
         Long currentUserId = requireCurrentUserId();
         validateProductAccess(product, currentUserId);
 
-        LocalDate firstSaleDate = orderService
-            .getFirstCompletedSaleDate(product.id());
-
+        LocalDate firstSaleDate = orderService.getFirstCompletedSaleDate(product.id());
         if (firstSaleDate == null) {
             throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
         }
 
         LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate
-            .minusDays(request.getHistoricalDays() - 1L);
-
+        LocalDate startDate = endDate.minusDays(request.getHistoricalDays() - 1L);
         if (firstSaleDate.isAfter(startDate)) {
             throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
         }
@@ -79,7 +80,6 @@ public class DemandPredictionServiceImpl
         long totalQuantitySold = dailySales.values().stream()
             .mapToLong(Long::longValue)
             .sum();
-
         if (totalQuantitySold <= 0) {
             throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
         }
@@ -99,22 +99,38 @@ public class DemandPredictionServiceImpl
                 endDate
             );
 
+        List<PriceHistoryInfo> priceHistories = productService.getPriceHistoryInfo(
+            product.id(),
+            startDate,
+            endDate
+        );
+
+        var productContext = productContextService.buildContext(
+            product.id(),
+            product.sellerId(),
+            startDate,
+            endDate,
+            firstSaleDate,
+            priceHistories
+        );
+
+        var priceImpacts = DssPriceImpactAnalyzer.analyze(
+            priceHistories,
+            dailySales,
+            startDate,
+            endDate
+        );
+
         DemandPrediction prediction = DemandPrediction.builder()
             .product(buildProductRef(product.id()))
             .historicalDays(request.getHistoricalDays())
             .forecastPeriod(request.getForecastPeriod())
             .averageDailyDemand(forecast.averageDailyDemand())
-            .predictedQuantity(forecast.predictedQuantity())
+            .predictedQuantity(forecast.seasonalityAdjustedQuantity())
             .generatedBy(buildUserRef(currentUserId))
             .build();
 
         DemandPrediction saved = demandPredictionRepository.save(prediction);
-
-        log.info(
-            "Demand prediction {} generated successfully for product {}",
-            saved.getId(),
-            product.id()
-        );
 
         DemandPredictionResponse response = demandPredictionMapper.toResponse(saved);
         response.setProductName(product.name());
@@ -128,39 +144,111 @@ public class DemandPredictionServiceImpl
         );
         response.setMethodology(forecast.methodology());
         response.setTrendFactor(forecast.trendFactor());
+        response.setPredictedDemand(forecast.predictedQuantity());
+        response.setSeasonalityAdjustedDemand(forecast.seasonalityAdjustedQuantity());
+        response.setHolidayAdjustmentFactor(forecast.holidayAdjustmentFactor());
+        response.setForecastSeries(mapForecastSeries(forecast));
+        response.setUpcomingHolidays(mapHolidays(forecast));
+        response.setProductContext(productContext);
+        response.setPriceChangeImpacts(priceImpacts);
+        response.setAiInsight(predictionInsightService.generateDemandInsight(
+            buildDemandFactsBrief(product, forecast, productContext, priceImpacts)
+        ));
+
+        log.info(
+            "Demand prediction {} generated for product {} (seasonal qty={})",
+            saved.getId(),
+            product.id(),
+            forecast.seasonalityAdjustedQuantity()
+        );
         return response;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public double predictDemand(
-        Long productId,
-        int simulationPeriod
-    ) {
+    public double predictDemand(Long productId, int simulationPeriod) {
         DemandPrediction latestPrediction = demandPredictionRepository
             .findTopByProduct_IdOrderByCreatedAtDesc(productId)
-            .orElseThrow(() ->
-                new BusinessException(INSUFFICIENT_DATA_MESSAGE));
+            .orElseThrow(() -> new BusinessException(INSUFFICIENT_DATA_MESSAGE));
 
         return latestPrediction.getAverageDailyDemand()
             .multiply(BigDecimal.valueOf(simulationPeriod))
             .doubleValue();
     }
 
+    private static List<DssForecastDayResponse> mapForecastSeries(
+        DssForecastUtil.ForecastResult forecast
+    ) {
+        return forecast.forecastSeries().stream()
+            .map(p -> DssForecastDayResponse.builder()
+                .date(p.date())
+                .predictedQty(p.predictedQty())
+                .holidayNote(p.note())
+                .build())
+            .toList();
+    }
+
+    private static List<DssHolidayImpactResponse> mapHolidays(
+        DssForecastUtil.ForecastResult forecast
+    ) {
+        return forecast.upcomingHolidays().stream()
+            .map(h -> DssHolidayImpactResponse.builder()
+                .code(h.code())
+                .label(h.label())
+                .start(h.start())
+                .end(h.end())
+                .demandMultiplier(h.demandMultiplier())
+                .note(h.note())
+                .build())
+            .toList();
+    }
+
+    private static String buildDemandFactsBrief(
+        ProductInfo product,
+        DssForecastUtil.ForecastResult forecast,
+        com.example.secdsp.modules.dss.dto.response.DssProductContextResponse ctx,
+        List<com.example.secdsp.modules.dss.dto.response.DssPriceChangeImpactResponse> impacts
+    ) {
+        String holidays = forecast.upcomingHolidays().stream()
+            .map(h -> h.label() + " (×" + h.demandMultiplier() + ")")
+            .collect(Collectors.joining(", "));
+        if (holidays.isBlank()) {
+            holidays = "không có sự kiện lớn trong kỳ dự báo";
+        }
+        String priceNote = impacts.isEmpty()
+            ? "Chưa chỉnh giá trong kỳ."
+            : impacts.get(impacts.size() - 1).getSummary();
+
+        return String.format(
+            """
+            Sản phẩm: %s
+            TB/ngày: %s; dự báo phẳng %s SP; có mùa vụ %s SP (hệ số lễ ×%s)
+            Xu hướng: %s%%
+            Ngữ cảnh shop: %s
+            Chỉnh giá gần nhất: %s
+            Sự kiện sắp tới: %s
+            """,
+            product.name(),
+            forecast.averageDailyDemand(),
+            forecast.predictedQuantity(),
+            forecast.seasonalityAdjustedQuantity(),
+            forecast.holidayAdjustmentFactor(),
+            forecast.trendFactor().multiply(BigDecimal.valueOf(100)),
+            ctx.getPerformanceSummary(),
+            priceNote,
+            holidays
+        );
+    }
+
     private Long requireCurrentUserId() {
         Long currentUserId = SecurityUtils.getCurrentUserId();
-
         if (currentUserId == null) {
             throw new UnauthorizedException("Authentication required.");
         }
-
         return currentUserId;
     }
 
-    private void validateProductAccess(
-        ProductInfo product,
-        Long currentUserId
-    ) {
+    private void validateProductAccess(ProductInfo product, Long currentUserId) {
         if (!currentUserId.equals(product.sellerId())) {
             throw new ForbiddenException(
                 "You do not have permission to generate a prediction for this product."

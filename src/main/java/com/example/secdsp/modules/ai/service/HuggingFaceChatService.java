@@ -206,7 +206,7 @@ public class HuggingFaceChatService {
     }
 
     /** Làm sạch / chuẩn hóa commentary trước khi trả UI */
-    static String sanitizeInsightCommentary(String raw) {
+    public static String sanitizeInsightCommentary(String raw) {
         if (raw == null || raw.isBlank()) {
             return ruleBasedPlan(null);
         }

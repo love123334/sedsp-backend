@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -26,6 +27,11 @@ public class DemandPredictionResponse {
 
     BigDecimal predictedDemand;
 
+    /** Dự báo có điều chỉnh thứ + ngày lễ */
+    BigDecimal seasonalityAdjustedDemand;
+
+    BigDecimal holidayAdjustmentFactor;
+
     LocalDateTime generatedAt;
 
     LocalDate historicalFrom;
@@ -39,4 +45,14 @@ public class DemandPredictionResponse {
     String methodology;
 
     BigDecimal trendFactor;
+
+    List<DssForecastDayResponse> forecastSeries;
+
+    List<DssHolidayImpactResponse> upcomingHolidays;
+
+    DssProductContextResponse productContext;
+
+    List<DssPriceChangeImpactResponse> priceChangeImpacts;
+
+    DssAiInsightResponse aiInsight;
 }

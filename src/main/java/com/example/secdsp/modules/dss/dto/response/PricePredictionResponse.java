@@ -48,4 +48,12 @@ public class PricePredictionResponse {
     String recommendationReason;
 
     DssProfitBreakdownResponse currentSituationBreakdown;
+
+    DssProductContextResponse productContext;
+
+    List<DssPriceChangeImpactResponse> priceChangeImpacts;
+
+    List<DssHolidayImpactResponse> upcomingHolidays;
+
+    DssAiInsightResponse aiInsight;
 }
