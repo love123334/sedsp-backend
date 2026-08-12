@@ -9,12 +9,15 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class DssProductContextService {
+
+    private static final ZoneId VIETNAM = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final OrderItemRepository orderItemRepository;
     private final ProductRepository productRepository;
@@ -43,8 +46,8 @@ public class DssProductContextService {
 
         List<Object[]> ranking = orderItemRepository.findSellerProductSalesRanking(
             sellerId,
-            rangeStart.atStartOfDay(),
-            rangeEnd.plusDays(1).atStartOfDay()
+            rangeStart.atStartOfDay(VIETNAM).toOffsetDateTime(),
+            rangeEnd.plusDays(1).atStartOfDay(VIETNAM).toOffsetDateTime()
         );
 
         int shopProductCount = ranking.size();

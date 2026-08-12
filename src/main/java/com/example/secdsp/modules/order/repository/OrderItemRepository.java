@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public interface OrderItemRepository
@@ -204,7 +205,7 @@ public interface OrderItemRepository
         """)
     List<Object[]> findSellerProductSalesRanking(
         @Param("sellerId") Long sellerId,
-        @Param("startDateTime") java.time.LocalDateTime startDateTime,
-        @Param("endDateTime") java.time.LocalDateTime endDateTime
+        @Param("startDateTime") OffsetDateTime startDateTime,
+        @Param("endDateTime") OffsetDateTime endDateTime
     );
 }
