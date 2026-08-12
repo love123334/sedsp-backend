@@ -185,11 +185,9 @@ public class PricePredictionServiceImpl
                 request.getToDate()
             );
         LocalDate forecastStart = request.getToDate().plusDays(1);
+        LocalDate forecastEnd = forecastStart.plusDays(forecastDays - 1L);
         List<DssHolidayImpactResponse> upcomingHolidays =
-            DssHolidayCalendar.holidaysBetween(
-                forecastStart,
-                forecastStart.plusDays(forecastDays - 1L)
-            ).stream()
+            DssHolidayCalendar.holidaysBetween(forecastStart, forecastEnd).stream()
                 .map(h -> DssHolidayImpactResponse.builder()
                     .code(h.code())
                     .label(h.label())
@@ -197,6 +195,7 @@ public class PricePredictionServiceImpl
                     .end(h.end())
                     .demandMultiplier(h.demandMultiplier())
                     .note(h.note())
+                    .priceImpactNote(h.priceImpactNote())
                     .build())
                 .toList();
 
@@ -227,7 +226,15 @@ public class PricePredictionServiceImpl
                     + " → "
                     + request.getToDate()
             )
-            .forecastPeriodLabel(scenarioEngine.forecastPeriodLabel(forecastDays))
+            .forecastPeriodLabel(
+                DssHolidayCalendar.forecastScopeLabel(
+                    forecastStart,
+                    forecastEnd,
+                    upcomingHolidays.size()
+                )
+            )
+            .forecastFrom(forecastStart)
+            .forecastTo(forecastEnd)
             .scenarioAssumptionNote(scenarioEngine.scenarioAssumptionNote())
             .recommendation(recommendation)
             .recommendationReason(reason)

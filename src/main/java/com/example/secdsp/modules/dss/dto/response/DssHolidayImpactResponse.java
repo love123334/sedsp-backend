@@ -24,4 +24,7 @@ public class DssHolidayImpactResponse {
     BigDecimal demandMultiplier;
 
     String note;
+
+    /** Gợi ý áp lực giá / khuyến mãi trong sự kiện (cho người bán). */
+    String priceImpactNote;
 }

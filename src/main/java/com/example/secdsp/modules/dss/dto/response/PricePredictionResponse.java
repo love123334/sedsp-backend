@@ -41,6 +41,10 @@ public class PricePredictionResponse {
 
     String forecastPeriodLabel;
 
+    LocalDate forecastFrom;
+
+    LocalDate forecastTo;
+
     String scenarioAssumptionNote;
 
     String recommendation;

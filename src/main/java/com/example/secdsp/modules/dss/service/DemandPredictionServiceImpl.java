@@ -136,11 +136,19 @@ public class DemandPredictionServiceImpl
         response.setProductName(product.name());
         response.setHistoricalFrom(startDate);
         response.setHistoricalTo(endDate);
+        LocalDate forecastFrom = endDate.plusDays(1);
+        LocalDate forecastTo = endDate.plusDays(request.getForecastPeriod());
+        response.setForecastFrom(forecastFrom);
+        response.setForecastTo(forecastTo);
         response.setHistoricalPeriodLabel(
             "Dữ liệu lịch sử: " + startDate + " → " + endDate
         );
         response.setForecastPeriodLabel(
-            "Kỳ dự báo: " + request.getForecastPeriod() + " ngày tới"
+            DssHolidayCalendar.forecastScopeLabel(
+                forecastFrom,
+                forecastTo,
+                forecast.upcomingHolidays().size()
+            )
         );
         response.setMethodology(forecast.methodology());
         response.setTrendFactor(forecast.trendFactor());
@@ -199,6 +207,7 @@ public class DemandPredictionServiceImpl
                 .end(h.end())
                 .demandMultiplier(h.demandMultiplier())
                 .note(h.note())
+                .priceImpactNote(h.priceImpactNote())
                 .build())
             .toList();
     }

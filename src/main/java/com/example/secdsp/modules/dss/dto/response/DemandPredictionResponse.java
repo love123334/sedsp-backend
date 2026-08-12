@@ -42,6 +42,10 @@ public class DemandPredictionResponse {
 
     String forecastPeriodLabel;
 
+    LocalDate forecastFrom;
+
+    LocalDate forecastTo;
+
     String methodology;
 
     BigDecimal trendFactor;
