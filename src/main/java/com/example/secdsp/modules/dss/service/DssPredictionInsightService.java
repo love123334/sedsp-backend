@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * AI phân tích DSS — chỉ dựa trên số liệu nội bộ đã xác minh; không bịa SKU hay doanh số.
@@ -17,6 +19,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class DssPredictionInsightService {
+
+    /** Không chặn API dự báo — OpenRouter có thể >15s; fallback local nếu quá hạn. */
+    private static final long AI_INSIGHT_TIMEOUT_SECONDS = 5;
 
     private static final String DISCLAIMER =
         "Phân tích kết hợp dữ liệu shop + mùa vụ TMĐT VN (Tết, 11.11, 12.12…). "
@@ -86,26 +91,35 @@ public class DssPredictionInsightService {
         req.setMessages(turns);
 
         try {
-            String content = HuggingFaceChatService.sanitizeInsightCommentary(
-                chatService.chat(req).getContent()
-            );
-            return DssAiInsightResponse.builder()
-                .title(title)
-                .summary(content)
-                .provider(chatService.providerName())
-                .fallback(false)
-                .disclaimer(DISCLAIMER)
-                .build();
+            String content = CompletableFuture
+                .supplyAsync(() -> HuggingFaceChatService.sanitizeInsightCommentary(
+                    chatService.chat(req).getContent()
+                ))
+                .orTimeout(AI_INSIGHT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .exceptionally(ex -> {
+                    log.warn("DSS prediction AI timeout/error: {}", ex.getMessage());
+                    return null;
+                })
+                .join();
+            if (content != null && !content.isBlank()) {
+                return DssAiInsightResponse.builder()
+                    .title(title)
+                    .summary(content)
+                    .provider(chatService.providerName())
+                    .fallback(false)
+                    .disclaimer(DISCLAIMER)
+                    .build();
+            }
         } catch (Exception e) {
             log.warn("DSS prediction AI fallback: {}", e.getMessage());
-            return DssAiInsightResponse.builder()
-                .title(title)
-                .summary(ruleFallback)
-                .provider("local")
-                .fallback(true)
-                .disclaimer(DISCLAIMER)
-                .build();
         }
+        return DssAiInsightResponse.builder()
+            .title(title)
+            .summary(ruleFallback)
+            .provider("local")
+            .fallback(true)
+            .disclaimer(DISCLAIMER)
+            .build();
     }
 
     static String ruleBasedDemand(String facts) {
