@@ -17,6 +17,7 @@ import com.example.secdsp.modules.voucher.repository.VoucherRepository;
 import com.example.secdsp.modules.voucher.repository.VoucherRequestRepository;
 import com.example.secdsp.modules.voucher.repository.VoucherUsageRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class VoucherServiceImpl implements VoucherService {
 
     private final VoucherRepository voucherRepository;
@@ -178,8 +180,31 @@ public class VoucherServiceImpl implements VoucherService {
     @Override
     @Transactional(readOnly = true)
     public ValidateVoucherResponse validateForCart(Long userId, ValidateVoucherRequest request) {
-        List<Long> productIds = resolveProductIds(userId, request);
-        return doValidate(request.getCode(), productIds, userId, false);
+        try {
+            List<Long> productIds = resolveProductIds(userId, request);
+            return doValidate(request.getCode(), productIds, userId, false);
+        } catch (BusinessException ex) {
+            return invalid(friendlyVoucherMessage(ex.getMessage()));
+        } catch (ResourceNotFoundException ex) {
+            return invalid("Sản phẩm trong giỏ không còn tồn tại.");
+        } catch (Exception ex) {
+            log.warn("Voucher validate failed for user {}", userId, ex);
+            return invalid("Chưa áp dụng được mã giảm giá. Vui lòng thử lại sau.");
+        }
+    }
+
+    private static String friendlyVoucherMessage(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "Mã giảm giá không hợp lệ.";
+        }
+        String lower = raw.toLowerCase(Locale.ROOT);
+        if (lower.contains("product") && lower.contains("not found")) {
+            return "Sản phẩm trong giỏ không còn tồn tại.";
+        }
+        if (lower.contains("sql") || lower.contains("jdbc") || lower.contains("schema")) {
+            return "Chưa áp dụng được mã giảm giá. Vui lòng thử lại sau.";
+        }
+        return raw;
     }
 
     private List<Long> resolveProductIds(Long userId, ValidateVoucherRequest request) {
