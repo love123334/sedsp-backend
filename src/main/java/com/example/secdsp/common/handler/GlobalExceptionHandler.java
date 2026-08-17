@@ -236,7 +236,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(BaseResponse.error(
-                    "Không xử lý được yêu cầu lúc này. Vui lòng thử lại sau."
+                    "Tạm thời không xử lý được yêu cầu. Vui lòng thử lại sau."
                 ));
     }
 
