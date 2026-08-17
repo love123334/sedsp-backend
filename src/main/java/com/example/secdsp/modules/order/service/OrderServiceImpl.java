@@ -439,18 +439,41 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void validateStatusTransition(OrderStatus current, OrderStatus next) {
-        boolean ok = switch (current) {
-            case PENDING -> next == OrderStatus.PROCESSING || next == OrderStatus.CANCELLED;
-            case PAID -> next == OrderStatus.PROCESSING || next == OrderStatus.CANCELLED;
-            case PROCESSING -> next == OrderStatus.SHIPPING || next == OrderStatus.CANCELLED;
-            case SHIPPING -> next == OrderStatus.DELIVERED;
-            default -> false;
-        };
-        if (!ok) {
-            throw new BusinessException(
-                "Invalid status transition: " + current + " -> " + next
-            );
+        if (current == next) {
+            throw new BusinessException("Trạng thái đơn không thay đổi.");
         }
+        if (next == OrderStatus.REFUNDED) {
+            throw new BusinessException("Không hỗ trợ chuyển sang Hoàn tiền tại đây.");
+        }
+        if (next == OrderStatus.CANCELLED) {
+            if (current == OrderStatus.DELIVERED
+                || current == OrderStatus.CANCELLED
+                || current == OrderStatus.REFUNDED) {
+                throw new BusinessException(
+                    "Không thể hủy đơn ở trạng thái " + current + "."
+                );
+            }
+            return;
+        }
+        int currentRank = orderStatusRank(current);
+        int nextRank = orderStatusRank(next);
+        if (nextRank > currentRank) {
+            return;
+        }
+        throw new BusinessException(
+            "Không thể chuyển từ " + current + " sang " + next + "."
+        );
+    }
+
+    private int orderStatusRank(OrderStatus status) {
+        return switch (status) {
+            case PENDING -> 0;
+            case PAID -> 1;
+            case PROCESSING -> 2;
+            case SHIPPING -> 3;
+            case DELIVERED -> 4;
+            default -> -1;
+        };
     }
 
     private OrderTrackingEvent mapTrackingEvent(OrderStatus status) {
