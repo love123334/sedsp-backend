@@ -89,11 +89,11 @@ public class AuthServiceImpl implements AuthService {
             );
 
         } catch (BadCredentialsException ex) {
-            throw new UnauthorizedException("Invalid email or password");
+            throw new UnauthorizedException("Email hoặc mật khẩu không đúng");
         } catch (DisabledException ex) {
-            throw new UnauthorizedException("Account is inactive");
+            throw new UnauthorizedException("Tài khoản chưa được kích hoạt");
         } catch (LockedException ex) {
-            throw new UnauthorizedException("Account is blocked");
+            throw new UnauthorizedException("Tài khoản đã bị khóa");
         } catch (UnauthorizedException ex) {
             throw ex;
         }
