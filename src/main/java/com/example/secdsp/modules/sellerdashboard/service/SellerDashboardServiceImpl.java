@@ -291,7 +291,11 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
     }
 
     private SellerRatingSummary buildRatingSection(Long sellerId) {
-        Object[] summary = reviewRepository.getSellerRatingSummary(sellerId);
+        List<Object[]> summaryRows = reviewRepository
+            .getSellerRatingSummary(sellerId);
+        Object[] summary = summaryRows == null || summaryRows.isEmpty()
+            ? new Object[] { null, 0L }
+            : summaryRows.get(0);
 
         double avg = toDouble(summary != null && summary.length > 0 ? summary[0] : null);
         long total = toLong(summary != null && summary.length > 1 ? summary[1] : null);

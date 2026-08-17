@@ -23,6 +23,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -113,10 +115,17 @@ public class ReviewServiceImpl implements ReviewService {
     @Transactional(readOnly = true)
     public RatingSummaryResponse getRatingSummary(Long productId) {
 
-        Object[] result = reviewRepository.getRatingSummary(productId);
+        List<Object[]> rows = reviewRepository.getRatingSummary(productId);
+        Object[] result = rows == null || rows.isEmpty()
+            ? new Object[] { null, 0L }
+            : rows.get(0);
 
-        Double avg = result[0] != null ? (Double) result[0] : 0.0;
-        Long count = result[1] != null ? (Long) result[1] : 0L;
+        double avg = result.length > 0 && result[0] instanceof Number value
+            ? value.doubleValue()
+            : 0.0;
+        long count = result.length > 1 && result[1] instanceof Number value
+            ? value.longValue()
+            : 0L;
 
         return new RatingSummaryResponse(avg, count);
     }

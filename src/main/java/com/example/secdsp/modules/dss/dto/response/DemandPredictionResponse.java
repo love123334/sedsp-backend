@@ -8,6 +8,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -24,6 +25,10 @@ public class DemandPredictionResponse {
     BigDecimal averageDailyDemand;
 
     BigDecimal predictedDemand;
+
+    String method;
+
+    Map<String, Object> featureSnapshot;
 
     LocalDateTime generatedAt;
 }

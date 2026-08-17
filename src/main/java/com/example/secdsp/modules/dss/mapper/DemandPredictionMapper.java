@@ -10,6 +10,8 @@ public interface DemandPredictionMapper {
 
     @Mapping(target = "productName", ignore = true)
     @Mapping(target = "predictedDemand", source = "predictedQuantity")
+    @Mapping(target = "method", ignore = true)
+    @Mapping(target = "featureSnapshot", ignore = true)
     @Mapping(target = "generatedAt", source = "createdAt")
     DemandPredictionResponse toResponse(DemandPrediction demandPrediction);
 }

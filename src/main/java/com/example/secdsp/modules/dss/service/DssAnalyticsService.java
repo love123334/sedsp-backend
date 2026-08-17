@@ -5,6 +5,7 @@ import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.config.PowerBiProperties;
 import com.example.secdsp.modules.ai.service.HuggingFaceChatService;
+import com.example.secdsp.modules.dss.dto.internal.DemandForecastProductView;
 import com.example.secdsp.modules.dss.dto.DemandForecastResponse;
 import com.example.secdsp.modules.dss.dto.DssInsightPlanResponse;
 import com.example.secdsp.modules.dss.dto.InventoryRecommendationResponse;
@@ -41,6 +42,7 @@ public class DssAnalyticsService {
     private final InventoryRepository inventoryRepository;
     private final HuggingFaceChatService huggingFaceChatService;
     private final PowerBiProperties powerBiProperties;
+    private final DemandForecastEngine demandForecastEngine;
 
     private Long requireUserId() {
         Long id = SecurityUtils.getCurrentUserId();
@@ -65,65 +67,31 @@ public class DssAnalyticsService {
     public DemandForecastResponse forecastDemand(Long productId, int historyDays, int forecastDays) {
         Long sellerId = requireUserId();
         Product product = requireSellerProduct(productId, sellerId);
-
-        int hist = clamp(historyDays, 7, 180);
-        int forecast = clamp(forecastDays, 7, 90);
-
-        List<Object[]> rows = orderItemRepository.findDailySoldQuantity(sellerId, productId, hist);
-        List<Map<String, Object>> historical = new ArrayList<>();
-        double sum = 0;
-        int dayIdx = 1;
-        for (Object[] row : rows) {
-            long qty = ((Number) row[1]).longValue();
-            sum += qty;
-            Map<String, Object> point = new LinkedHashMap<>();
-            point.put("day", dayIdx++);
-            point.put("qty", qty);
-            point.put("date", String.valueOf(row[0]));
-            historical.add(point);
-        }
-
-        if (historical.size() < 3) {
-            return DemandForecastResponse.builder()
-                .productId(productId)
-                .productName(product.getName())
-                .historicalDays(hist)
-                .forecastDays(forecast)
-                .averageDailyDemand(0)
-                .predictedDemand(0)
-                .method("moving_average")
-                .insufficientData(true)
-                .historicalSales(historical)
-                .forecastSales(List.of())
-                .generatedAt(now())
-                .build();
-        }
-
-        double avg = sum / historical.size();
-        long predicted = Math.round(avg * forecast);
-
-        List<Map<String, Object>> forecastSeries = new ArrayList<>();
-        Map<String, Object> start = new LinkedHashMap<>();
-        start.put("day", historical.size());
-        start.put("qty", ((Number) historical.get(historical.size() - 1).get("qty")).longValue());
-        forecastSeries.add(start);
-        Map<String, Object> end = new LinkedHashMap<>();
-        end.put("day", historical.size() + forecast);
-        end.put("qty", Math.round(avg));
-        forecastSeries.add(end);
+        DemandForecastProductView productView = new DemandForecastProductView(
+            product.getId(),
+            product.getSeller() != null ? product.getSeller().getId() : sellerId,
+            product.getName(),
+            product.getPrice()
+        );
+        var forecast = demandForecastEngine.forecast(
+            productView,
+            historyDays,
+            forecastDays
+        );
 
         return DemandForecastResponse.builder()
-            .productId(productId)
-            .productName(product.getName())
-            .historicalDays(hist)
-            .forecastDays(forecast)
-            .averageDailyDemand(round1(avg))
-            .predictedDemand(predicted)
-            .method("moving_average")
-            .insufficientData(false)
-            .historicalSales(historical)
-            .forecastSales(forecastSeries)
-            .generatedAt(now())
+            .productId(forecast.productId())
+            .productName(forecast.productName())
+            .historicalDays(forecast.historicalDays())
+            .forecastDays(forecast.forecastDays())
+            .averageDailyDemand(forecast.averageDailyDemand())
+            .predictedDemand(forecast.predictedDemand())
+            .method(forecast.method())
+            .insufficientData(forecast.insufficientData())
+            .historicalSales(forecast.historicalSales())
+            .forecastSales(forecast.forecastSales())
+            .featureSnapshot(forecast.featureSnapshot())
+            .generatedAt(forecast.generatedAt())
             .build();
     }
 

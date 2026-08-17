@@ -80,6 +80,9 @@ app:
     temperature: ${AI_TEMPERATURE:0.6}
     max-tokens: ${AI_MAX_TOKENS:900}
 
+  dss:
+    model-dir: ${DSS_MODEL_DIR:models/demand}
+
   # --- Power BI / Looker Studio (embed URL sau khi publish report) ---
   powerbi:
     embed-url: ${POWERBI_EMBED_URL:}

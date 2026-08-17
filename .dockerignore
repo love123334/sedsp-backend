@@ -1,9 +1,12 @@
 .git
 .gradle
+.gradle-cache
+.venv
 .idea
 build
 out
 *.iml
 *.log
+**/__pycache__
 docker-compose.yml
 README.md

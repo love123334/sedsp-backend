@@ -4,12 +4,12 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ForbiddenException;
 import com.example.secdsp.common.exception.UnauthorizedException;
 import com.example.secdsp.common.util.SecurityUtils;
+import com.example.secdsp.modules.dss.dto.internal.DemandForecastProductView;
 import com.example.secdsp.modules.dss.dto.request.GenerateDemandPredictionRequest;
 import com.example.secdsp.modules.dss.dto.response.DemandPredictionResponse;
 import com.example.secdsp.modules.dss.entity.DemandPrediction;
 import com.example.secdsp.modules.dss.mapper.DemandPredictionMapper;
 import com.example.secdsp.modules.dss.repository.DemandPredictionRepository;
-import com.example.secdsp.modules.order.service.OrderService;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.service.ProductService;
@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
 
 @Slf4j
 @Service
@@ -36,7 +35,7 @@ public class DemandPredictionServiceImpl
     private final DemandPredictionRepository demandPredictionRepository;
     private final DemandPredictionMapper demandPredictionMapper;
     private final ProductService productService;
-    private final OrderService orderService;
+    private final DemandForecastEngine demandForecastEngine;
 
     @Override
     @Transactional
@@ -56,38 +55,29 @@ public class DemandPredictionServiceImpl
         Long currentUserId = requireCurrentUserId();
         validateProductAccess(product, currentUserId);
 
-        LocalDate firstSaleDate = orderService
-            .getFirstCompletedSaleDate(product.id());
+        DemandForecastProductView productView = new DemandForecastProductView(
+            product.id(),
+            product.sellerId(),
+            product.name(),
+            product.price()
+        );
 
-        if (firstSaleDate == null) {
+        var forecast = demandForecastEngine.forecast(
+            productView,
+            request.getHistoricalDays(),
+            request.getForecastPeriod()
+        );
+
+        if (forecast.insufficientData()) {
             throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
         }
-
-        LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate
-            .minusDays(request.getHistoricalDays() - 1L);
-
-        if (firstSaleDate.isAfter(startDate)) {
-            throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
-        }
-
-        long totalQuantitySold = orderService
-            .getCompletedQuantitySold(
-                product.id(),
-                startDate,
-                endDate
-            );
 
         BigDecimal averageDailyDemand = BigDecimal
-            .valueOf(totalQuantitySold)
-            .divide(
-                BigDecimal.valueOf(request.getHistoricalDays()),
-                DEMAND_SCALE,
-                RoundingMode.HALF_UP
-            );
+            .valueOf(forecast.averageDailyDemand())
+            .setScale(DEMAND_SCALE, RoundingMode.HALF_UP);
 
-        BigDecimal predictedDemand = averageDailyDemand
-            .multiply(BigDecimal.valueOf(request.getForecastPeriod()))
+        BigDecimal predictedDemand = BigDecimal
+            .valueOf(forecast.predictedDemand())
             .setScale(DEMAND_SCALE, RoundingMode.HALF_UP);
 
         DemandPrediction prediction = DemandPrediction.builder()
@@ -109,6 +99,8 @@ public class DemandPredictionServiceImpl
 
         DemandPredictionResponse response = demandPredictionMapper.toResponse(saved);
         response.setProductName(product.name());
+        response.setMethod(forecast.method());
+        response.setFeatureSnapshot(forecast.featureSnapshot());
         return response;
     }
 
@@ -118,14 +110,25 @@ public class DemandPredictionServiceImpl
         Long productId,
         int simulationPeriod
     ) {
-        DemandPrediction latestPrediction = demandPredictionRepository
-            .findTopByProduct_IdOrderByCreatedAtDesc(productId)
-            .orElseThrow(() ->
-                new BusinessException(INSUFFICIENT_DATA_MESSAGE));
+        ProductInfo product = productService.getProductInfo(productId);
+        DemandForecastProductView productView = new DemandForecastProductView(
+            product.id(),
+            product.sellerId(),
+            product.name(),
+            product.price()
+        );
 
-        return latestPrediction.getAverageDailyDemand()
-            .multiply(BigDecimal.valueOf(simulationPeriod))
-            .doubleValue();
+        var forecast = demandForecastEngine.forecast(
+            productView,
+            30,
+            simulationPeriod
+        );
+
+        if (forecast.insufficientData()) {
+            throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
+        }
+
+        return forecast.predictedDemand();
     }
 
     private Long requireCurrentUserId() {
