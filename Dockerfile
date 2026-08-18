@@ -8,6 +8,7 @@ ENV GRADLE_OPTS="-Dorg.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m -Dorg.
 COPY gradlew settings.gradle.kts build.gradle.kts ./
 COPY gradle ./gradle
 COPY . .
+RUN mkdir -p /build/models/demand
 
 RUN chmod +x gradlew \
   && gradle bootJar -x test --no-daemon --stacktrace \

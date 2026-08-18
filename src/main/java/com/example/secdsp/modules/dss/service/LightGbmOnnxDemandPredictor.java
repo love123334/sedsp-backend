@@ -1,9 +1,5 @@
 package com.example.secdsp.modules.dss.service;
 
-import ai.onnxruntime.OnnxTensor;
-import ai.onnxruntime.OrtEnvironment;
-import ai.onnxruntime.OrtException;
-import ai.onnxruntime.OrtSession;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,7 +11,6 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.OptionalDouble;
 
 @Component
@@ -41,8 +36,6 @@ public class LightGbmOnnxDemandPredictor {
     );
 
     private final Path modelDirectory;
-    private volatile OrtEnvironment environment;
-    private volatile OrtSession session;
     private volatile boolean modelFailed;
 
     public LightGbmOnnxDemandPredictor(
@@ -66,25 +59,15 @@ public class LightGbmOnnxDemandPredictor {
         }
 
         try {
-            OrtSession session = sessionFor();
-            String inputName = session.getInputNames().iterator().next();
-            float[] features = buildFeatures(targetDate, history, historyDays);
-            OrtEnvironment runtimeEnvironment = environment();
-
-            try (
-                OnnxTensor input = OnnxTensor.createTensor(
-                    runtimeEnvironment,
-                    new float[][] { features }
-                );
-                OrtSession.Result result = session.run(Map.of(inputName, input))
-            ) {
-                double prediction = extractPrediction(result.get(0).getValue());
-                if (!Double.isFinite(prediction)) {
-                    return OptionalDouble.empty();
-                }
-                return OptionalDouble.of(Math.max(0.0, prediction));
+            double prediction = OnnxDemandRuntime.predict(
+                modelPath(),
+                buildFeatures(targetDate, history, historyDays)
+            );
+            if (!Double.isFinite(prediction)) {
+                return OptionalDouble.empty();
             }
-        } catch (Exception | LinkageError exception) {
+            return OptionalDouble.of(Math.max(0.0, prediction));
+        } catch (Throwable exception) {
             modelFailed = true;
             log.warn(
                 "Cannot run global LightGBM ONNX model for product {}. Falling back to baseline.",
@@ -124,33 +107,6 @@ public class LightGbmOnnxDemandPredictor {
             (float) (recentAverage - previousAverage),
             (float) linearRegressionSlopeOfTail(history, 14)
         };
-    }
-
-    private OrtSession sessionFor() throws OrtException {
-        OrtSession existing = session;
-        if (existing != null) {
-            return existing;
-        }
-        synchronized (this) {
-            if (session == null) {
-                session = environment().createSession(modelPath().toString());
-                log.info("Loaded global LightGBM ONNX demand model");
-            }
-            return session;
-        }
-    }
-
-    private OrtEnvironment environment() {
-        OrtEnvironment existing = environment;
-        if (existing != null) {
-            return existing;
-        }
-        synchronized (this) {
-            if (environment == null) {
-                environment = OrtEnvironment.getEnvironment();
-            }
-            return environment;
-        }
     }
 
     private Path modelPath() {
@@ -251,14 +207,10 @@ public class LightGbmOnnxDemandPredictor {
 
     @PreDestroy
     public void close() {
-        OrtSession existing = session;
-        if (existing != null) {
-            try {
-                existing.close();
-            } catch (OrtException exception) {
-                log.debug("Cannot close ONNX session cleanly", exception);
-            }
-            session = null;
+        try {
+            OnnxDemandRuntime.closeQuietly();
+        } catch (Throwable ignored) {
+            // Native runtime may be unavailable on the host; ignore shutdown errors.
         }
     }
 }

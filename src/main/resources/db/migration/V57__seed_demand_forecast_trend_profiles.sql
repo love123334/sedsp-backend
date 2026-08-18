@@ -225,6 +225,8 @@ SET subtotal_amount = totals.subtotal,
 FROM (
     SELECT item.order_id, ROUND(SUM(item.subtotal), 2) AS subtotal
     FROM order_items item
+    JOIN orders scoped_order ON scoped_order.id = item.order_id
+    WHERE scoped_order.shipping_address LIKE '[DSS-FORECAST-TREND] %'
     GROUP BY item.order_id
 ) totals
 WHERE totals.order_id = forecast_order.id
