@@ -159,9 +159,17 @@ fi
 export SPRING_PROFILES_ACTIVE="${SPRING_PROFILES_ACTIVE:-prod}"
 
 echo "[env] binding server.port=${PORT:-8080} (0.0.0.0)"
+if [ -f /proc/meminfo ]; then
+  echo "[env] $(awk '/MemAvailable|MemTotal/ {printf "%s=%s kB ", $1, $2}' /proc/meminfo)"
+fi
+# Strip heap sizes from JAVA_OPTS — -Xmx512m OOMs a 512Mi Railway container
+# once the fat JAR includes Gemini/ONNX. Container RAM percentage is safer.
+JAVA_OPTS_SAFE=$(printf '%s' "${JAVA_OPTS:-}" | sed 's/-Xms[^ ]*//g; s/-Xmx[^ ]*//g')
 # Only safe JVM flags here — datasource comes from env / EnvironmentPostProcessor
 # shellcheck disable=SC2086
-exec java ${JAVA_OPTS:--Xms256m -Xmx512m} \
+exec java ${JAVA_OPTS_SAFE} \
+  -XX:+UseContainerSupport \
+  -XX:MaxRAMPercentage="${JAVA_MAX_RAM_PERCENTAGE:-65.0}" \
   -Dserver.port="${PORT:-8080}" \
   -Dserver.address=0.0.0.0 \
   -Duser.timezone=Asia/Ho_Chi_Minh \
