@@ -8,6 +8,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LightGbmOnnxDemandPredictorTest {
@@ -43,6 +44,18 @@ class LightGbmOnnxDemandPredictorTest {
             features,
             0.0001f
         );
+    }
+
+    @Test
+    void failsStartupWhenRequiredModelIsMissing() {
+        LightGbmOnnxDemandPredictor predictor =
+            new LightGbmOnnxDemandPredictor("models/does-not-exist", true);
+
+        IllegalStateException exception = assertThrows(
+            IllegalStateException.class,
+            predictor::validateModelOnStartup
+        );
+        assertTrue(exception.getMessage().contains("Demand model file not found"));
     }
 
     @Test

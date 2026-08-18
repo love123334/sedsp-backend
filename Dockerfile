@@ -31,6 +31,10 @@ RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV PORT=8080
+ENV DSS_MODEL_DIR=/app/models/demand
+# Native ONNX is compileOnly in this image (-PexcludeOnnx=true). Requiring
+# the model would fail boot; baseline demand forecast stays available.
+ENV DSS_MODEL_REQUIRED=false
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=10 \

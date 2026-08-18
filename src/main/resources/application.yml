@@ -95,6 +95,7 @@ app:
 
   dss:
     model-dir: ${DSS_MODEL_DIR:models/demand}
+    model-required: ${DSS_MODEL_REQUIRED:false}
     max-price-change-percent: 300
     price-change-percentages:
       - -10

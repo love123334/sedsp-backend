@@ -1,7 +1,9 @@
 package com.example.secdsp.modules.dss.service;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -36,12 +38,68 @@ public class LightGbmOnnxDemandPredictor {
     );
 
     private final Path modelDirectory;
+    private final boolean modelRequired;
     private volatile boolean modelFailed;
 
+    public LightGbmOnnxDemandPredictor(String modelDirectory) {
+        this(modelDirectory, false);
+    }
+
+    @Autowired
     public LightGbmOnnxDemandPredictor(
-        @Value("${app.dss.model-dir:models/demand}") String modelDirectory
+        @Value("${app.dss.model-dir:models/demand}") String modelDirectory,
+        @Value("${app.dss.model-required:false}") boolean modelRequired
     ) {
         this.modelDirectory = Path.of(modelDirectory).toAbsolutePath().normalize();
+        this.modelRequired = modelRequired;
+    }
+
+    /**
+     * Smoke-test the ONNX artifact at boot. Production can set
+     * {@code app.dss.model-required=true} to fail the deploy when the model
+     * cannot run; Railway's slim image keeps this false so missing natives
+     * fall back to baseline instead of crashing the container.
+     */
+    @PostConstruct
+    void validateModelOnStartup() {
+        Path path = modelPath();
+        if (!Files.isRegularFile(path)) {
+            String message = "Demand model file not found: " + path;
+            if (modelRequired) {
+                throw new IllegalStateException(message);
+            }
+            log.warn("{}. Baseline fallback remains enabled.", message);
+            return;
+        }
+
+        try {
+            double smoke = OnnxDemandRuntime.predict(
+                path,
+                buildFeatures(
+                    LocalDate.now(),
+                    List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L),
+                    7
+                )
+            );
+            if (!Double.isFinite(smoke)) {
+                throw new IllegalStateException(
+                    "ONNX smoke inference returned no finite value"
+                );
+            }
+            log.info(
+                "Demand ONNX model ready: path={}, bytes={}, smokePrediction={}",
+                path,
+                Files.size(path),
+                smoke
+            );
+        } catch (Throwable exception) {
+            modelFailed = true;
+            String message = "Demand ONNX model failed startup validation: " + path;
+            if (modelRequired) {
+                throw new IllegalStateException(message, exception);
+            }
+            log.warn("{}. Baseline fallback remains enabled.", message, exception);
+        }
     }
 
     public boolean isModelAvailable(Long productId) {
