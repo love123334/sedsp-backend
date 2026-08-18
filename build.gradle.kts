@@ -27,6 +27,9 @@ val lombokMapstructBindingVersion = "0.2.0"
 val jjwtVersion = "0.12.5"
 
 dependencies {
+    // --- OpenAI SDK ---
+    implementation("com.google.genai:google-genai:0.3.0")
+
     // --- Spring Boot Starters ---
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-security")
