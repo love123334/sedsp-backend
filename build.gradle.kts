@@ -28,7 +28,9 @@ val jjwtVersion = "0.12.5"
 
 dependencies {
     // --- OpenAI SDK ---
-    implementation("com.google.genai:google-genai:0.3.0")
+    implementation("com.google.genai:google-genai:0.3.0") {
+        exclude(group = "commons-logging", module = "commons-logging")
+    }
 
     // --- Spring Boot Starters ---
     implementation("org.springframework.boot:spring-boot-starter-web")
@@ -73,6 +75,10 @@ dependencies {
     // --- Testing ---
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+}
+
+configurations.all {
+    exclude(group = "commons-logging", module = "commons-logging")
 }
 
 tasks.withType<Test> {
