@@ -171,28 +171,6 @@ public class AiChatServiceImpl implements AiChatService {
                 toolResult.keySet()
             );
 
-            /*
-             * Build the model's function response.
-             */
-            FunctionResponse functionResponse =
-                FunctionResponse.builder()
-                    .name(functionCall.name().orElse(""))
-                    .response(
-                        objectMapper.convertValue(
-                            toolResult,
-                            Map.class
-                        )
-                    )
-                    .build();
-
-            /*
-             * IMPORTANT:
-             *
-             * Send the original conversation + Gemini's function call
-             * + our function response back to Gemini.
-             *
-             * This is the actual function-calling loop.
-             */
             Content modelFunctionCall =
                 response.candidates()
                     .orElse(List.of())
