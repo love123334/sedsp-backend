@@ -940,41 +940,6 @@ WHERE status_order.shipping_address LIKE '[DSS-DEMO-%] %'
       WHERE tracking.order_id = status_order.id
   );
 
--- Seed one valid 90-day FR01 result per product. This lets FR07 run before the
--- user manually calls FR01; a later FR01 call will naturally become the latest.
-INSERT INTO demand_predictions (
-    product_id,
-    historical_days,
-    forecast_period,
-    average_daily_demand,
-    predicted_quantity,
-    generated_by,
-    created_at
-)
-SELECT
-    product.id,
-    90,
-    30,
-    ROUND(SUM(item.quantity)::NUMERIC / 90, 2),
-    ROUND((SUM(item.quantity)::NUMERIC / 90) * 30, 2),
-    product.seller_id,
-    CURRENT_TIMESTAMP
-FROM dss_seed_products product
-JOIN order_items item ON item.product_id = product.id
-JOIN orders completed_order ON completed_order.id = item.order_id
-WHERE completed_order.status = 'DELIVERED'
-  AND completed_order.created_at >= (CURRENT_DATE - 89)
-  AND completed_order.created_at < (CURRENT_DATE + 1)
-  AND NOT EXISTS (
-      SELECT 1
-      FROM demand_predictions existing_prediction
-      WHERE existing_prediction.product_id = product.id
-        AND existing_prediction.historical_days = 90
-        AND existing_prediction.forecast_period = 30
-        AND existing_prediction.created_at::DATE = CURRENT_DATE
-  )
-GROUP BY product.id, product.seller_id;
-
 COMMIT;
 
 -- Quick verification result set. Aggregates are separated to avoid multiplying
@@ -1007,14 +972,6 @@ WITH seeded_products AS (
     WHERE history.changed_at >= CURRENT_DATE - 120
       AND history.product_id IN (SELECT id FROM seeded_products)
     GROUP BY history.product_id
-), latest_prediction AS (
-    SELECT DISTINCT ON (prediction.product_id)
-           prediction.product_id,
-           prediction.average_daily_demand
-    FROM demand_predictions prediction
-    WHERE prediction.created_at::DATE = CURRENT_DATE
-      AND prediction.product_id IN (SELECT id FROM seeded_products)
-    ORDER BY prediction.product_id, prediction.created_at DESC
 )
 SELECT
     product.id AS product_id,
@@ -1024,12 +981,10 @@ SELECT
     product.cost_price,
     sales.sale_days,
     sales.total_quantity,
-    COALESCE(history.price_changes, 0) AS price_changes,
-    prediction.average_daily_demand AS seeded_average_daily_demand
+    COALESCE(history.price_changes, 0) AS price_changes
 FROM seeded_products seeded
 JOIN products product ON product.id = seeded.id
 JOIN users seller ON seller.id = product.seller_id
 JOIN sales_summary sales ON sales.product_id = product.id
 LEFT JOIN history_summary history ON history.product_id = product.id
-LEFT JOIN latest_prediction prediction ON prediction.product_id = product.id
 ORDER BY product.id;
