@@ -21,6 +21,12 @@ public class DssProperties {
     /** Thư mục model LightGBM ONNX (global-demand.onnx). */
     String modelDir = "models/demand";
 
+    /**
+     * When true, missing/unrunnable ONNX fails boot. Railway Docker keeps this
+     * false because onnxruntime is compileOnly ({@code -PexcludeOnnx}).
+     */
+    boolean modelRequired = false;
+
     /** Kịch bản % thay đổi giá (giảm / giữ / tăng). Có thể override qua env. */
     int defaultForecastDays = 30;
 

@@ -112,6 +112,11 @@ logging:
 
 # Absolute URL for /uploads when Cloudinary is missing/misconfigured
 app:
+  dss:
+    # Copied into the image by Dockerfile. Native ONNX is not in the Railway
+    # fat JAR (-PexcludeOnnx); keep required=false so boot can fall back.
+    model-dir: ${DSS_MODEL_DIR:/app/models/demand}
+    model-required: ${DSS_MODEL_REQUIRED:false}
   cloudinary:
     cloud-name: ${CLOUDINARY_CLOUD_NAME:}
     api-key: ${CLOUDINARY_API_KEY:}
