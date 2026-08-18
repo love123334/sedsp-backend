@@ -54,6 +54,7 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.16")
     implementation("com.github.slugify:slugify:3.0.4")
     implementation("com.cloudinary:cloudinary-http44:1.39.0") // Thư viện Upload ảnh sản phẩm
+    implementation("com.microsoft.onnxruntime:onnxruntime:1.23.2")
 
     // --- Lombok & MapStruct ---
     compileOnly("org.projectlombok:lombok")

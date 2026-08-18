@@ -12,8 +12,22 @@ Toàn bộ dữ liệu demo/marketplace được quản lý qua **Flyway migrati
 | V36, V39, V43, V46 | DSS sales / platform demo |
 | V47 | Việt hóa label + backfill tồn kho |
 | V48 | Cleanup attributes, nhà cung cấp, category |
+| V51 | 180 ngày nhu cầu dự báo: tăng, giảm, ổn định theo tuần, bán gián đoạn |
 
 Chạy `flyway migrate` (tự động khi boot BE) sẽ áp dụng đầy đủ.
+
+## Sản phẩm kiểm thử dự báo nhu cầu
+
+Đăng nhập seller DSS và chọn một trong bốn sản phẩm sau:
+
+| Sản phẩm | Slug | Mẫu dữ liệu 180 ngày |
+|----------|------|----------------------|
+| DSS Forecast - Nhu cầu tăng | `dss-forecast-growing-demand` | Tăng dần, cao hơn vào cuối tuần |
+| DSS Forecast - Nhu cầu giảm | `dss-forecast-declining-demand` | Giảm dần theo thời gian |
+| DSS Forecast - Ổn định theo tuần | `dss-forecast-weekly-stable-demand` | Mức nền ổn định, có chu kỳ cuối tuần |
+| DSS Forecast - Bán gián đoạn | `dss-forecast-intermittent-demand` | Có ngày bằng 0, xu hướng tăng nhẹ |
+
+Các sản phẩm này hỗ trợ kiểm thử lookback 7, 14, 30, 60 và 180 ngày.
 
 ## Export full DB (cho teammate cập nhật)
 
@@ -48,6 +62,6 @@ UI login: giữ **Ctrl** + bấm **Đăng nhập** để hiện nút demo.
 
 ## Cập nhật an toàn
 
-1. Thêm migration `V49__...sql` (idempotent)
+1. Thêm migration mới theo số phiên bản tiếp theo (idempotent)
 2. Push `Minhedit` / `railway`
 3. Không ghi đè production bằng dump cũ nếu đã có đơn thật

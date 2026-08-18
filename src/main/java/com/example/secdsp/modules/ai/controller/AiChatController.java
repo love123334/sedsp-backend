@@ -9,9 +9,11 @@ import com.example.secdsp.modules.ai.service.AiChatRateLimiter;
 import com.example.secdsp.modules.ai.service.AiChatService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Locale;
@@ -28,16 +30,19 @@ public class AiChatController {
     private final AiChatRateLimiter aiChatRateLimiter;
     private final AiChatService aiChatService;
 
+    @Value("${google.ai.api-key:}")
+    private String geminiApiKey;
+
     @GetMapping("/status")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<BaseResponse<Map<String, Object>>> status() {
-
+        boolean configured = StringUtils.hasText(geminiApiKey);
         return ResponseEntity.ok(
             BaseResponse.success(
                 Map.of(
-                    "configured", true,
-                    "provider", "google-gemini",
-                    "model", "gemini-3.6-flash"
+                    "configured", configured,
+                    "provider", configured ? "google-gemini" : "none",
+                    "model", configured ? "gemini-3.6-flash" : ""
                 )
             )
         );

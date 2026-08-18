@@ -23,5 +23,6 @@ public class DemandForecastResponse {
     boolean insufficientData;
     List<Map<String, Object>> historicalSales;
     List<Map<String, Object>> forecastSales;
+    Map<String, Object> featureSnapshot;
     String generatedAt;
 }

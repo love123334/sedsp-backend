@@ -9,6 +9,7 @@ import com.google.genai.types.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.Map;
 
 @Slf4j
 @Service
+@ConditionalOnBean(Client.class)
 @RequiredArgsConstructor
 public class AiChatServiceImpl implements AiChatService {
 
