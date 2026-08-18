@@ -109,7 +109,7 @@ public class SellerDashboardServiceImpl implements SellerDashboardService {
         }
         if (tips.isEmpty()) {
             tips.add(
-                "Shop đang ổn định. Dùng DSS → Gợi ý giá / What-if để tối ưu biên lợi nhuận."
+                "Shop đang ổn định. Dùng DSS → Gợi ý giá nâng cao / Hiệu quả đơn hàng để tối ưu biên lợi nhuận."
             );
         }
         return tips.stream().limit(5).toList();
