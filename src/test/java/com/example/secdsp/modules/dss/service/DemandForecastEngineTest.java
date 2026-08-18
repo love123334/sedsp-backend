@@ -130,4 +130,42 @@ class DemandForecastEngineTest {
         assertTrue(forecast.forecastSales().isEmpty());
         assertEquals(14, forecast.historicalSales().size());
     }
+
+    @Test
+    void forecastSupportsAnExplicitHistoricalDateRange() {
+        LocalDate fromDate = LocalDate.now().minusDays(29);
+        LocalDate toDate = LocalDate.now();
+        when(orderItemRepository.findCompletedDailySalesByProduct(
+            PRODUCT_ID,
+            fromDate.atStartOfDay(),
+            toDate.plusDays(1).atStartOfDay()
+        )).thenReturn(List.of(
+            new Object[] { Date.valueOf(fromDate), 4L },
+            new Object[] { Date.valueOf(fromDate.plusDays(1)), 5L },
+            new Object[] { Date.valueOf(fromDate.plusDays(2)), 6L }
+        ));
+        when(inventoryRepository.findByProduct_Id(PRODUCT_ID))
+            .thenReturn(java.util.Optional.empty());
+        when(productReviewRepository.getRatingSummary(PRODUCT_ID))
+            .thenReturn(Collections.singletonList(new Object[] { null, 0L }));
+
+        DemandForecastComputation forecast = demandForecastEngine.forecast(
+            new DemandForecastProductView(
+                PRODUCT_ID,
+                7L,
+                "Nike Air Force",
+                new BigDecimal("2500000.00")
+            ),
+            fromDate,
+            toDate,
+            14
+        );
+
+        assertFalse(forecast.insufficientData());
+        assertEquals(30, forecast.historicalDays());
+        assertEquals(14, forecast.forecastDays());
+        assertEquals(30, forecast.historicalSales().size());
+        assertEquals(toDate.plusDays(1).toString(),
+            forecast.forecastSales().get(0).get("date"));
+    }
 }

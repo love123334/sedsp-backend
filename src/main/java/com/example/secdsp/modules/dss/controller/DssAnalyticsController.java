@@ -4,7 +4,6 @@ import com.example.secdsp.common.api.BaseResponse;
 import com.example.secdsp.modules.dss.dto.DemandForecastResponse;
 import com.example.secdsp.modules.dss.dto.DssInsightPlanResponse;
 import com.example.secdsp.modules.dss.dto.InventoryRecommendationResponse;
-import com.example.secdsp.modules.dss.dto.PriceRecommendationResponse;
 import com.example.secdsp.modules.dss.service.DssAnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -35,19 +34,6 @@ public class DssAnalyticsController {
         return ResponseEntity.ok(
             BaseResponse.success(
                 dssAnalyticsService.forecastDemand(productId, historyDays, forecastDays)
-            )
-        );
-    }
-
-    @GetMapping("/dss/price/{productId}")
-    @PreAuthorize("hasAnyRole('SELLER','MANAGER','ADMIN')")
-    public ResponseEntity<BaseResponse<PriceRecommendationResponse>> price(
-        @PathVariable Long productId,
-        @RequestParam(defaultValue = "30") int lookbackDays
-    ) {
-        return ResponseEntity.ok(
-            BaseResponse.success(
-                dssAnalyticsService.recommendPrice(productId, lookbackDays)
             )
         );
     }

@@ -9,7 +9,6 @@ import com.example.secdsp.modules.dss.dto.internal.DemandForecastProductView;
 import com.example.secdsp.modules.dss.dto.DemandForecastResponse;
 import com.example.secdsp.modules.dss.dto.DssInsightPlanResponse;
 import com.example.secdsp.modules.dss.dto.InventoryRecommendationResponse;
-import com.example.secdsp.modules.dss.dto.PriceRecommendationResponse;
 import com.example.secdsp.modules.inventory.entity.Inventory;
 import com.example.secdsp.modules.inventory.repository.InventoryRepository;
 import com.example.secdsp.modules.order.repository.OrderItemRepository;
@@ -22,8 +21,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -92,69 +89,6 @@ public class DssAnalyticsService {
             .forecastSales(forecast.forecastSales())
             .featureSnapshot(forecast.featureSnapshot())
             .generatedAt(forecast.generatedAt())
-            .build();
-    }
-
-    @Transactional(readOnly = true)
-    public PriceRecommendationResponse recommendPrice(Long productId, int lookbackDays) {
-        Long sellerId = requireUserId();
-        Product product = requireSellerProduct(productId, sellerId);
-        int days = clamp(lookbackDays, 7, 90);
-
-        List<Object[]> stats = orderItemRepository.findProductSalesStats(sellerId, days);
-        long demand = 0;
-        BigDecimal avgSoldPrice = product.getPrice();
-        for (Object[] row : stats) {
-            if (((Number) row[0]).longValue() == productId) {
-                demand = ((Number) row[2]).longValue();
-                avgSoldPrice = (BigDecimal) row[4];
-                break;
-            }
-        }
-        if (demand <= 0) {
-            demand = 30;
-        }
-
-        BigDecimal current = product.getPrice() != null ? product.getPrice() : avgSoldPrice;
-        double elasticity = -1.15;
-        double changePct = demand < 20 ? -5 : 5;
-        BigDecimal recommended = current.multiply(BigDecimal.valueOf(1 + changePct / 100.0))
-            .setScale(0, RoundingMode.HALF_UP);
-        long predictedDemand = Math.max(1, Math.round(demand * (1 + elasticity * (changePct / 100.0))));
-        BigDecimal expectedRevenue = recommended.multiply(BigDecimal.valueOf(predictedDemand));
-
-        String action = changePct > 0 ? "increase" : changePct < 0 ? "decrease" : "keep";
-        String insight = changePct > 0
-            ? "Nhu cau on dinh — co the tang gia nhe de cai thien doanh thu."
-            : "Nhu cau thap — can nhac giam gia de day doanh so.";
-
-        List<Map<String, Object>> chart = new ArrayList<>();
-        for (int i = 9; i >= 0; i--) {
-            Map<String, Object> p = new LinkedHashMap<>();
-            p.put("label", "D-" + i);
-            double wobble = 1 + ((i % 4) - 1.5) * 0.02;
-            BigDecimal price = current.multiply(BigDecimal.valueOf(wobble)).setScale(0, RoundingMode.HALF_UP);
-            long qty = Math.max(1, Math.round(demand / 10.0 * (1.1 - (wobble - 1) * 1.2)));
-            p.put("averagePrice", price);
-            p.put("quantitySold", qty);
-            chart.add(p);
-        }
-
-        return PriceRecommendationResponse.builder()
-            .productId(productId)
-            .productName(product.getName())
-            .currentPrice(current)
-            .recommendedPrice(recommended)
-            .priceChangePct(changePct)
-            .elasticity(elasticity)
-            .currentDemand(demand)
-            .predictedDemand(predictedDemand)
-            .expectedRevenue(expectedRevenue)
-            .action(action)
-            .message(insight)
-            .insight(insight)
-            .chart(chart)
-            .generatedAt(now())
             .build();
     }
 
@@ -339,7 +273,7 @@ public class DssAnalyticsService {
                     .append("đ\n");
             }
         }
-        sb.append("- Gợi ý module DSS nên nhắc: dự báo nhu cầu, gợi ý giá, what-if giảm giá, khuyến nghị tồn kho.\n");
+        sb.append("- Gợi ý module DSS nên nhắc: dự báo LightGBM, gợi ý giá nâng cao, hiệu quả đơn hàng, khuyến nghị tồn kho.\n");
         return sb.toString();
     }
 

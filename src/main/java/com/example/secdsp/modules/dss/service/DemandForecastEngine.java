@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.dss.service;
 
+import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.modules.dss.dto.internal.DemandForecastComputation;
 import com.example.secdsp.modules.dss.dto.internal.DemandForecastProductView;
 import com.example.secdsp.modules.inventory.entity.Inventory;
@@ -14,6 +15,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -50,6 +52,55 @@ public class DemandForecastEngine {
 
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(hist - 1L);
+
+        return forecastBetween(product, startDate, endDate, hist, horizon);
+    }
+
+    @Transactional(readOnly = true)
+    public DemandForecastComputation forecast(
+        DemandForecastProductView product,
+        LocalDate fromDate,
+        LocalDate toDate,
+        int forecastDays
+    ) {
+        if (fromDate == null || toDate == null || fromDate.isAfter(toDate)) {
+            throw new BusinessException("Khoảng dữ liệu lịch sử không hợp lệ.");
+        }
+
+        long requestedHistoryDays = ChronoUnit.DAYS.between(
+            fromDate,
+            toDate
+        ) + 1L;
+        if (requestedHistoryDays < MIN_HISTORY_DAYS
+            || requestedHistoryDays > MAX_HISTORY_DAYS) {
+            throw new BusinessException(
+                "Khoảng dữ liệu lịch sử phải từ 7 đến 180 ngày."
+            );
+        }
+
+        if (forecastDays < MIN_FORECAST_DAYS
+            || forecastDays > MAX_FORECAST_DAYS) {
+            throw new BusinessException(
+                "Khoảng dự báo phải từ 1 đến 90 ngày."
+            );
+        }
+
+        return forecastBetween(
+            product,
+            fromDate,
+            toDate,
+            Math.toIntExact(requestedHistoryDays),
+            forecastDays
+        );
+    }
+
+    private DemandForecastComputation forecastBetween(
+        DemandForecastProductView product,
+        LocalDate startDate,
+        LocalDate endDate,
+        int hist,
+        int horizon
+    ) {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.plusDays(1L).atStartOfDay();
 
