@@ -11,7 +11,7 @@ COPY . .
 RUN mkdir -p /build/models/demand
 
 RUN chmod +x gradlew \
-  && gradle bootJar -x test --no-daemon --stacktrace \
+  && gradle bootJar -x test --no-daemon --stacktrace -PexcludeOnnx=true \
   && JAR="$(ls -1 build/libs/*.jar | grep -v plain | head -n 1)" \
   && test -n "$JAR" \
   && cp "$JAR" /build/app.jar \
