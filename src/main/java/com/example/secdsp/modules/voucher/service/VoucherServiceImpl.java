@@ -183,10 +183,10 @@ public class VoucherServiceImpl implements VoucherService {
         try {
             List<Long> productIds = resolveProductIds(userId, request);
             return doValidate(request.getCode(), productIds, userId, false);
-        } catch (BusinessException ex) {
-            return invalid(friendlyVoucherMessage(ex.getMessage()));
         } catch (ResourceNotFoundException ex) {
             return invalid("Sản phẩm trong giỏ không còn tồn tại.");
+        } catch (BusinessException ex) {
+            return invalid(friendlyVoucherMessage(ex.getMessage()));
         } catch (Exception ex) {
             log.warn("Voucher validate failed for user {}", userId, ex);
             return invalid("Chưa áp dụng được mã giảm giá. Vui lòng thử lại sau.");
