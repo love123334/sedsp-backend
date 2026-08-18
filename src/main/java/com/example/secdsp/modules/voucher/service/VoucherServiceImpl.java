@@ -228,10 +228,17 @@ public class VoucherServiceImpl implements VoucherService {
     @Transactional(readOnly = true)
     public List<VoucherResponse> listPublicVouchers(Long sellerId) {
         OffsetDateTime now = OffsetDateTime.now();
-        List<Voucher> list = sellerId != null
-            ? voucherRepository.findActiveBySeller(sellerId, now)
-            : voucherRepository.findActivePublic(now);
-        return list.stream().map(this::toVoucherResponse).toList();
+        Map<Long, Voucher> unique = new LinkedHashMap<>();
+        for (Voucher voucher : voucherRepository.findActivePublic(now)) {
+            boolean platform = voucher.getScope() == VoucherScope.PLATFORM;
+            boolean shopMatch = voucher.getSeller() != null
+                && sellerId != null
+                && sellerId.equals(voucher.getSeller().getId());
+            if (sellerId == null || platform || shopMatch) {
+                unique.put(voucher.getId(), voucher);
+            }
+        }
+        return unique.values().stream().map(this::toVoucherResponse).toList();
     }
 
     @Override
