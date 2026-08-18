@@ -3,16 +3,15 @@ package com.example.secdsp.modules.ai.service;
 import com.example.secdsp.modules.ai.dto.AiChatRequest;
 import com.example.secdsp.modules.ai.dto.AiChatResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Service;
 
 /**
- * Keeps Railway bootable when GEMINI_API_KEY is not set.
- * Local catalog chatbot on the frontend still answers product questions.
+ * Always registered so Railway boots without GEMINI_API_KEY.
+ * {@code @ConditionalOnMissingBean} on a {@code @Service} that implements the
+ * same type is skipped during component scan, which crashed production.
  */
 @Slf4j
 @Service
-@ConditionalOnMissingBean(AiChatService.class)
 public class AiChatFallbackService implements AiChatService {
 
     @Override
