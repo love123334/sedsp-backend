@@ -1,0 +1,215 @@
+{
+  "scope": "global",
+  "productCount": 34,
+  "productIds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68
+  ],
+  "products": [
+    {
+      "productId": 1,
+      "productName": "Tai nghe Bluetooth Pro ANC"
+    },
+    {
+      "productId": 2,
+      "productName": "Bàn phím cơ RGB KeyPro K87"
+    },
+    {
+      "productId": 3,
+      "productName": "Giày chạy bộ AirFlex Marathon"
+    },
+    {
+      "productId": 4,
+      "productName": "Nồi chiên không dầu 5L"
+    },
+    {
+      "productId": 5,
+      "productName": "iPhone 15 Pro 128GB"
+    },
+    {
+      "productId": 6,
+      "productName": "Samsung Galaxy S24"
+    },
+    {
+      "productId": 7,
+      "productName": "MacBook Air M3"
+    },
+    {
+      "productId": 8,
+      "productName": "AirPods Pro 2"
+    },
+    {
+      "productId": 9,
+      "productName": "iPad Air 6"
+    },
+    {
+      "productId": 10,
+      "productName": "Dell XPS 15"
+    },
+    {
+      "productId": 11,
+      "productName": "HP Spectre x360"
+    },
+    {
+      "productId": 12,
+      "productName": "Xiaomi 14 Ultra"
+    },
+    {
+      "productId": 13,
+      "productName": "Logitech MX Master 3S"
+    },
+    {
+      "productId": 14,
+      "productName": "Samsung T7 SSD 1TB"
+    },
+    {
+      "productId": 15,
+      "productName": "Men Slim Fit Blazer"
+    },
+    {
+      "productId": 16,
+      "productName": "Men Casual Shirt"
+    },
+    {
+      "productId": 17,
+      "productName": "Women Floral Dress"
+    },
+    {
+      "productId": 18,
+      "productName": "Women Office Skirt"
+    },
+    {
+      "productId": 19,
+      "productName": "Leather Oxford Shoes"
+    },
+    {
+      "productId": 20,
+      "productName": "Centella Facial Cleanser"
+    },
+    {
+      "productId": 55,
+      "productName": "Wireless Mouse Pro"
+    },
+    {
+      "productId": 56,
+      "productName": "Mechanical Keyboard K87"
+    },
+    {
+      "productId": 57,
+      "productName": "Noise Cancelling Headphones"
+    },
+    {
+      "productId": 58,
+      "productName": "USB-C Hub 8-in-1"
+    },
+    {
+      "productId": 59,
+      "productName": "Fitness Smart Watch"
+    },
+    {
+      "productId": 60,
+      "productName": "Running Shoes X1"
+    },
+    {
+      "productId": 61,
+      "productName": "Premium Cotton Jacket"
+    },
+    {
+      "productId": 62,
+      "productName": "Urban Travel Backpack"
+    },
+    {
+      "productId": 63,
+      "productName": "Smart Air Fryer"
+    },
+    {
+      "productId": 64,
+      "productName": "Digital Coffee Maker"
+    },
+    {
+      "productId": 65,
+      "productName": "DSS Forecast - Bán gián đoạn"
+    },
+    {
+      "productId": 66,
+      "productName": "DSS Forecast - Ổn định theo tuần"
+    },
+    {
+      "productId": 67,
+      "productName": "DSS Forecast - Nhu cầu giảm"
+    },
+    {
+      "productId": 68,
+      "productName": "DSS Forecast - Nhu cầu tăng"
+    }
+  ],
+  "modelType": "LightGBMRegressor",
+  "format": "ONNX",
+  "featureNames": [
+    "history_days",
+    "day_of_week",
+    "day_of_month",
+    "month",
+    "is_weekend",
+    "lag_1",
+    "lag_7",
+    "rolling_mean_7",
+    "rolling_mean_14",
+    "rolling_mean_30",
+    "rolling_std_7",
+    "momentum_7",
+    "trend_slope_14"
+  ],
+  "lookbackOptions": [
+    7,
+    14,
+    30,
+    60,
+    90,
+    120,
+    180
+  ],
+  "historyStart": "2026-02-19",
+  "historyEnd": "2026-08-17",
+  "trainingRows": 15048,
+  "validationRows": 5720,
+  "bestIteration": 281,
+  "metrics": {
+    "mae": 2.4273,
+    "rmse": 4.3667,
+    "mapePercent": 225.4607,
+    "maxOnnxPredictionDelta": 1.2e-05
+  }
+}
