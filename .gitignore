@@ -5,6 +5,8 @@
 # =========================
 
 .gradle/
+.gradle-cache/
+.gradle-advanced-price/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 

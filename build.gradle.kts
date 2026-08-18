@@ -27,6 +27,9 @@ val lombokMapstructBindingVersion = "0.2.0"
 val jjwtVersion = "0.12.5"
 
 dependencies {
+    // --- OpenAI SDK ---
+    implementation("com.google.genai:google-genai:0.3.0")
+
     // --- Spring Boot Starters ---
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-security")
@@ -51,6 +54,7 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.16")
     implementation("com.github.slugify:slugify:3.0.4")
     implementation("com.cloudinary:cloudinary-http44:1.39.0") // Thư viện Upload ảnh sản phẩm
+    implementation("com.microsoft.onnxruntime:onnxruntime:1.23.2")
 
     // --- Lombok & MapStruct ---
     compileOnly("org.projectlombok:lombok")

@@ -93,8 +93,8 @@ app:
     payment-timeout-minutes: ${ORDER_PAYMENT_TIMEOUT_MINUTES:15}
     payment-expiry-check-ms: ${ORDER_PAYMENT_EXPIRY_CHECK_MS:60000}
 
-  # --- DSS: kịch bản giá, chi phí ước tính, kỳ dự báo ---
   dss:
+    model-dir: ${DSS_MODEL_DIR:models/demand}
     max-price-change-percent: 300
     price-change-percentages:
       - -10
@@ -129,3 +129,9 @@ app:
       return-url: ${MOMO_RETURN_URL:http://localhost:8080/api/v1/payments/momo-return}
       notify-url: ${MOMO_NOTIFY_URL:http://localhost:8080/api/v1/payments/momo-ipn}
       request-type: "captureWallet"
+
+  # --- Cấu hình OpenAI SDK (MCP) ---
+google:
+  ai:
+    api-key: ${GEMINI_API_KEY:}
+    model: "gemini-3.6-flash"

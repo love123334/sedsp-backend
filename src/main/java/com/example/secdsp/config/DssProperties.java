@@ -18,6 +18,9 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DssProperties {
 
+    /** Thư mục model LightGBM ONNX (global-demand.onnx). */
+    String modelDir = "models/demand";
+
     /** Kịch bản % thay đổi giá (giảm / giữ / tăng). Có thể override qua env. */
     int defaultForecastDays = 30;
 

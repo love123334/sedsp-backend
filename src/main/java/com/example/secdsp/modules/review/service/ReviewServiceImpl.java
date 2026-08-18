@@ -114,9 +114,16 @@ public class ReviewServiceImpl implements ReviewService {
     public RatingSummaryResponse getRatingSummary(Long productId) {
 
         Object[] result = reviewRepository.getRatingSummary(productId);
+        if (result == null || result.length == 0) {
+            result = new Object[] { null, 0L };
+        }
 
-        Double avg = result[0] != null ? (Double) result[0] : 0.0;
-        Long count = result[1] != null ? (Long) result[1] : 0L;
+        double avg = result.length > 0 && result[0] instanceof Number value
+            ? value.doubleValue()
+            : 0.0;
+        long count = result.length > 1 && result[1] instanceof Number value
+            ? value.longValue()
+            : 0L;
 
         return new RatingSummaryResponse(avg, count);
     }

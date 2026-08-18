@@ -236,7 +236,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(BaseResponse.error(
-                    "Không xử lý được dữ liệu DSS/đơn hàng. Kiểm tra sản phẩm có lịch sử bán và schema DB đã migrate."
+                    "Tạm thời không xử lý được yêu cầu. Vui lòng thử lại sau."
                 ));
     }
 
