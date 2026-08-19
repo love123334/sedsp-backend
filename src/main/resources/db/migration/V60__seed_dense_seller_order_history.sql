@@ -186,13 +186,13 @@ SELECT
     0.00,
     CASE
         WHEN basket.event_code = 'DOUBLE_88' THEN 19000.00
-        WHEN basket.isodow IN (6, 7) THEN 22000.00
+        WHEN EXTRACT(ISODOW FROM basket.sale_date) IN (6, 7) THEN 22000.00
         ELSE 25000.00
     END,
     0.00,
     CASE
         WHEN basket.event_code = 'DOUBLE_88' THEN 19000.00
-        WHEN basket.isodow IN (6, 7) THEN 22000.00
+        WHEN EXTRACT(ISODOW FROM basket.sale_date) IN (6, 7) THEN 22000.00
         ELSE 25000.00
     END,
     CASE
@@ -235,7 +235,7 @@ SELECT
         + ((basket.basket_no - 1) * INTERVAL '90 minutes')
         + INTERVAL '5 hours'
 FROM (
-    SELECT DISTINCT seller_id, sale_date, basket_no, event_code, isodow
+    SELECT DISTINCT seller_id, sale_date, basket_no, event_code
     FROM vol_lines_capped
 ) basket
 JOIN vol_buyers buyer
