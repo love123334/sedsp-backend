@@ -231,13 +231,13 @@ SELECT
     0.00,
     CASE
         WHEN basket.event_code = 'DOUBLE_88' THEN 19000.00
-        WHEN basket.isodow IN (6, 7) THEN 22000.00
+        WHEN EXTRACT(ISODOW FROM basket.sale_date) IN (6, 7) THEN 22000.00
         ELSE 25000.00
     END,
     0.00,
     CASE
         WHEN basket.event_code = 'DOUBLE_88' THEN 19000.00
-        WHEN basket.isodow IN (6, 7) THEN 22000.00
+        WHEN EXTRACT(ISODOW FROM basket.sale_date) IN (6, 7) THEN 22000.00
         ELSE 25000.00
     END,
     CASE
@@ -283,7 +283,7 @@ SELECT
             ELSE TIME '22:00:00'
           END
 FROM (
-    SELECT DISTINCT seller_id, sale_date, basket_no, event_code, isodow
+    SELECT DISTINCT seller_id, sale_date, basket_no, event_code
     FROM recent_lines_capped
 ) basket
 JOIN recent_buyers buyer
