@@ -1,9 +1,6 @@
 package com.example.secdsp.modules.category.repository;
 
 import com.example.secdsp.modules.category.entity.Category;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,14 +12,19 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     List<Category> findByParentIsNullOrderByNameAsc();
 
-    @EntityGraph(attributePaths = "parent")
+    /**
+     * Avoid EntityGraph + Page on self-referencing Category: Hibernate can throw
+     * DataAccessException under SQLRestriction (prod open-in-view=false).
+     */
     @Query("""
             SELECT c FROM Category c
-            WHERE (:keyword IS NULL OR :keyword = '' 
-                   OR LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) 
+            LEFT JOIN FETCH c.parent
+            WHERE (:keyword IS NULL OR :keyword = ''
+                   OR LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
                    OR LOWER(c.slug) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            ORDER BY c.name ASC
         """)
-    Page<Category> searchCategories(@Param("keyword") String keyword, Pageable pageable);
+    List<Category> searchCategories(@Param("keyword") String keyword);
 
     boolean existsByNameAndParent_Id(String name, Long parentId);
 

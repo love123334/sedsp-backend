@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -164,8 +165,12 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional(readOnly = true)
     public Page<CategoryResponse> getCategories(String keyword, Pageable pageable) {
         log.debug("Fetching categories with keyword: {} and pageable: {}", keyword, pageable);
-        return categoryRepository.searchCategories(keyword, pageable)
-            .map(categoryMapper::toResponse);
+        List<CategoryResponse> all = categoryRepository.searchCategories(keyword).stream()
+            .map(categoryMapper::toResponse)
+            .toList();
+        int start = (int) Math.min(pageable.getOffset(), all.size());
+        int end = Math.min(start + pageable.getPageSize(), all.size());
+        return new PageImpl<>(all.subList(start, end), pageable, all.size());
     }
 
     @Override
