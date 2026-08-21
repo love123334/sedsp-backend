@@ -33,12 +33,8 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        System.out.println("[datasource] EnvironmentPostProcessor running");
-
-        // Skip processor for local development with explicit config
         String localProfile = environment.getProperty("spring.profiles.active", "");
         if (localProfile.contains("dev") || localProfile.contains("local")) {
-            System.out.println("[datasource] Skipping processor for local development (profile: " + localProfile + ")");
             return;
         }
 
@@ -48,7 +44,6 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
                 continue;
             }
             raw = raw.trim();
-            System.out.println("[datasource] Trying " + key + " len=" + raw.length());
             if (raw.startsWith("jdbc:postgresql://")) {
                 apply(environment, raw,
                         firstEnv(environment, "SPRING_DATASOURCE_USERNAME", "PGUSER", "DATABASE_USER"),
@@ -72,7 +67,6 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
                 }
                 String v = val.trim();
                 if (v.startsWith("postgres://") || v.startsWith("postgresql://")) {
-                    System.out.println("[datasource] Scan hit " + name);
                     if (applyParsed(environment, v)) {
                         return;
                     }
@@ -86,10 +80,8 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
 
         String host = firstEnv(environment, "PGHOST", "POSTGRES_HOST", "DB_HOST", "DATABASE_HOST");
         if (!StringUtils.hasText(host)) {
-            System.out.println("[datasource] WARN: no DB URL/PGHOST — app will fail DataSource config");
-            System.out.println("[datasource] Railway Variables → Add Reference:");
-            System.out.println("[datasource]   DATABASE_PUBLIC_URL = (Postgres).DATABASE_PUBLIC_URL");
-            System.out.println("[datasource] Private DATABASE_URL is often EMPTY without private networking.");
+            System.err.println("[datasource] ERROR: no DB URL/PGHOST — app will fail DataSource config");
+            System.err.println("[datasource] Railway Variables → Add Reference DATABASE_PUBLIC_URL");
             dumpDbRelatedEnvKeys();
             excludeRedisIfMissing(environment);
             return;
@@ -108,7 +100,6 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
             // lastIndexOf: password may contain '@' if poorly encoded
             int at = rest.lastIndexOf('@');
             if (at < 0) {
-                System.out.println("[datasource] parse fail: no @ in URL");
                 return false;
             }
             String userpass = rest.substring(0, at);
@@ -162,7 +153,7 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
             apply(environment, jdbc.toString(), user, pass);
             return true;
         } catch (Exception ex) {
-            System.out.println("[datasource] parse failed: " + ex.getMessage());
+            System.err.println("[datasource] parse failed: " + ex.getMessage());
             return false;
         }
     }
@@ -180,13 +171,10 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
         String redis = firstEnv(environment, "REDIS_URL", "REDIS_PRIVATE_URL", "REDIS_PUBLIC_URL", "SPRING_DATA_REDIS_URL");
         if (StringUtils.hasText(redis)) {
             map.put("spring.data.redis.url", redis.trim());
-            System.out.println("[datasource] Redis URL configured");
         } else {
             putRedisExclude(map);
-            System.out.println("[datasource] No REDIS_URL — excluding Redis auto-config");
         }
         environment.getPropertySources().addFirst(new MapPropertySource(SOURCE, map));
-        System.out.println("[datasource] OK url=" + url.replaceAll("//[^@]+@", "//***@"));
     }
 
     /** Avoid infinite SSL/read hangs on Railway public proxy during Flyway boot.
@@ -238,8 +226,8 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
         if (env == null) {
             return;
         }
-        System.out.println("[datasource] DB-related env keys present:");
-        env.keySet().stream()
+        System.err.println("[datasource] DB-related env keys present:");
+            env.keySet().stream()
             .filter(k -> {
                 String u = k.toUpperCase();
                 return u.contains("DATABASE") || u.contains("POSTGRES") || u.startsWith("PG")
@@ -249,7 +237,7 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
             .forEach(k -> {
                 String v = env.get(k);
                 String state = !StringUtils.hasText(v) ? "EMPTY" : ("SET len=" + v.trim().length());
-                System.out.println("[datasource]   " + k + "=" + state);
+                System.err.println("[datasource]   " + k + "=" + state);
             });
     }
 
