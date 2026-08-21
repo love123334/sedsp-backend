@@ -189,7 +189,8 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
         System.out.println("[datasource] OK url=" + url.replaceAll("//[^@]+@", "//***@"));
     }
 
-    /** Avoid infinite SSL/read hangs on Railway public proxy during Flyway boot. */
+    /** Avoid infinite SSL/read hangs on Railway public proxy during Flyway boot.
+     *  stringtype=unspecified lets PG cast Java strings → native enums (order_status, …). */
     private static String ensureJdbcTimeouts(String url) {
         if (!StringUtils.hasText(url) || !url.startsWith("jdbc:postgresql://")) {
             return url;
@@ -205,6 +206,10 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
         if (!url.contains("loginTimeout=")) {
             if (extra.length() > 0) extra.append('&');
             extra.append("loginTimeout=10");
+        }
+        if (!url.contains("stringtype=")) {
+            if (extra.length() > 0) extra.append('&');
+            extra.append("stringtype=unspecified");
         }
         if (extra.length() == 0) {
             return url;

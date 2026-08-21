@@ -41,7 +41,9 @@ public class OrderPaymentExpiryService {
         OffsetDateTime cutoff = OffsetDateTime.now()
             .minusMinutes(Math.max(5, orderProperties.getPaymentTimeoutMinutes()));
 
-        List<Order> expired = orderRepository.findPendingOlderThan(cutoff).stream()
+        List<Order> expired = orderRepository
+            .findPendingOlderThan(OrderStatus.PENDING, cutoff)
+            .stream()
             .filter(this::isUnpaidGatewayOrder)
             .toList();
 
