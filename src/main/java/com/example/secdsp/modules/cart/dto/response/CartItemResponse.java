@@ -23,6 +23,12 @@ public class CartItemResponse {
     )
     Long productId;
 
+    @Schema(description = "Seller / shop user id for MoMo checkout")
+    Long sellerId;
+
+    @Schema(description = "Store display name")
+    String storeName;
+
     @Schema(
         description = "Product name",
         example = "Nike Air Force 1"
