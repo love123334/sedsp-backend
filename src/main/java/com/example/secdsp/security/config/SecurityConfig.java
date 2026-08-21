@@ -64,7 +64,8 @@ public class SecurityConfig {
                     "/api/v1/products/**",
                     "/api/v1/categories/**",
                     "/api/v1/vouchers/public",
-                    "/api/v1/sellers/*/momo"
+                    "/api/v1/sellers/*/momo",
+                    "/api/v1/ai/status"
                 ).permitAll()
 
                 // Local product images (Cloudinary fallback)
