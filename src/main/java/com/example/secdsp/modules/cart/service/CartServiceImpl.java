@@ -192,12 +192,20 @@ public class CartServiceImpl implements CartService {
                     ? product.getName()
                     : "";
                 Long productId = product != null ? product.getId() : null;
+                Long sellerId = product != null && product.getSeller() != null
+                    ? product.getSeller().getId()
+                    : null;
+                String storeName = product != null && product.getSeller() != null
+                    ? product.getSeller().getStoreName()
+                    : null;
                 int qty = item.getQuantity() != null ? item.getQuantity() : 0;
                 String imageUrl = resolvePrimaryImageUrl(product);
 
                 return CartItemResponse.builder()
                     .id(item.getId())
                     .productId(productId)
+                    .sellerId(sellerId)
+                    .storeName(storeName)
                     .productName(productName)
                     .productImageUrl(imageUrl)
                     .price(price)

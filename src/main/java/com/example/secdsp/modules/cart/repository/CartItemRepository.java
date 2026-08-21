@@ -28,7 +28,7 @@ public interface CartItemRepository extends JpaRepository<CartItem, Long> {
         @Param("productId") Long productId
     );
 
-    @EntityGraph(attributePaths = {"product"})
+    @EntityGraph(attributePaths = {"product", "product.seller"})
     List<CartItem> findByCart_Id(Long cartId);
 
     boolean existsByCart_IdAndProduct_Id(
