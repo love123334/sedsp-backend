@@ -201,7 +201,11 @@ public class VoucherServiceImpl implements VoucherService {
                 ex.getMessage(),
                 ex
             );
-            return invalid("Chưa áp dụng được mã giảm giá. Vui lòng thử lại sau.");
+            String detail = ex.getClass().getSimpleName()
+                + (ex.getMessage() != null && !ex.getMessage().isBlank()
+                ? ": " + ex.getMessage()
+                : "");
+            return invalid("Chưa áp dụng được mã giảm giá. Vui lòng thử lại sau. [" + detail + "]");
         }
     }
 
