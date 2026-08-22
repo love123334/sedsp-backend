@@ -34,7 +34,6 @@ public class AiChatController {
     private String geminiApiKey;
 
     @GetMapping("/status")
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<BaseResponse<Map<String, Object>>> status() {
         boolean configured = StringUtils.hasText(geminiApiKey);
         return ResponseEntity.ok(

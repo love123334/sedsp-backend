@@ -7,7 +7,7 @@
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/sedsp
+    url: jdbc:postgresql://localhost:5432/sedsp?stringtype=unspecified
     username: postgres
     password: your_local_db_password
     driver-class-name: org.postgresql.Driver

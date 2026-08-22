@@ -63,9 +63,12 @@ public interface OrderRepository
     @Query(
         """
         select o from Order o
-        where o.status = com.example.secdsp.modules.order.entity.OrderStatus.PENDING
+        where o.status = :status
           and o.createdAt < :cutoff
         """
     )
-    List<Order> findPendingOlderThan(@Param("cutoff") OffsetDateTime cutoff);
+    List<Order> findPendingOlderThan(
+        @Param("status") OrderStatus status,
+        @Param("cutoff") OffsetDateTime cutoff
+    );
 }

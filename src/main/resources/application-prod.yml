@@ -3,6 +3,8 @@ server:
   address: 0.0.0.0
 
 spring:
+  main:
+    banner-mode: "off"
   datasource:
     # Filled by DatabaseUrlEnvironmentPostProcessor / start.sh from DATABASE_PUBLIC_URL
     url: ${SPRING_DATASOURCE_URL:}
@@ -106,9 +108,11 @@ logging:
     root: INFO
     com.example.secdsp: INFO
     org.hibernate.SQL: WARN
-    com.zaxxer.hikari: INFO
+    org.hibernate.orm.connections.pooling: WARN
+    com.zaxxer.hikari: WARN
     org.flywaydb: INFO
-    org.springframework.mail: INFO
+    org.springframework.mail: WARN
+    org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer: ERROR
 
 # Absolute URL for /uploads when Cloudinary is missing/misconfigured
 app:

@@ -62,13 +62,24 @@ public class LightGbmOnnxDemandPredictor {
      */
     @PostConstruct
     void validateModelOnStartup() {
+        if (!onnxRuntimePresent()) {
+            modelFailed = true;
+            if (modelRequired) {
+                throw new IllegalStateException(
+                    "Demand ONNX runtime is required but not packaged in this image"
+                );
+            }
+            log.info("Demand forecast uses statistical baseline (ONNX runtime not in this image).");
+            return;
+        }
+
         Path path = modelPath();
         if (!Files.isRegularFile(path)) {
             String message = "Demand model file not found: " + path;
             if (modelRequired) {
                 throw new IllegalStateException(message);
             }
-            log.warn("{}. Baseline fallback remains enabled.", message);
+            log.info("{}. Using statistical baseline.", message);
             return;
         }
 
@@ -86,20 +97,40 @@ public class LightGbmOnnxDemandPredictor {
                     "ONNX smoke inference returned no finite value"
                 );
             }
-            log.info(
-                "Demand ONNX model ready: path={}, bytes={}, smokePrediction={}",
-                path,
-                Files.size(path),
-                smoke
-            );
+            log.info("Demand ONNX model ready: {}", path.getFileName());
         } catch (Throwable exception) {
             modelFailed = true;
             String message = "Demand ONNX model failed startup validation: " + path;
             if (modelRequired) {
                 throw new IllegalStateException(message, exception);
             }
-            log.warn("{}. Baseline fallback remains enabled.", message, exception);
+            if (isMissingOnnxRuntime(exception)) {
+                log.info("Demand forecast uses statistical baseline (ONNX runtime not in this image).");
+                return;
+            }
+            log.warn("{}. Using statistical baseline. ({})", message, exception.toString());
         }
+    }
+
+    private static boolean onnxRuntimePresent() {
+        try {
+            Class.forName("ai.onnxruntime.OrtEnvironment");
+            return true;
+        } catch (ClassNotFoundException | NoClassDefFoundError ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isMissingOnnxRuntime(Throwable exception) {
+        for (Throwable t = exception; t != null; t = t.getCause()) {
+            if (t instanceof ClassNotFoundException || t instanceof NoClassDefFoundError) {
+                String name = t.getMessage();
+                if (name != null && name.contains("onnxruntime")) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public boolean isModelAvailable(Long productId) {

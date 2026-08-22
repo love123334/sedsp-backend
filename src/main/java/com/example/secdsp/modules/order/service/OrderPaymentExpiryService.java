@@ -41,12 +41,18 @@ public class OrderPaymentExpiryService {
         OffsetDateTime cutoff = OffsetDateTime.now()
             .minusMinutes(Math.max(5, orderProperties.getPaymentTimeoutMinutes()));
 
-        List<Order> expired = orderRepository.findPendingOlderThan(cutoff).stream()
+        List<Order> expired = orderRepository
+            .findPendingOlderThan(OrderStatus.PENDING, cutoff)
+            .stream()
             .filter(this::isUnpaidGatewayOrder)
             .toList();
 
         for (Order order : expired) {
-            cancelExpiredOrder(order);
+            try {
+                cancelExpiredOrder(order);
+            } catch (Exception ex) {
+                log.warn("Failed to auto-cancel unpaid order {}: {}", order.getId(), ex.getMessage());
+            }
         }
 
         if (!expired.isEmpty()) {
@@ -89,6 +95,12 @@ public class OrderPaymentExpiryService {
         tracking.setOrder(order);
         tracking.setEvent(OrderTrackingEvent.CANCELLED_BY_ADMIN);
         tracking.setNote("Order auto-cancelled: payment timeout");
+        // Scheduler has no JWT — updated_by is NOT NULL; attribute to the buyer.
+        if (order.getUser() == null || order.getUser().getId() == null) {
+            log.warn("Expired order {} cancelled without tracking — missing buyer user", order.getId());
+            return;
+        }
+        tracking.setUpdatedBy(order.getUser());
         orderTrackingRepository.save(tracking);
     }
 }
