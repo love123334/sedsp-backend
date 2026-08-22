@@ -33,8 +33,8 @@ ENV SPRING_PROFILES_ACTIVE=prod
 ENV PORT=8080
 ENV DSS_MODEL_DIR=/app/models/demand
 ENV DSS_MODEL_REQUIRED=true
-# ONNX runtime + model (~300KB) — keep headroom above default 512m heap.
-ENV JAVA_OPTS="-Xms128m -Xmx768m"
+# ONNX native libs sit outside heap — keep Xmx ≤ ~384m on 512Mi Railway plans.
+ENV JAVA_OPTS="-Xms128m -Xmx384m"
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=10 \
