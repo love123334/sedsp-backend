@@ -1,11 +1,12 @@
 package com.example.secdsp.modules.voucher.service;
 
 import com.example.secdsp.modules.cart.entity.Cart;
+import com.example.secdsp.modules.cart.entity.CartItem;
 import com.example.secdsp.modules.cart.repository.CartItemRepository;
 import com.example.secdsp.modules.cart.repository.CartRepository;
-import com.example.secdsp.modules.cart.repository.projection.CartProductQtyRow;
+import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.repository.ProductRepository;
-import com.example.secdsp.modules.product.repository.projection.ProductPricingRow;
+import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.voucher.dto.ValidateVoucherRequest;
 import com.example.secdsp.modules.voucher.dto.ValidateVoucherResponse;
 import com.example.secdsp.modules.voucher.entity.*;
@@ -24,7 +25,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,13 +63,11 @@ class VoucherValidateServiceTest {
         request.setCode("SEDSP10");
         request.setProductIds(List.of(19L));
 
-        ProductPricingRow pricing = pricingRow(19L, 55L, "38990000.00");
-        when(productRepository.findPricingRowsByIdIn(List.of(19L)))
-            .thenReturn(List.of(pricing));
+        when(productRepository.findAllWithSellerByIdIn(List.of(19L)))
+            .thenReturn(List.of(product(19L, 55L, "38990000.00")));
 
-        Voucher platform = platformVoucher();
         when(voucherRepository.findPlatformByCodeIgnoreCase("SEDSP10"))
-            .thenReturn(Optional.of(platform));
+            .thenReturn(Optional.of(platformVoucher()));
 
         ValidateVoucherResponse res = service.validateForCartInternal(37L, request);
 
@@ -86,13 +84,11 @@ class VoucherValidateServiceTest {
         Cart cart = new Cart();
         cart.setId(4L);
         when(cartRepository.findByUser_Id(37L)).thenReturn(Optional.of(cart));
-        CartProductQtyRow cartRow = cartRow(19L, 2);
-        when(cartItemRepository.findProductQtyRowsByCartId(4L))
-            .thenReturn(List.of(cartRow));
+        when(cartItemRepository.findByCartIdWithProduct(4L))
+            .thenReturn(List.of(cartItem(19L, 55L, "38990000.00", 2)));
 
-        ProductPricingRow pricing = pricingRow(19L, 55L, "38990000.00");
-        when(productRepository.findPricingRowsByIdIn(List.of(19L)))
-            .thenReturn(List.of(pricing));
+        when(productRepository.findAllWithSellerByIdIn(List.of(19L)))
+            .thenReturn(List.of(product(19L, 55L, "38990000.00")));
 
         when(voucherRepository.findPlatformByCodeIgnoreCase("SEDSP10"))
             .thenReturn(Optional.of(platformVoucher()));
@@ -103,19 +99,23 @@ class VoucherValidateServiceTest {
         assertThat(res.discountAmount()).isEqualByComparingTo("100000");
     }
 
-    private static ProductPricingRow pricingRow(Long id, Long sellerId, String price) {
-        ProductPricingRow row = mock(ProductPricingRow.class);
-        when(row.getId()).thenReturn(id);
-        when(row.getSellerId()).thenReturn(sellerId);
-        when(row.getPrice()).thenReturn(new BigDecimal(price));
-        return row;
+    private static Product product(Long id, Long sellerId, String price) {
+        Product product = new Product();
+        product.setId(id);
+        product.setPrice(new BigDecimal(price));
+        if (sellerId != null) {
+            User seller = new User();
+            seller.setId(sellerId);
+            product.setSeller(seller);
+        }
+        return product;
     }
 
-    private static CartProductQtyRow cartRow(Long productId, int qty) {
-        CartProductQtyRow row = mock(CartProductQtyRow.class);
-        when(row.getProductId()).thenReturn(productId);
-        when(row.getQuantity()).thenReturn(qty);
-        return row;
+    private static CartItem cartItem(Long productId, Long sellerId, String price, int qty) {
+        CartItem item = new CartItem();
+        item.setQuantity(qty);
+        item.setProduct(product(productId, sellerId, price));
+        return item;
     }
 
     private static Voucher platformVoucher() {

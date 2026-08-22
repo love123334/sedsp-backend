@@ -16,19 +16,31 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
         select v from Voucher v
         where upper(v.code) = upper(:code)
           and v.scope = com.example.secdsp.modules.voucher.entity.VoucherScope.PLATFORM
+        order by v.id asc
         """)
-    Optional<Voucher> findPlatformByCodeIgnoreCase(@Param("code") String code);
+    List<Voucher> findPlatformVouchersByCodeIgnoreCase(@Param("code") String code);
+
+    default Optional<Voucher> findPlatformByCodeIgnoreCase(String code) {
+        List<Voucher> matches = findPlatformVouchersByCodeIgnoreCase(code);
+        return matches.isEmpty() ? Optional.empty() : Optional.of(matches.get(0));
+    }
 
     @Query("""
         select v from Voucher v
         where upper(v.code) = upper(:code)
           and v.scope = com.example.secdsp.modules.voucher.entity.VoucherScope.SHOP
           and v.seller.id = :sellerId
+        order by v.id asc
         """)
-    Optional<Voucher> findShopByCodeAndSellerId(
+    List<Voucher> findShopVouchersByCodeAndSellerId(
         @Param("code") String code,
         @Param("sellerId") Long sellerId
     );
+
+    default Optional<Voucher> findShopByCodeAndSellerId(String code, Long sellerId) {
+        List<Voucher> matches = findShopVouchersByCodeAndSellerId(code, sellerId);
+        return matches.isEmpty() ? Optional.empty() : Optional.of(matches.get(0));
+    }
 
     @Query(value = """
         select vp.product_id

@@ -6,11 +6,9 @@ import com.example.secdsp.modules.cart.entity.Cart;
 import com.example.secdsp.modules.cart.entity.CartItem;
 import com.example.secdsp.modules.cart.repository.CartItemRepository;
 import com.example.secdsp.modules.cart.repository.CartRepository;
-import com.example.secdsp.modules.cart.repository.projection.CartProductQtyRow;
 import com.example.secdsp.modules.order.entity.Order;
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.repository.ProductRepository;
-import com.example.secdsp.modules.product.repository.projection.ProductPricingRow;
 import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.voucher.dto.*;
 import com.example.secdsp.modules.voucher.entity.*;
@@ -236,17 +234,17 @@ public class VoucherServiceImpl implements VoucherService {
         if (cart == null) {
             return List.of();
         }
-        List<CartProductQtyRow> rows = cartItemRepository.findProductQtyRowsByCartId(cart.getId());
-        if (rows.isEmpty()) {
+        List<CartItem> items = cartItemRepository.findByCartIdWithProduct(cart.getId());
+        if (items.isEmpty()) {
             return List.of();
         }
         List<Long> ids = new ArrayList<>();
-        for (CartProductQtyRow row : rows) {
-            Long productId = row.getProductId();
-            if (productId == null) {
+        for (CartItem item : items) {
+            if (item.getProduct() == null || item.getProduct().getId() == null) {
                 continue;
             }
-            int qty = row.getQuantity() != null ? row.getQuantity() : 0;
+            Long productId = item.getProduct().getId();
+            int qty = item.getQuantity() != null ? item.getQuantity() : 0;
             for (int i = 0; i < qty; i++) {
                 ids.add(productId);
             }
@@ -454,20 +452,20 @@ public class VoucherServiceImpl implements VoucherService {
             counts.merge(pid, 1L, (a, b) -> Long.valueOf(a.longValue() + b.longValue()));
         }
         List<Long> ids = new ArrayList<>(counts.keySet());
-        List<ProductPricingRow> rows = productRepository.findPricingRowsByIdIn(ids);
-        if (rows.size() != ids.size()) {
+        List<Product> products = productRepository.findAllWithSellerByIdIn(ids);
+        if (products.size() != ids.size()) {
             throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
         }
         Map<Long, LineItem> map = new HashMap<>();
-        for (ProductPricingRow row : rows) {
-            Long id = row.getId();
-            Long sellerId = row.getSellerId();
-            BigDecimal price = row.getPrice();
+        for (Product product : products) {
+            Long id = product.getId();
+            BigDecimal price = product.getPrice();
             if (id == null || price == null) {
                 throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
             }
             long qty = counts.get(id);
             BigDecimal subtotal = price.multiply(BigDecimal.valueOf(qty));
+            Long sellerId = product.getSeller() != null ? product.getSeller().getId() : null;
             map.put(id, new LineItem(sellerId, subtotal));
         }
         return map;

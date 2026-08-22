@@ -1,7 +1,6 @@
 package com.example.secdsp.modules.cart.repository;
 
 import com.example.secdsp.modules.cart.entity.CartItem;
-import com.example.secdsp.modules.cart.repository.projection.CartProductQtyRow;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -28,13 +27,6 @@ public interface CartItemRepository extends JpaRepository<CartItem, Long> {
         @Param("cartId") Long cartId,
         @Param("productId") Long productId
     );
-
-    @Query("""
-        select ci.product.id as productId, ci.quantity as quantity
-        from CartItem ci
-        where ci.cart.id = :cartId
-        """)
-    List<CartProductQtyRow> findProductQtyRowsByCartId(@Param("cartId") Long cartId);
 
     @Query("""
         select ci from CartItem ci
