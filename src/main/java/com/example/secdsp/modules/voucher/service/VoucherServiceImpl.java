@@ -6,9 +6,11 @@ import com.example.secdsp.modules.cart.entity.Cart;
 import com.example.secdsp.modules.cart.entity.CartItem;
 import com.example.secdsp.modules.cart.repository.CartItemRepository;
 import com.example.secdsp.modules.cart.repository.CartRepository;
+import com.example.secdsp.modules.cart.repository.projection.CartProductQtyRow;
 import com.example.secdsp.modules.order.entity.Order;
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.repository.ProductRepository;
+import com.example.secdsp.modules.product.repository.projection.ProductPricingRow;
 import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.voucher.dto.*;
 import com.example.secdsp.modules.voucher.entity.*;
@@ -234,17 +236,17 @@ public class VoucherServiceImpl implements VoucherService {
         if (cart == null) {
             return List.of();
         }
-        List<Object[]> rows = cartItemRepository.findProductQtyRowsByCartId(cart.getId());
+        List<CartProductQtyRow> rows = cartItemRepository.findProductQtyRowsByCartId(cart.getId());
         if (rows.isEmpty()) {
             return List.of();
         }
         List<Long> ids = new ArrayList<>();
-        for (Object[] row : rows) {
-            Long productId = toLong(row[0]);
+        for (CartProductQtyRow row : rows) {
+            Long productId = row.getProductId();
             if (productId == null) {
                 continue;
             }
-            int qty = ((Number) row[1]).intValue();
+            int qty = row.getQuantity() != null ? row.getQuantity() : 0;
             for (int i = 0; i < qty; i++) {
                 ids.add(productId);
             }
@@ -452,15 +454,15 @@ public class VoucherServiceImpl implements VoucherService {
             counts.merge(pid, 1L, (a, b) -> Long.valueOf(a.longValue() + b.longValue()));
         }
         List<Long> ids = new ArrayList<>(counts.keySet());
-        List<Object[]> rows = productRepository.findPricingRowsByIdIn(ids);
+        List<ProductPricingRow> rows = productRepository.findPricingRowsByIdIn(ids);
         if (rows.size() != ids.size()) {
             throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
         }
         Map<Long, LineItem> map = new HashMap<>();
-        for (Object[] row : rows) {
-            Long id = toLong(row[0]);
-            Long sellerId = row[1] != null ? toLong(row[1]) : null;
-            BigDecimal price = toBigDecimal(row[2]);
+        for (ProductPricingRow row : rows) {
+            Long id = row.getId();
+            Long sellerId = row.getSellerId();
+            BigDecimal price = row.getPrice();
             if (id == null || price == null) {
                 throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
             }
@@ -469,32 +471,6 @@ public class VoucherServiceImpl implements VoucherService {
             map.put(id, new LineItem(sellerId, subtotal));
         }
         return map;
-    }
-
-    private static Long toLong(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Long l) {
-            return l;
-        }
-        if (value instanceof Number n) {
-            return n.longValue();
-        }
-        throw new IllegalArgumentException("Expected numeric id, got " + value.getClass().getName());
-    }
-
-    private static BigDecimal toBigDecimal(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof BigDecimal bd) {
-            return bd;
-        }
-        if (value instanceof Number n) {
-            return BigDecimal.valueOf(n.doubleValue());
-        }
-        throw new IllegalArgumentException("Expected numeric price, got " + value.getClass().getName());
     }
 
     private record LineItem(Long sellerId, BigDecimal subtotal) {}

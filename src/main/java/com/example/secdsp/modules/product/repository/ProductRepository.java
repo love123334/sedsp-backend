@@ -2,6 +2,7 @@ package com.example.secdsp.modules.product.repository;
 
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.entity.ProductStatus;
+import com.example.secdsp.modules.product.repository.projection.ProductPricingRow;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -42,11 +43,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     List<Product> findByIdIn(List<Long> ids);
 
     @Query("""
-        select p.id, p.seller.id, p.price
+        select p.id as id, p.seller.id as sellerId, p.price as price
         from Product p
         where p.id in :ids
         """)
-    List<Object[]> findPricingRowsByIdIn(@Param("ids") Collection<Long> ids);
+    List<ProductPricingRow> findPricingRowsByIdIn(@Param("ids") Collection<Long> ids);
 
     @Query("""
         select distinct p from Product p
