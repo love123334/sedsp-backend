@@ -235,14 +235,16 @@ public class VoucherServiceImpl implements VoucherService {
         if (cart == null) {
             return List.of();
         }
-        List<CartItem> items = cartItemRepository.findByCartIdWithProduct(cart.getId());
-        if (items.isEmpty()) {
+        List<Object[]> rows = cartItemRepository.findProductQtyRowsByCartId(cart.getId());
+        if (rows.isEmpty()) {
             return List.of();
         }
         List<Long> ids = new ArrayList<>();
-        for (CartItem item : items) {
-            for (int i = 0; i < item.getQuantity(); i++) {
-                ids.add(item.getProduct().getId());
+        for (Object[] row : rows) {
+            Long productId = (Long) row[0];
+            int qty = ((Number) row[1]).intValue();
+            for (int i = 0; i < qty; i++) {
+                ids.add(productId);
             }
         }
         return ids;
@@ -330,7 +332,7 @@ public class VoucherServiceImpl implements VoucherService {
 
         Optional<Voucher> platform = voucherRepository.findPlatformByCodeIgnoreCase(code);
         if (platform.isPresent()) {
-            return validateVoucher(platform.get(), lines, cartSubtotal, cartSubtotal);
+            return validateVoucher(platform.get(), lines, cartSubtotal, cartSubtotal, null);
         }
 
         Set<Long> sellerIds = new HashSet<>();
@@ -349,7 +351,7 @@ public class VoucherServiceImpl implements VoucherService {
                 }
             }
             ValidateVoucherResponse attempt = validateVoucher(
-                shop.get(), lines, sellerSubtotal, cartSubtotal
+                shop.get(), lines, sellerSubtotal, cartSubtotal, sellerId
             );
             if (attempt.valid()) {
                 return attempt;
@@ -366,7 +368,8 @@ public class VoucherServiceImpl implements VoucherService {
         Voucher voucher,
         Map<Long, LineItem> lines,
         BigDecimal eligibleSubtotal,
-        BigDecimal cartSubtotal
+        BigDecimal cartSubtotal,
+        Long responseSellerId
     ) {
         OffsetDateTime now = OffsetDateTime.now();
         if (!Boolean.TRUE.equals(voucher.getIsActive())) {
@@ -385,9 +388,7 @@ public class VoucherServiceImpl implements VoucherService {
             return invalid("Đơn hàng chưa đạt giá trị tối thiểu để dùng voucher.");
         }
         if (voucher.getAppliesTo() == VoucherAppliesTo.SELECTED_PRODUCTS) {
-            Set<Long> allowed = voucher.getProducts().stream()
-                .map(p -> p.getId())
-                .collect(Collectors.toSet());
+            Set<Long> allowed = new HashSet<>(voucherRepository.findLinkedProductIds(voucher.getId()));
             boolean any = lines.keySet().stream().anyMatch(allowed::contains);
             if (!any) {
                 return invalid("Voucher không áp dụng cho sản phẩm trong giỏ.");
@@ -406,9 +407,7 @@ public class VoucherServiceImpl implements VoucherService {
             discount = cartSubtotal;
         }
 
-        String sellerName = voucher.getSeller() != null
-            ? Optional.ofNullable(voucher.getSeller().getUsername()).orElse("")
-            : null;
+        String sellerName = null;
 
         return ValidateVoucherResponse.builder()
             .valid(true)
@@ -420,7 +419,7 @@ public class VoucherServiceImpl implements VoucherService {
             .discountType(voucher.getDiscountType())
             .discountValue(voucher.getDiscountValue())
             .scope(voucher.getScope())
-            .sellerId(voucher.getSeller() != null ? voucher.getSeller().getId() : null)
+            .sellerId(responseSellerId)
             .sellerName(sellerName)
             .discountAmount(discount)
             .eligibleSubtotal(eligibleSubtotal)
@@ -451,24 +450,20 @@ public class VoucherServiceImpl implements VoucherService {
             counts.merge(pid, 1L, (a, b) -> Long.valueOf(a.longValue() + b.longValue()));
         }
         List<Long> ids = new ArrayList<>(counts.keySet());
-        List<Product> products = productRepository.findAllWithSellerByIdIn(ids);
-        if (products.size() != ids.size()) {
+        List<Object[]> rows = productRepository.findPricingRowsByIdIn(ids);
+        if (rows.size() != ids.size()) {
             throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
         }
-        Map<Long, Product> byId = products.stream()
-            .collect(Collectors.toMap(Product::getId, p -> p));
         Map<Long, LineItem> map = new HashMap<>();
-        for (Long id : ids) {
-            Product product = byId.get(id);
-            if (product == null) {
+        for (Object[] row : rows) {
+            Long id = (Long) row[0];
+            Long sellerId = row[1] != null ? (Long) row[1] : null;
+            BigDecimal price = (BigDecimal) row[2];
+            if (price == null) {
                 throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
             }
             long qty = counts.get(id);
-            Long sellerId = product.getSeller() != null
-                ? product.getSeller().getId()
-                : null;
-            BigDecimal subtotal = product.getPrice()
-                .multiply(BigDecimal.valueOf(qty));
+            BigDecimal subtotal = price.multiply(BigDecimal.valueOf(qty));
             map.put(id, new LineItem(sellerId, subtotal));
         }
         return map;

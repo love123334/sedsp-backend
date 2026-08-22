@@ -42,6 +42,13 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     List<Product> findByIdIn(List<Long> ids);
 
     @Query("""
+        select p.id, p.seller.id, p.price
+        from Product p
+        where p.id in :ids
+        """)
+    List<Object[]> findPricingRowsByIdIn(@Param("ids") Collection<Long> ids);
+
+    @Query("""
         select distinct p from Product p
         left join fetch p.seller
         where p.id in :ids

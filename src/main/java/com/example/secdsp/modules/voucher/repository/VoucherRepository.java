@@ -14,7 +14,6 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
 
     @Query("""
         select v from Voucher v
-        left join fetch v.products
         where upper(v.code) = upper(:code)
           and v.scope = com.example.secdsp.modules.voucher.entity.VoucherScope.PLATFORM
         """)
@@ -22,8 +21,6 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
 
     @Query("""
         select v from Voucher v
-        left join fetch v.products
-        left join fetch v.seller
         where upper(v.code) = upper(:code)
           and v.scope = com.example.secdsp.modules.voucher.entity.VoucherScope.SHOP
           and v.seller.id = :sellerId
@@ -32,6 +29,13 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
         @Param("code") String code,
         @Param("sellerId") Long sellerId
     );
+
+    @Query(value = """
+        select vp.product_id
+        from voucher_products vp
+        where vp.voucher_id = :voucherId
+        """, nativeQuery = true)
+    List<Long> findLinkedProductIds(@Param("voucherId") Long voucherId);
 
     List<Voucher> findByScopeOrderByCreatedAtDesc(VoucherScope scope);
 
