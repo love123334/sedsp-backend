@@ -296,24 +296,11 @@ public class SellerWhatIfAnalysisServiceImpl
         ProductInfo product = productService.getProductInfo(productId);
         Long sellerId = requireCurrentUserId();
         validateProductOwnership(product, sellerId);
-        validateProductPrices(product);
-        return product;
+        return DssCostSupport.normalizeProductCost(product);
     }
 
     private void validateProductPrices(ProductInfo product) {
-        if (product.price() == null
-            || product.price().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException(
-                "Giá bán sản phẩm phải lớn hơn 0."
-            );
-        }
-
-        if (product.costPrice() == null
-            || product.costPrice().compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException(
-                "Sản phẩm phải có giá vốn để thực hiện phân tích."
-            );
-        }
+        DssCostSupport.normalizeProductCost(product);
     }
 
     private Long requireCurrentUserId() {
