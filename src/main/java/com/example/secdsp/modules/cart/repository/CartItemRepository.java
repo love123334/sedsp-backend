@@ -29,6 +29,13 @@ public interface CartItemRepository extends JpaRepository<CartItem, Long> {
     );
 
     @Query("""
+        select ci.product.id, ci.quantity
+        from CartItem ci
+        where ci.cart.id = :cartId
+        """)
+    List<Object[]> findProductQtyRowsByCartId(@Param("cartId") Long cartId);
+
+    @Query("""
         select ci from CartItem ci
         join fetch ci.product p
         left join fetch p.seller
