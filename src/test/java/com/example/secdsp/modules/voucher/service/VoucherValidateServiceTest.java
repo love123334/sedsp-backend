@@ -94,6 +94,41 @@ class VoucherValidateServiceTest {
     }
 
     @Test
+    void validatePlatformVoucher_acceptsDoublePriceFromJdbc() {
+        ValidateVoucherRequest request = new ValidateVoucherRequest();
+        request.setCode("SEDSP10");
+        request.setProductIds(List.of(19L));
+
+        List<Object[]> pricingRows = new ArrayList<>();
+        pricingRows.add(new Object[] { 19L, 55L, Double.valueOf(38990000.00) });
+        when(productRepository.findPricingRowsByIdIn(List.of(19L)))
+            .thenReturn(pricingRows);
+
+        Voucher platform = new Voucher();
+        platform.setId(1L);
+        platform.setCode("SEDSP10");
+        platform.setName("Giảm 10%");
+        platform.setDiscountType(VoucherDiscountType.PERCENTAGE);
+        platform.setDiscountValue(new BigDecimal("10"));
+        platform.setScope(VoucherScope.PLATFORM);
+        platform.setAppliesTo(VoucherAppliesTo.ALL_PRODUCTS);
+        platform.setMinimumOrderAmount(new BigDecimal("200000"));
+        platform.setMaximumDiscountAmount(new BigDecimal("100000"));
+        platform.setIsActive(true);
+        platform.setUsedCount(0);
+        platform.setStartsAt(OffsetDateTime.now().minusDays(1));
+        platform.setEndsAt(OffsetDateTime.now().plusDays(30));
+
+        when(voucherRepository.findPlatformByCodeIgnoreCase("SEDSP10"))
+            .thenReturn(Optional.of(platform));
+
+        ValidateVoucherResponse res = service.validateForCartInternal(37L, request);
+
+        assertThat(res.valid()).isTrue();
+        assertThat(res.discountAmount()).isEqualByComparingTo("100000");
+    }
+
+    @Test
     void validateUsesCartRowsWhenProductIdsMissing() {
         ValidateVoucherRequest request = new ValidateVoucherRequest();
         request.setCode("SEDSP10");

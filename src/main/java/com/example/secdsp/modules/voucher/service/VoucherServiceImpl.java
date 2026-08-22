@@ -456,10 +456,10 @@ public class VoucherServiceImpl implements VoucherService {
         }
         Map<Long, LineItem> map = new HashMap<>();
         for (Object[] row : rows) {
-            Long id = (Long) row[0];
-            Long sellerId = row[1] != null ? (Long) row[1] : null;
-            BigDecimal price = (BigDecimal) row[2];
-            if (price == null) {
+            Long id = toLong(row[0]);
+            Long sellerId = row[1] != null ? toLong(row[1]) : null;
+            BigDecimal price = toBigDecimal(row[2]);
+            if (id == null || price == null) {
                 throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
             }
             long qty = counts.get(id);
@@ -467,6 +467,32 @@ public class VoucherServiceImpl implements VoucherService {
             map.put(id, new LineItem(sellerId, subtotal));
         }
         return map;
+    }
+
+    private static Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Long l) {
+            return l;
+        }
+        if (value instanceof Number n) {
+            return n.longValue();
+        }
+        throw new IllegalArgumentException("Expected numeric id, got " + value.getClass().getName());
+    }
+
+    private static BigDecimal toBigDecimal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof BigDecimal bd) {
+            return bd;
+        }
+        if (value instanceof Number n) {
+            return BigDecimal.valueOf(n.doubleValue());
+        }
+        throw new IllegalArgumentException("Expected numeric price, got " + value.getClass().getName());
     }
 
     private record LineItem(Long sellerId, BigDecimal subtotal) {}
