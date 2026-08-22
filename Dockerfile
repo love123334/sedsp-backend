@@ -36,7 +36,7 @@ ENV SPRING_PROFILES_ACTIVE=prod
 ENV PORT=8080
 ENV DSS_MODEL_DIR=/app/models/demand
 ENV DSS_MODEL_REQUIRED=false
-ENV JAVA_OPTS=-Xms96m -Xmx300m
+ENV JAVA_OPTS="-Xms96m -Xmx300m"
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=10 \
