@@ -1,55 +1,48 @@
 package com.example.secdsp.modules.voucher.service;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Native SQL pricing lookups for voucher validation — avoids Hibernate
- * Tuple/Object[] and lazy-load issues on Railway PostgreSQL.
- */
+/** JDBC pricing lookups for voucher validation — predictable types on Railway. */
 @Repository
+@RequiredArgsConstructor
 class VoucherPricingQuery {
 
-    @PersistenceContext
-    private EntityManager entityManager;
+    private final JdbcTemplate jdbcTemplate;
 
     record LineItem(Long sellerId, BigDecimal subtotal) {}
 
     @Transactional(readOnly = true)
     List<Long> expandProductIdsFromCart(Long cartId) {
-        @SuppressWarnings("unchecked")
-        List<Object> rows = entityManager
-            .createNativeQuery(
-                """
-                SELECT ci.product_id, ci.quantity
-                FROM cart_items ci
-                WHERE ci.cart_id = :cartId
-                """
-            )
-            .setParameter("cartId", cartId)
-            .getResultList();
-
-        List<Long> ids = new ArrayList<>();
-        for (Object row : rows) {
-            Long productId = asLong(cell(row, 0));
-            if (productId == null) {
-                continue;
-            }
-            int qty = asInt(cell(row, 1));
-            for (int i = 0; i < qty; i++) {
-                ids.add(productId);
-            }
-        }
-        return ids;
+        return jdbcTemplate.query(
+            """
+            SELECT ci.product_id, ci.quantity
+            FROM cart_items ci
+            WHERE ci.cart_id = ?
+              AND ci.deleted_at IS NULL
+            """,
+            (rs, rowNum) -> {
+                long productId = rs.getLong("product_id");
+                int qty = rs.getInt("quantity");
+                List<Long> ids = new ArrayList<>(Math.max(qty, 0));
+                for (int i = 0; i < qty; i++) {
+                    ids.add(productId);
+                }
+                return ids;
+            },
+            cartId
+        ).stream().flatMap(List::stream).toList();
     }
 
     @Transactional(readOnly = true)
@@ -69,81 +62,37 @@ class VoucherPricingQuery {
             return Map.of();
         }
 
-        @SuppressWarnings("unchecked")
-        List<Object> rows = entityManager
-            .createNativeQuery(
-                """
-                SELECT p.id, p.seller_id, p.price
-                FROM products p
-                WHERE p.id IN (:ids)
-                """
-            )
-            .setParameter("ids", counts.keySet())
-            .getResultList();
+        List<Long> ids = new ArrayList<>(counts.keySet());
+        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        List<PricingRow> rows = jdbcTemplate.query(
+            """
+            SELECT p.id, p.seller_id, p.price
+            FROM products p
+            WHERE p.deleted_at IS NULL
+              AND p.id IN (%s)
+            """.formatted(placeholders),
+            (rs, rowNum) -> readPricingRow(rs),
+            ids.toArray()
+        );
 
         Map<Long, LineItem> map = new HashMap<>();
-        for (Object row : rows) {
-            Long id = asLong(cell(row, 0));
-            Long sellerId = asLong(cell(row, 1));
-            BigDecimal price = asBigDecimal(cell(row, 2));
-            if (id == null || price == null) {
-                continue;
-            }
-            long qty = counts.getOrDefault(id, 0L);
-            map.put(id, new LineItem(sellerId, price.multiply(BigDecimal.valueOf(qty))));
+        for (PricingRow row : rows) {
+            long qty = counts.getOrDefault(row.id(), 0L);
+            map.put(
+                row.id(),
+                new LineItem(row.sellerId(), row.price().multiply(BigDecimal.valueOf(qty)))
+            );
         }
         return map;
     }
 
-    private static Long asLong(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number number) {
-            return number.longValue();
-        }
-        if (value instanceof String text && !text.isBlank()) {
-            return Long.parseLong(text.trim());
-        }
-        throw new IllegalArgumentException("Expected numeric id, got " + value.getClass().getName());
+    private static PricingRow readPricingRow(ResultSet rs) throws SQLException {
+        return new PricingRow(
+            rs.getLong("id"),
+            rs.getObject("seller_id") != null ? rs.getLong("seller_id") : null,
+            rs.getBigDecimal("price")
+        );
     }
 
-    private static int asInt(Object value) {
-        if (value == null) {
-            return 0;
-        }
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        if (value instanceof String text && !text.isBlank()) {
-            return Integer.parseInt(text.trim());
-        }
-        throw new IllegalArgumentException("Expected numeric qty, got " + value.getClass().getName());
-    }
-
-    private static BigDecimal asBigDecimal(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof BigDecimal decimal) {
-            return decimal;
-        }
-        if (value instanceof Number number) {
-            return BigDecimal.valueOf(number.doubleValue());
-        }
-        if (value instanceof String text && !text.isBlank()) {
-            return new BigDecimal(text.trim());
-        }
-        throw new IllegalArgumentException("Expected numeric price, got " + value.getClass().getName());
-    }
-
-    private static Object cell(Object row, int index) {
-        if (row instanceof Object[] arr) {
-            return arr[index];
-        }
-        if (row instanceof jakarta.persistence.Tuple tuple) {
-            return tuple.get(index);
-        }
-        throw new IllegalArgumentException("Unexpected native row type: " + row.getClass().getName());
-    }
+    private record PricingRow(Long id, Long sellerId, BigDecimal price) {}
 }
