@@ -134,7 +134,9 @@ public class LightGbmOnnxDemandPredictor {
     }
 
     public boolean isModelAvailable(Long productId) {
-        return productId != null && Files.isRegularFile(modelPath());
+        return productId != null
+            && !modelFailed
+            && Files.isRegularFile(modelPath());
     }
 
     public OptionalDouble predict(

@@ -11,7 +11,7 @@ COPY . .
 RUN mkdir -p /build/models/demand
 
 RUN chmod +x gradlew \
-  && gradle bootJar -x test --no-daemon --stacktrace -PexcludeOnnx=true \
+  && gradle bootJar -x test --no-daemon --stacktrace \
   && JAR="$(ls -1 build/libs/*.jar | grep -v plain | head -n 1)" \
   && test -n "$JAR" \
   && cp "$JAR" /build/app.jar \
@@ -32,9 +32,9 @@ RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV PORT=8080
 ENV DSS_MODEL_DIR=/app/models/demand
-# Native ONNX is compileOnly in this image (-PexcludeOnnx=true). Requiring
-# the model would fail boot; baseline demand forecast stays available.
-ENV DSS_MODEL_REQUIRED=false
+ENV DSS_MODEL_REQUIRED=true
+# ONNX runtime + model (~300KB) — keep headroom above default 512m heap.
+ENV JAVA_OPTS="-Xms128m -Xmx768m"
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=10 \
