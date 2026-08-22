@@ -92,6 +92,26 @@ Error creating bean … 'jpaSharedEM_entityManagerFactory'
 
 ---
 
+## DSS LightGBM ONNX (dự báo nhu cầu)
+
+Triệu chứng trên FE: **Mô hình sẵn sàng: Có** nhưng **Đã dùng mô hình học máy: Không** / `method = trend_blended_feature_forecast`.
+
+**Nguyên nhân:** bản Docker cũ build với `-PexcludeOnnx=true` → JAR không có `onnxruntime` → inference fallback thống kê.
+
+**Fix (đã có trên nhánh `railway`):**
+
+- Dockerfile build **không** exclude ONNX; `DSS_MODEL_REQUIRED=true`.
+- File model: `models/demand/global-demand.onnx` (copy vào `/app/models/demand`).
+- Heap: `JAVA_OPTS=-Xms128m -Xmx384m` (ONNX native nằm ngoài heap).
+
+**Nếu deploy mới không lên (healthcheck fail / OOM):**
+
+1. Railway → **sedsp-api → Settings → Resources** → tăng RAM lên **≥ 1 GB** rồi redeploy.
+2. Deploy Logs: tìm `Demand ONNX model ready` (OK) hoặc `ONNX runtime is required` (fail).
+3. API test: `GET /api/v1/dss/demand/{productId}?historyDays=30&forecastDays=7` → `method` phải là `lightgbm_onnx`.
+
+---
+
 ## Setup nhanh
 
 1. GitHub → `love123334/sedsp-backend` branch **`railway`** hoặc **`main`**
