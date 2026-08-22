@@ -136,7 +136,13 @@ public class LightGbmOnnxDemandPredictor {
     public boolean isModelAvailable(Long productId) {
         return productId != null
             && !modelFailed
+            && onnxRuntimePresent()
             && Files.isRegularFile(modelPath());
+    }
+
+    /** True when ONNX native runtime is loaded (false on Railway excludeOnnx builds). */
+    public boolean isRuntimeReady() {
+        return !modelFailed && onnxRuntimePresent();
     }
 
     public OptionalDouble predict(

@@ -11,7 +11,7 @@ COPY . .
 RUN mkdir -p /build/models/demand
 
 RUN chmod +x gradlew \
-  && gradle bootJar -x test --no-daemon --stacktrace \
+  && gradle bootJar -x test --no-daemon --stacktrace -PexcludeOnnx=true \
   && JAR="$(ls -1 build/libs/*.jar | grep -v plain | head -n 1)" \
   && test -n "$JAR" \
   && cp "$JAR" /build/app.jar \
@@ -32,9 +32,7 @@ RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV PORT=8080
 ENV DSS_MODEL_DIR=/app/models/demand
-# Boot even if ONNX smoke fails on small Railway plans; runtime still packaged in JAR.
 ENV DSS_MODEL_REQUIRED=false
-ENV JAVA_OPTS="-Xms128m -Xmx384m"
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=10 \
