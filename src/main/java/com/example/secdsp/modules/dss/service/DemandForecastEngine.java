@@ -248,6 +248,10 @@ public class DemandForecastEngine {
 
         featureSnapshot.put("method", method);
         featureSnapshot.put("onnxModelUsed", usedOnnxModel);
+        featureSnapshot.put(
+            "onnxModelAvailable",
+            lightGbmPredictor.isModelAvailable(product.productId())
+        );
         featureSnapshot.put("baseForecastDailyDemand", round2(baseLevel));
         featureSnapshot.put("forecastAverageDailyDemand", round2(forecastAverage));
 
