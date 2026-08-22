@@ -4,7 +4,6 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.modules.cart.entity.Cart;
 import com.example.secdsp.modules.cart.entity.CartItem;
-import com.example.secdsp.modules.cart.repository.CartItemRepository;
 import com.example.secdsp.modules.cart.repository.CartRepository;
 import com.example.secdsp.modules.order.entity.Order;
 import com.example.secdsp.modules.product.entity.Product;
@@ -37,7 +36,7 @@ public class VoucherServiceImpl implements VoucherService {
     private final VoucherUsageRepository voucherUsageRepository;
     private final ProductRepository productRepository;
     private final CartRepository cartRepository;
-    private final CartItemRepository cartItemRepository;
+    private final VoucherPricingQuery voucherPricingQuery;
 
     @Override
     @Transactional
@@ -234,22 +233,7 @@ public class VoucherServiceImpl implements VoucherService {
         if (cart == null) {
             return List.of();
         }
-        List<CartItem> items = cartItemRepository.findByCartIdWithProduct(cart.getId());
-        if (items.isEmpty()) {
-            return List.of();
-        }
-        List<Long> ids = new ArrayList<>();
-        for (CartItem item : items) {
-            if (item.getProduct() == null || item.getProduct().getId() == null) {
-                continue;
-            }
-            Long productId = item.getProduct().getId();
-            int qty = item.getQuantity() != null ? item.getQuantity() : 0;
-            for (int i = 0; i < qty; i++) {
-                ids.add(productId);
-            }
-        }
-        return ids;
+        return voucherPricingQuery.expandProductIdsFromCart(cart.getId());
     }
 
     @Override
@@ -452,21 +436,14 @@ public class VoucherServiceImpl implements VoucherService {
             counts.merge(pid, 1L, (a, b) -> Long.valueOf(a.longValue() + b.longValue()));
         }
         List<Long> ids = new ArrayList<>(counts.keySet());
-        List<Product> products = productRepository.findAllWithSellerByIdIn(ids);
-        if (products.size() != ids.size()) {
+        Map<Long, VoucherPricingQuery.LineItem> loaded = voucherPricingQuery.pricingLines(productIds);
+        if (loaded.size() != ids.size()) {
             throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
         }
         Map<Long, LineItem> map = new HashMap<>();
-        for (Product product : products) {
-            Long id = product.getId();
-            BigDecimal price = product.getPrice();
-            if (id == null || price == null) {
-                throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
-            }
-            long qty = counts.get(id);
-            BigDecimal subtotal = price.multiply(BigDecimal.valueOf(qty));
-            Long sellerId = product.getSeller() != null ? product.getSeller().getId() : null;
-            map.put(id, new LineItem(sellerId, subtotal));
+        for (Map.Entry<Long, VoucherPricingQuery.LineItem> entry : loaded.entrySet()) {
+            VoucherPricingQuery.LineItem line = entry.getValue();
+            map.put(entry.getKey(), new LineItem(line.sellerId(), line.subtotal()));
         }
         return map;
     }

@@ -1,12 +1,8 @@
 package com.example.secdsp.modules.voucher.service;
 
 import com.example.secdsp.modules.cart.entity.Cart;
-import com.example.secdsp.modules.cart.entity.CartItem;
-import com.example.secdsp.modules.cart.repository.CartItemRepository;
 import com.example.secdsp.modules.cart.repository.CartRepository;
-import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.repository.ProductRepository;
-import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.voucher.dto.ValidateVoucherRequest;
 import com.example.secdsp.modules.voucher.dto.ValidateVoucherResponse;
 import com.example.secdsp.modules.voucher.entity.*;
@@ -22,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,7 +38,7 @@ class VoucherValidateServiceTest {
     @Mock
     CartRepository cartRepository;
     @Mock
-    CartItemRepository cartItemRepository;
+    VoucherPricingQuery voucherPricingQuery;
 
     VoucherServiceImpl service;
 
@@ -53,7 +50,7 @@ class VoucherValidateServiceTest {
             voucherUsageRepository,
             productRepository,
             cartRepository,
-            cartItemRepository
+            voucherPricingQuery
         );
     }
 
@@ -63,8 +60,8 @@ class VoucherValidateServiceTest {
         request.setCode("SEDSP10");
         request.setProductIds(List.of(19L));
 
-        when(productRepository.findAllWithSellerByIdIn(List.of(19L)))
-            .thenReturn(List.of(product(19L, 55L, "38990000.00")));
+        when(voucherPricingQuery.pricingLines(List.of(19L)))
+            .thenReturn(Map.of(19L, new VoucherPricingQuery.LineItem(55L, new BigDecimal("38990000.00"))));
 
         when(voucherRepository.findPlatformByCodeIgnoreCase("SEDSP10"))
             .thenReturn(Optional.of(platformVoucher()));
@@ -84,11 +81,11 @@ class VoucherValidateServiceTest {
         Cart cart = new Cart();
         cart.setId(4L);
         when(cartRepository.findByUser_Id(37L)).thenReturn(Optional.of(cart));
-        when(cartItemRepository.findByCartIdWithProduct(4L))
-            .thenReturn(List.of(cartItem(19L, 55L, "38990000.00", 2)));
+        when(voucherPricingQuery.expandProductIdsFromCart(4L))
+            .thenReturn(List.of(19L, 19L));
 
-        when(productRepository.findAllWithSellerByIdIn(List.of(19L)))
-            .thenReturn(List.of(product(19L, 55L, "38990000.00")));
+        when(voucherPricingQuery.pricingLines(List.of(19L, 19L)))
+            .thenReturn(Map.of(19L, new VoucherPricingQuery.LineItem(55L, new BigDecimal("77980000.00"))));
 
         when(voucherRepository.findPlatformByCodeIgnoreCase("SEDSP10"))
             .thenReturn(Optional.of(platformVoucher()));
@@ -97,25 +94,6 @@ class VoucherValidateServiceTest {
 
         assertThat(res.valid()).isTrue();
         assertThat(res.discountAmount()).isEqualByComparingTo("100000");
-    }
-
-    private static Product product(Long id, Long sellerId, String price) {
-        Product product = new Product();
-        product.setId(id);
-        product.setPrice(new BigDecimal(price));
-        if (sellerId != null) {
-            User seller = new User();
-            seller.setId(sellerId);
-            product.setSeller(seller);
-        }
-        return product;
-    }
-
-    private static CartItem cartItem(Long productId, Long sellerId, String price, int qty) {
-        CartItem item = new CartItem();
-        item.setQuantity(qty);
-        item.setProduct(product(productId, sellerId, price));
-        return item;
     }
 
     private static Voucher platformVoucher() {
