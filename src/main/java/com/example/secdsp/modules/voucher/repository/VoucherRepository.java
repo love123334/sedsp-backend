@@ -15,30 +15,38 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
     @Query("""
         select v from Voucher v
         where upper(v.code) = upper(:code)
-          and v.scope = com.example.secdsp.modules.voucher.entity.VoucherScope.PLATFORM
+          and v.scope = :scope
         order by v.id asc
         """)
-    List<Voucher> findPlatformVouchersByCodeIgnoreCase(@Param("code") String code);
+    List<Voucher> findVouchersByCodeAndScope(
+        @Param("code") String code,
+        @Param("scope") VoucherScope scope
+    );
 
     default Optional<Voucher> findPlatformByCodeIgnoreCase(String code) {
-        List<Voucher> matches = findPlatformVouchersByCodeIgnoreCase(code);
+        List<Voucher> matches = findVouchersByCodeAndScope(code, VoucherScope.PLATFORM);
         return matches.isEmpty() ? Optional.empty() : Optional.of(matches.get(0));
     }
 
     @Query("""
         select v from Voucher v
         where upper(v.code) = upper(:code)
-          and v.scope = com.example.secdsp.modules.voucher.entity.VoucherScope.SHOP
+          and v.scope = :scope
           and v.seller.id = :sellerId
         order by v.id asc
         """)
-    List<Voucher> findShopVouchersByCodeAndSellerId(
+    List<Voucher> findShopVouchersByCodeSellerAndScope(
         @Param("code") String code,
-        @Param("sellerId") Long sellerId
+        @Param("sellerId") Long sellerId,
+        @Param("scope") VoucherScope scope
     );
 
     default Optional<Voucher> findShopByCodeAndSellerId(String code, Long sellerId) {
-        List<Voucher> matches = findShopVouchersByCodeAndSellerId(code, sellerId);
+        List<Voucher> matches = findShopVouchersByCodeSellerAndScope(
+            code,
+            sellerId,
+            VoucherScope.SHOP
+        );
         return matches.isEmpty() ? Optional.empty() : Optional.of(matches.get(0));
     }
 
@@ -71,12 +79,17 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
           and v.startsAt <= :now
           and v.endsAt >= :now
           and (v.usageLimit is null or v.usedCount < v.usageLimit)
-          and v.scope = com.example.secdsp.modules.voucher.entity.VoucherScope.SHOP
+          and v.scope = :scope
           and v.seller.id = :sellerId
         order by v.createdAt desc
         """)
     List<Voucher> findActiveBySeller(
         @Param("sellerId") Long sellerId,
-        @Param("now") OffsetDateTime now
+        @Param("now") OffsetDateTime now,
+        @Param("scope") VoucherScope scope
     );
+
+    default List<Voucher> findActiveShopBySeller(Long sellerId, OffsetDateTime now) {
+        return findActiveBySeller(sellerId, now, VoucherScope.SHOP);
+    }
 }
