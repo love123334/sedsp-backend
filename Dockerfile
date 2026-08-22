@@ -32,8 +32,8 @@ RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV PORT=8080
 ENV DSS_MODEL_DIR=/app/models/demand
-ENV DSS_MODEL_REQUIRED=true
-# ONNX native libs sit outside heap — keep Xmx ≤ ~384m on 512Mi Railway plans.
+# Boot even if ONNX smoke fails on small Railway plans; runtime still packaged in JAR.
+ENV DSS_MODEL_REQUIRED=false
 ENV JAVA_OPTS="-Xms128m -Xmx384m"
 EXPOSE 8080
 

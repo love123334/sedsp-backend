@@ -7,10 +7,8 @@ import com.example.secdsp.modules.cart.entity.CartItem;
 import com.example.secdsp.modules.cart.repository.CartItemRepository;
 import com.example.secdsp.modules.cart.repository.CartRepository;
 import com.example.secdsp.modules.order.entity.Order;
-import com.example.secdsp.modules.product.dto.internal.ProductInfo;
 import com.example.secdsp.modules.product.entity.Product;
 import com.example.secdsp.modules.product.repository.ProductRepository;
-import com.example.secdsp.modules.product.service.ProductService;
 import com.example.secdsp.modules.user.entity.User;
 import com.example.secdsp.modules.voucher.dto.*;
 import com.example.secdsp.modules.voucher.entity.*;
@@ -21,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -38,7 +37,6 @@ public class VoucherServiceImpl implements VoucherService {
     private final VoucherRequestRepository voucherRequestRepository;
     private final VoucherUsageRepository voucherUsageRepository;
     private final ProductRepository productRepository;
-    private final ProductService productService;
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
 
@@ -180,6 +178,7 @@ public class VoucherServiceImpl implements VoucherService {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ValidateVoucherResponse validateForCart(Long userId, ValidateVoucherRequest request) {
         try {
             List<Long> productIds = resolveProductIds(userId, request);
@@ -433,14 +432,16 @@ public class VoucherServiceImpl implements VoucherService {
             counts.merge(pid, 1L, (a, b) -> Long.valueOf(a.longValue() + b.longValue()));
         }
         for (Map.Entry<Long, Long> e : counts.entrySet()) {
-            ProductInfo p;
-            try {
-                p = productService.getProductInfo(e.getKey());
-            } catch (ResourceNotFoundException ex) {
-                throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
-            }
-            BigDecimal subtotal = p.price().multiply(BigDecimal.valueOf(e.getValue()));
-            map.put(e.getKey(), new LineItem(p.sellerId(), subtotal));
+            Product product = productRepository.findById(e.getKey())
+                .orElseThrow(() -> new BusinessException(
+                    "Sản phẩm trong giỏ không còn tồn tại."
+                ));
+            Long sellerId = product.getSeller() != null
+                ? product.getSeller().getId()
+                : null;
+            BigDecimal subtotal = product.getPrice()
+                .multiply(BigDecimal.valueOf(e.getValue()));
+            map.put(e.getKey(), new LineItem(sellerId, subtotal));
         }
         return map;
     }
