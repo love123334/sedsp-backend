@@ -1,10 +1,11 @@
 package com.example.secdsp.modules.dss.service;
 
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Array;
@@ -60,7 +61,8 @@ public class LightGbmOnnxDemandPredictor {
      * cannot run; Railway's slim image keeps this false so missing natives
      * fall back to baseline instead of crashing the container.
      */
-    @PostConstruct
+    /** After liveness is up — avoids Railway healthcheck failing during ONNX native init. */
+    @EventListener(ApplicationReadyEvent.class)
     void validateModelOnStartup() {
         if (!onnxRuntimePresent()) {
             modelFailed = true;
@@ -116,7 +118,10 @@ public class LightGbmOnnxDemandPredictor {
         try {
             Class.forName("ai.onnxruntime.OrtEnvironment");
             return true;
-        } catch (ClassNotFoundException | NoClassDefFoundError ignored) {
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            return false;
+        } catch (Throwable exception) {
+            log.debug("ONNX runtime probe failed: {}", exception.toString());
             return false;
         }
     }

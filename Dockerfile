@@ -14,8 +14,10 @@ RUN chmod +x gradlew \
   && gradle bootJar -x test --no-daemon --stacktrace \
   && JAR="$(ls -1 build/libs/*.jar | grep -v plain | head -n 1)" \
   && test -n "$JAR" \
+  && test -f models/demand/global-demand.onnx \
+  && jar tf "$JAR" | grep -q onnxruntime \
   && cp "$JAR" /build/app.jar \
-  && echo "Packed $JAR -> /build/app.jar"
+  && echo "Packed $JAR -> /build/app.jar (ONNX runtime + model verified)"
 
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
@@ -27,13 +29,14 @@ RUN apt-get update \
 COPY --from=builder /build/app.jar /app/app.jar
 COPY --from=builder /build/models /app/models
 COPY start.sh /app/start.sh
-RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh \
+  && test -f /app/models/demand/global-demand.onnx
 
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV PORT=8080
 ENV DSS_MODEL_DIR=/app/models/demand
 ENV DSS_MODEL_REQUIRED=false
-ENV JAVA_OPTS=-Xms128m -Xmx384m
+ENV JAVA_OPTS=-Xms96m -Xmx300m
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=10 \
