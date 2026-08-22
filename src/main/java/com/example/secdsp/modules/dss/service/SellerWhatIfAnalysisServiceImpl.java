@@ -299,10 +299,6 @@ public class SellerWhatIfAnalysisServiceImpl
         return DssCostSupport.normalizeProductCost(product);
     }
 
-    private void validateProductPrices(ProductInfo product) {
-        DssCostSupport.normalizeProductCost(product);
-    }
-
     private Long requireCurrentUserId() {
         Long currentUserId = SecurityUtils.getCurrentUserId();
 

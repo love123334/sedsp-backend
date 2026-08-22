@@ -744,10 +744,6 @@ public class PricePredictionServiceImpl
             && !changedDate.isAfter(toDate);
     }
 
-    private void validateProductPrices(ProductInfo product) {
-        DssCostSupport.normalizeProductCost(product);
-    }
-
     private void validateHistoryPrice(BigDecimal price) {
         if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);

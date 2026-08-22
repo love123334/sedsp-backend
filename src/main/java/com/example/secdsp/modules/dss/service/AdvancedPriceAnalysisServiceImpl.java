@@ -351,10 +351,6 @@ public class AdvancedPriceAnalysisServiceImpl
         }
     }
 
-    private void validateProductPrices(ProductInfo product) {
-        DssCostSupport.normalizeProductCost(product);
-    }
-
     private void validateOwnership(ProductInfo product, Long sellerId) {
         if (!sellerId.equals(product.sellerId())) {
             throw new ForbiddenException(
