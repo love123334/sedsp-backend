@@ -71,9 +71,10 @@ public class AdvancedPriceAnalysisServiceImpl
         validateSessionInput(request);
 
         Long sellerId = requireCurrentUserId();
-        ProductInfo product = productService.getProductInfo(request.getProductId());
+        ProductInfo product = DssCostSupport.normalizeProductCost(
+            productService.getProductInfo(request.getProductId())
+        );
         validateOwnership(product, sellerId);
-        validateProductPrices(product);
 
         ElasticitySnapshot elasticity = resolveElasticity(
             product.id(),
@@ -351,16 +352,7 @@ public class AdvancedPriceAnalysisServiceImpl
     }
 
     private void validateProductPrices(ProductInfo product) {
-        if (product.price() == null
-            || product.price().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("Giá bán sản phẩm phải lớn hơn 0.");
-        }
-        if (product.costPrice() == null
-            || product.costPrice().compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException(
-                "Sản phẩm phải có giá vốn để thực hiện phân tích."
-            );
-        }
+        DssCostSupport.normalizeProductCost(product);
     }
 
     private void validateOwnership(ProductInfo product, Long sellerId) {

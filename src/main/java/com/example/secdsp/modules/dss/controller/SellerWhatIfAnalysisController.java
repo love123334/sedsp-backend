@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/dss/what-if/seller")
+@RequestMapping({"/api/dss/what-if/seller", "/api/v1/dss/what-if/seller"})
 @RequiredArgsConstructor
 public class SellerWhatIfAnalysisController {
 

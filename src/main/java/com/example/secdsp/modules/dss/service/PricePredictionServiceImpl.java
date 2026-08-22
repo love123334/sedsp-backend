@@ -59,12 +59,12 @@ public class PricePredictionServiceImpl
     ) {
         validateDateRange(request.getFromDate(), request.getToDate());
 
-        ProductInfo product = productService
-            .getProductInfo(request.getProductId());
+        ProductInfo product = DssCostSupport.normalizeProductCost(
+            productService.getProductInfo(request.getProductId())
+        );
 
         Long sellerId = requireCurrentUserId();
         validateProductOwnership(product, sellerId);
-        validateProductPrices(product);
 
         log.info(
             "Generating price prediction for product {} from {} to {}",
@@ -288,10 +288,11 @@ public class PricePredictionServiceImpl
     ) {
         validateDateRange(request.getFromDate(), request.getToDate());
 
-        ProductInfo product = productService.getProductInfo(request.getProductId());
+        ProductInfo product = DssCostSupport.normalizeProductCost(
+            productService.getProductInfo(request.getProductId())
+        );
         Long sellerId = requireCurrentUserId();
         validateProductOwnership(product, sellerId);
-        validateProductPrices(product);
 
         if (request.getCustomPrice().compareTo(product.costPrice()) <= 0) {
             throw new BusinessException(
@@ -744,19 +745,7 @@ public class PricePredictionServiceImpl
     }
 
     private void validateProductPrices(ProductInfo product) {
-        if (product.price() == null
-            || product.price().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException(
-                "Product selling price must be greater than 0."
-            );
-        }
-
-        if (product.costPrice() == null
-            || product.costPrice().compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException(
-                "Product cost is required to generate a price prediction."
-            );
-        }
+        DssCostSupport.normalizeProductCost(product);
     }
 
     private void validateHistoryPrice(BigDecimal price) {

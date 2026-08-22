@@ -4,6 +4,7 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.modules.cart.entity.Cart;
 import com.example.secdsp.modules.cart.entity.CartItem;
+import com.example.secdsp.modules.cart.repository.CartItemRepository;
 import com.example.secdsp.modules.cart.repository.CartRepository;
 import com.example.secdsp.modules.order.entity.Order;
 import com.example.secdsp.modules.product.dto.internal.ProductInfo;
@@ -39,6 +40,7 @@ public class VoucherServiceImpl implements VoucherService {
     private final ProductRepository productRepository;
     private final ProductService productService;
     private final CartRepository cartRepository;
+    private final CartItemRepository cartItemRepository;
 
     @Override
     @Transactional
@@ -178,7 +180,6 @@ public class VoucherServiceImpl implements VoucherService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public ValidateVoucherResponse validateForCart(Long userId, ValidateVoucherRequest request) {
         try {
             List<Long> productIds = resolveProductIds(userId, request);
@@ -212,11 +213,15 @@ public class VoucherServiceImpl implements VoucherService {
             return request.getProductIds();
         }
         Cart cart = cartRepository.findByUser_Id(userId).orElse(null);
-        if (cart == null || cart.getItems().isEmpty()) {
+        if (cart == null) {
+            return List.of();
+        }
+        List<CartItem> items = cartItemRepository.findByCart_Id(cart.getId());
+        if (items.isEmpty()) {
             return List.of();
         }
         List<Long> ids = new ArrayList<>();
-        for (CartItem item : cart.getItems()) {
+        for (CartItem item : items) {
             for (int i = 0; i < item.getQuantity(); i++) {
                 ids.add(item.getProduct().getId());
             }
@@ -428,7 +433,12 @@ public class VoucherServiceImpl implements VoucherService {
             counts.merge(pid, 1L, (a, b) -> Long.valueOf(a.longValue() + b.longValue()));
         }
         for (Map.Entry<Long, Long> e : counts.entrySet()) {
-            ProductInfo p = productService.getProductInfo(e.getKey());
+            ProductInfo p;
+            try {
+                p = productService.getProductInfo(e.getKey());
+            } catch (ResourceNotFoundException ex) {
+                throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
+            }
             BigDecimal subtotal = p.price().multiply(BigDecimal.valueOf(e.getValue()));
             map.put(e.getKey(), new LineItem(p.sellerId(), subtotal));
         }
