@@ -19,7 +19,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -178,8 +177,16 @@ public class VoucherServiceImpl implements VoucherService {
     }
 
     @Override
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Transactional(readOnly = true)
     public ValidateVoucherResponse validateForCart(Long userId, ValidateVoucherRequest request) {
+        return validateForCartInternal(userId, request);
+    }
+
+    /** Called from {@link VoucherCartValidator} — no {@code @Transactional} on this method. */
+    public ValidateVoucherResponse validateForCartInternal(
+        Long userId,
+        ValidateVoucherRequest request
+    ) {
         try {
             List<Long> productIds = resolveProductIds(userId, request);
             return doValidate(request.getCode(), productIds, userId, false);
@@ -188,7 +195,13 @@ public class VoucherServiceImpl implements VoucherService {
         } catch (BusinessException ex) {
             return invalid(friendlyVoucherMessage(ex.getMessage()));
         } catch (Exception ex) {
-            log.warn("Voucher validate failed for user {}", userId, ex);
+            log.warn(
+                "Voucher validate failed for user {} ({}): {}",
+                userId,
+                ex.getClass().getSimpleName(),
+                ex.getMessage(),
+                ex
+            );
             return invalid("Chưa áp dụng được mã giảm giá. Vui lòng thử lại sau.");
         }
     }
@@ -202,6 +215,12 @@ public class VoucherServiceImpl implements VoucherService {
             return "Sản phẩm trong giỏ không còn tồn tại.";
         }
         if (lower.contains("sql") || lower.contains("jdbc") || lower.contains("schema")) {
+            return "Chưa áp dụng được mã giảm giá. Vui lòng thử lại sau.";
+        }
+        if (lower.contains("rollback")) {
+            return "Chưa áp dụng được mã giảm giá. Vui lòng thử lại sau.";
+        }
+        if (lower.contains("lazy") || lower.contains("no session")) {
             return "Chưa áp dụng được mã giảm giá. Vui lòng thử lại sau.";
         }
         return raw;
@@ -426,22 +445,30 @@ public class VoucherServiceImpl implements VoucherService {
     }
 
     private Map<Long, LineItem> buildLines(List<Long> productIds) {
-        Map<Long, LineItem> map = new HashMap<>();
         Map<Long, Long> counts = new HashMap<>();
         for (Long pid : productIds) {
             counts.merge(pid, 1L, (a, b) -> Long.valueOf(a.longValue() + b.longValue()));
         }
-        for (Map.Entry<Long, Long> e : counts.entrySet()) {
-            Product product = productRepository.findById(e.getKey())
-                .orElseThrow(() -> new BusinessException(
-                    "Sản phẩm trong giỏ không còn tồn tại."
-                ));
+        List<Long> ids = new ArrayList<>(counts.keySet());
+        List<Product> products = productRepository.findByIdIn(ids);
+        if (products.size() != ids.size()) {
+            throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
+        }
+        Map<Long, Product> byId = products.stream()
+            .collect(Collectors.toMap(Product::getId, p -> p));
+        Map<Long, LineItem> map = new HashMap<>();
+        for (Long id : ids) {
+            Product product = byId.get(id);
+            if (product == null) {
+                throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
+            }
+            long qty = counts.get(id);
             Long sellerId = product.getSeller() != null
                 ? product.getSeller().getId()
                 : null;
             BigDecimal subtotal = product.getPrice()
-                .multiply(BigDecimal.valueOf(e.getValue()));
-            map.put(e.getKey(), new LineItem(sellerId, subtotal));
+                .multiply(BigDecimal.valueOf(qty));
+            map.put(id, new LineItem(sellerId, subtotal));
         }
         return map;
     }
