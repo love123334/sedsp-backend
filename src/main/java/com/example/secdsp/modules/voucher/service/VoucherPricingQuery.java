@@ -27,7 +27,7 @@ class VoucherPricingQuery {
     @Transactional(readOnly = true)
     List<Long> expandProductIdsFromCart(Long cartId) {
         @SuppressWarnings("unchecked")
-        List<Object[]> rows = entityManager
+        List<Object> rows = entityManager
             .createNativeQuery(
                 """
                 SELECT ci.product_id, ci.quantity
@@ -39,12 +39,12 @@ class VoucherPricingQuery {
             .getResultList();
 
         List<Long> ids = new ArrayList<>();
-        for (Object[] row : rows) {
-            Long productId = asLong(row[0]);
+        for (Object row : rows) {
+            Long productId = asLong(cell(row, 0));
             if (productId == null) {
                 continue;
             }
-            int qty = asInt(row[1]);
+            int qty = asInt(cell(row, 1));
             for (int i = 0; i < qty; i++) {
                 ids.add(productId);
             }
@@ -52,6 +52,7 @@ class VoucherPricingQuery {
         return ids;
     }
 
+    @Transactional(readOnly = true)
     Map<Long, LineItem> pricingLines(Collection<Long> productIds) {
         if (productIds == null || productIds.isEmpty()) {
             return Map.of();
@@ -69,7 +70,7 @@ class VoucherPricingQuery {
         }
 
         @SuppressWarnings("unchecked")
-        List<Object[]> rows = entityManager
+        List<Object> rows = entityManager
             .createNativeQuery(
                 """
                 SELECT p.id, p.seller_id, p.price
@@ -81,10 +82,10 @@ class VoucherPricingQuery {
             .getResultList();
 
         Map<Long, LineItem> map = new HashMap<>();
-        for (Object[] row : rows) {
-            Long id = asLong(row[0]);
-            Long sellerId = asLong(row[1]);
-            BigDecimal price = asBigDecimal(row[2]);
+        for (Object row : rows) {
+            Long id = asLong(cell(row, 0));
+            Long sellerId = asLong(cell(row, 1));
+            BigDecimal price = asBigDecimal(cell(row, 2));
             if (id == null || price == null) {
                 continue;
             }
@@ -134,5 +135,15 @@ class VoucherPricingQuery {
             return new BigDecimal(text.trim());
         }
         throw new IllegalArgumentException("Expected numeric price, got " + value.getClass().getName());
+    }
+
+    private static Object cell(Object row, int index) {
+        if (row instanceof Object[] arr) {
+            return arr[index];
+        }
+        if (row instanceof jakarta.persistence.Tuple tuple) {
+            return tuple.get(index);
+        }
+        throw new IllegalArgumentException("Unexpected native row type: " + row.getClass().getName());
     }
 }
