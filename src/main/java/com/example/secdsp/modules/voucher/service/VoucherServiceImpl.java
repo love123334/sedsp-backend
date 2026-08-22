@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -177,7 +178,7 @@ public class VoucherServiceImpl implements VoucherService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ValidateVoucherResponse validateForCart(Long userId, ValidateVoucherRequest request) {
         return validateForCartInternal(userId, request);
     }
@@ -234,7 +235,7 @@ public class VoucherServiceImpl implements VoucherService {
         if (cart == null) {
             return List.of();
         }
-        List<CartItem> items = cartItemRepository.findByCart_Id(cart.getId());
+        List<CartItem> items = cartItemRepository.findByCartIdWithProduct(cart.getId());
         if (items.isEmpty()) {
             return List.of();
         }
@@ -450,7 +451,7 @@ public class VoucherServiceImpl implements VoucherService {
             counts.merge(pid, 1L, (a, b) -> Long.valueOf(a.longValue() + b.longValue()));
         }
         List<Long> ids = new ArrayList<>(counts.keySet());
-        List<Product> products = productRepository.findByIdIn(ids);
+        List<Product> products = productRepository.findAllWithSellerByIdIn(ids);
         if (products.size() != ids.size()) {
             throw new BusinessException("Sản phẩm trong giỏ không còn tồn tại.");
         }
