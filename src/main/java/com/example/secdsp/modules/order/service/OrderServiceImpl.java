@@ -742,7 +742,7 @@ public class OrderServiceImpl implements OrderService {
     private List<CartItem> getCartItemsOrThrow(Cart cart) {
 
         List<CartItem> items =
-            cartItemRepository.findByCart_Id(cart.getId());
+            cartItemRepository.findByCartIdWithProduct(cart.getId());
 
         if (items.isEmpty()) {
             throw new BusinessException("Cart is empty.");

@@ -240,7 +240,10 @@ public class VoucherServiceImpl implements VoucherService {
         }
         List<Long> ids = new ArrayList<>();
         for (Object[] row : rows) {
-            Long productId = (Long) row[0];
+            Long productId = toLong(row[0]);
+            if (productId == null) {
+                continue;
+            }
             int qty = ((Number) row[1]).intValue();
             for (int i = 0; i < qty; i++) {
                 ids.add(productId);
