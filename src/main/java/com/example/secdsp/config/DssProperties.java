@@ -22,8 +22,8 @@ public class DssProperties {
     String modelDir = "models/demand";
 
     /**
-     * When true, missing/unrunnable ONNX fails boot. Railway Docker keeps this
-     * false because onnxruntime is compileOnly ({@code -PexcludeOnnx}).
+     * When true, missing/unrunnable ONNX fails boot. Docker keeps this false so
+     * Railway still serves API while ONNX native deps (e.g. libgomp1) are fixed.
      */
     boolean modelRequired = false;
 

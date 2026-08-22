@@ -21,7 +21,7 @@ FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl \
+  && apt-get install -y --no-install-recommends curl libgomp1 \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /build/app.jar /app/app.jar
@@ -32,7 +32,7 @@ RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV PORT=8080
 ENV DSS_MODEL_DIR=/app/models/demand
-ENV DSS_MODEL_REQUIRED=true
+ENV DSS_MODEL_REQUIRED=false
 ENV JAVA_OPTS=-Xms128m -Xmx384m
 EXPOSE 8080
 

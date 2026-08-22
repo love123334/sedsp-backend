@@ -98,11 +98,14 @@ Triệu chứng trên FE: **Mô hình sẵn sàng: Có** nhưng **Đã dùng mô
 
 **Nguyên nhân:** bản Docker cũ build với `-PexcludeOnnx=true` → JAR không có `onnxruntime` → inference fallback thống kê.
 
-**Fix (đã có trên nhánh `railway`):**
+**Fix (nhánh `railway`):**
 
-- Dockerfile build **không** exclude ONNX; `DSS_MODEL_REQUIRED=true`.
+- Dockerfile build **không** exclude ONNX; cài **`libgomp1`** (OpenMP cho onnxruntime native).
+- `DSS_MODEL_REQUIRED=false` — container vẫn boot nếu ONNX lỗi tạm thời; log sẽ báo baseline.
 - File model: `models/demand/global-demand.onnx` (copy vào `/app/models/demand`).
 - Heap: `JAVA_OPTS=-Xms128m -Xmx384m` (ONNX native nằm ngoài heap).
+
+**Sau khi push:** Railway → **sedsp-api → Deployments → Redeploy** (auto-deploy hay fail).
 
 **Nếu deploy mới không lên (healthcheck fail / OOM):**
 
