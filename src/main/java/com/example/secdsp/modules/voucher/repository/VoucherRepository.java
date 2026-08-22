@@ -23,6 +23,7 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
     @Query("""
         select v from Voucher v
         left join fetch v.products
+        left join fetch v.seller
         where upper(v.code) = upper(:code)
           and v.scope = com.example.secdsp.modules.voucher.entity.VoucherScope.SHOP
           and v.seller.id = :sellerId

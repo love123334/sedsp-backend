@@ -4,6 +4,7 @@ import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.voucher.dto.ValidateVoucherRequest;
 import com.example.secdsp.modules.voucher.dto.ValidateVoucherResponse;
 import com.example.secdsp.modules.voucher.dto.VoucherResponse;
+import com.example.secdsp.modules.voucher.service.VoucherCartValidator;
 import com.example.secdsp.modules.voucher.service.VoucherService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import java.util.List;
 public class VoucherAiTool {
 
     private final VoucherService voucherService;
+    private final VoucherCartValidator voucherCartValidator;
 
     public List<VoucherResponse> listPublicVouchers(Long sellerId) {
         return voucherService.listPublicVouchers(sellerId);
@@ -33,6 +35,6 @@ public class VoucherAiTool {
         request.setCode(code);
         request.setProductIds(productIds);
 
-        return voucherService.validateForCart(userId, request);
+        return voucherCartValidator.validateForCart(userId, request);
     }
 }
