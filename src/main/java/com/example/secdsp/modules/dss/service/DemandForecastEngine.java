@@ -224,7 +224,7 @@ public class DemandForecastEngine {
             LocalDate targetDate = endDate.plusDays(horizonIndex);
             double statisticalValue = statistical.dailyForecast().get(horizonIndex - 1);
 
-            OptionalDouble modelPrediction = onnxModelAvailable && hist >= 60
+            OptionalDouble modelPrediction = onnxModelAvailable && hist >= 7
                 ? lightGbmPredictor.predict(
                     product.productId(),
                     targetDate,
@@ -252,10 +252,9 @@ public class DemandForecastEngine {
         }
 
         double forecastAverage = forecastTotal / horizon;
-        String method = statistical.methodId();
-        if (usedOnnxModel) {
-            method = method + HYBRID_STAT_ONNX_SUFFIX;
-        }
+        String method = usedOnnxModel
+            ? "lightgbm_onnx_with_baseline_fallback"
+            : statistical.methodId();
 
         featureSnapshot.put("method", method);
         featureSnapshot.put("statisticalMethod", statistical.methodId());
