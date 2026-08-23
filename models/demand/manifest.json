@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-23T21:38:46.423069+07:00",
+  "generatedAt": "2026-08-23T21:41:35.660667+07:00",
   "model": {
     "scope": "global",
     "productCount": 39,
@@ -228,15 +228,15 @@
       120,
       180
     ],
-    "historyStart": "2026-04-10",
+    "historyStart": "2026-02-25",
     "historyEnd": "2026-08-23",
-    "trainingRows": 13514,
-    "validationRows": 5100,
-    "bestIteration": 365,
+    "trainingRows": 15274,
+    "validationRows": 5740,
+    "bestIteration": 262,
     "metrics": {
-      "mae": 2.0372,
-      "rmse": 3.8622,
-      "mapePercent": 193.8802,
+      "mae": 2.0109,
+      "rmse": 3.8709,
+      "mapePercent": 186.7605,
       "maxOnnxPredictionDelta": 1e-06
     }
   }

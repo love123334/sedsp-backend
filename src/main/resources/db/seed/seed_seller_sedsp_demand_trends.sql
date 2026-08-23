@@ -1,17 +1,22 @@
 -- =============================================================================
--- SEDSP — Seed realistic demand history for DSS on existing 4 catalog products
+-- SEDSP — Seed 180 days of realistic demand history for DSS with holiday & trend effects
 -- Marker: [SELLER-SEDSP-TREND]
 -- Manual run: psql -f seed_seller_sedsp_demand_trends.sql
 -- Flyway equivalent: V66__seed_realistic_dss_demand_patterns.sql
 --
 -- Target products (seller@sedsp.vn / 12345678):
---   1. tai-nghe-bluetooth-pro-anc      → DOWNWARD (Đang giảm: early 6-9, mid 4-7, late 2-5)
---   2. noi-chien-khong-dau-5l          → STABLE (Tương đối ổn định: baseline ~5)
---   3. ban-phim-co-rgb-keypro-k87      → UPWARD (Đang tăng: early 2-4, mid 4-7, late 7-10)
---   4. giay-chay-bo-airflex-marathon   → SEASONAL (Weekly seasonality: weekend peak)
+--   1. tai-nghe-bluetooth-pro-anc      → DOWNWARD (Đang giảm: 14.0 -> 2.5 across 180 days)
+--   2. noi-chien-khong-dau-5l          → STABLE (Tương đối ổn định: baseline ~5.0)
+--   3. ban-phim-co-rgb-keypro-k87      → UPWARD (Đang tăng: 2.5 -> 12.0 across 180 days)
+--   4. giay-chay-bo-airflex-marathon   → SEASONAL (Weekly seasonality: weekend peak T6-T7-CN)
+--
+-- External factors:
+--   - Double-day mega-sales (3/3, 4/4, 5/5, 6/6, 7/7, 8/8, 9/9, 10/10, 11/11, 12/12, 1/1, 2/2)
+--   - Payday sales (15th, 25th)
+--   - Major holidays (30/4, 1/5, 2/9, 1/1)
 --
 -- Deterministic pseudo-random seed = 2026 (reproducible across database resets)
--- 90 continuous days: CURRENT_DATE - 89 … CURRENT_DATE
+-- 180 continuous days: CURRENT_DATE - 179 … CURRENT_DATE
 -- =============================================================================
 
 WITH doomed AS (
@@ -123,7 +128,7 @@ SELECT
     '[SELLER-SEDSP-TREND] ' || TO_CHAR(sale.sale_date, 'YYYY-MM-DD'),
     sale.sale_date + TIME '10:30:00',
     sale.sale_date + TIME '18:30:00'
-FROM GENERATE_SERIES(CURRENT_DATE - 89, CURRENT_DATE, INTERVAL '1 day') AS sale(sale_date)
+FROM GENERATE_SERIES(CURRENT_DATE - 179, CURRENT_DATE, INTERVAL '1 day') AS sale(sale_date)
 CROSS JOIN (
     SELECT id FROM users WHERE email = 'customer@sedsp.vn' AND deleted_at IS NULL LIMIT 1
 ) customer
@@ -149,9 +154,23 @@ SELECT
 FROM orders forecast_order
 JOIN seller_sedsp_demo_products product ON TRUE
 CROSS JOIN LATERAL (
-    SELECT (89 - (CURRENT_DATE - forecast_order.created_at::DATE)) AS day_index,
+    SELECT (179 - (CURRENT_DATE - forecast_order.created_at::DATE)) AS day_index,
+           EXTRACT(MONTH FROM forecast_order.created_at)::INTEGER AS sale_month,
+           EXTRACT(DAY FROM forecast_order.created_at)::INTEGER AS sale_day,
            EXTRACT(ISODOW FROM forecast_order.created_at)::INTEGER AS isodow
 ) timeline
+CROSS JOIN LATERAL (
+    SELECT
+        CASE
+            WHEN timeline.sale_day = timeline.sale_month THEN 3
+            WHEN timeline.sale_day IN (15, 25) THEN 1
+            WHEN (timeline.sale_month = 4 AND timeline.sale_day = 30)
+              OR (timeline.sale_month = 5 AND timeline.sale_day = 1)
+              OR (timeline.sale_month = 9 AND timeline.sale_day = 2)
+              OR (timeline.sale_month = 1 AND timeline.sale_day = 1) THEN 2
+            ELSE 0
+        END AS holiday_boost
+) holiday_calc
 CROSS JOIN LATERAL (
     SELECT ((('x' || SUBSTR(MD5(timeline.day_index || '-' || product.profile_name || '-2026'), 1, 8))::BIT(32)::BIGINT / 4294967295.0) * 2.0 - 1.0) AS noise
 ) noise_calc
@@ -161,11 +180,16 @@ CROSS JOIN LATERAL (
         ROUND(
             CASE product.profile_name
                 WHEN 'DOWNWARD' THEN
-                    9.0 - (timeline.day_index / 89.0) * 6.5 + (noise_calc.noise * 1.2)
+                    14.0 - (timeline.day_index / 179.0) * 11.5
+                    + (noise_calc.noise * 0.8)
+                    + CASE WHEN holiday_calc.holiday_boost >= 3 AND timeline.day_index < 150 THEN 2 ELSE 0 END
                 WHEN 'STABLE' THEN
-                    5.0 + (noise_calc.noise * 1.2)
+                    5.0 + (noise_calc.noise * 1.0)
+                    + CASE WHEN holiday_calc.holiday_boost >= 3 THEN 1 ELSE 0 END
                 WHEN 'UPWARD' THEN
-                    2.5 + (timeline.day_index / 89.0) * 6.5 + (noise_calc.noise * 1.2)
+                    2.5 + (timeline.day_index / 179.0) * 9.5
+                    + (noise_calc.noise * 0.8)
+                    + CASE WHEN holiday_calc.holiday_boost >= 3 THEN 2 ELSE 0 END
                 WHEN 'SEASONAL' THEN
                     (CASE timeline.isodow
                         WHEN 1 THEN 3.5
@@ -173,15 +197,17 @@ CROSS JOIN LATERAL (
                         WHEN 3 THEN 4.0
                         WHEN 4 THEN 5.0
                         WHEN 5 THEN 7.5
-                        WHEN 6 THEN 8.5
-                        WHEN 7 THEN 6.5
-                    END) + (noise_calc.noise * 1.2)
+                        WHEN 6 THEN 9.0
+                        WHEN 7 THEN 7.0
+                    END)
+                    + (noise_calc.noise * 0.9)
+                    + CASE WHEN holiday_calc.holiday_boost >= 3 THEN 2 ELSE 0 END
             END
         )::INTEGER
     ) AS quantity
 ) demand
 WHERE forecast_order.shipping_address LIKE '[SELLER-SEDSP-TREND] %'
-  AND forecast_order.created_at::DATE BETWEEN CURRENT_DATE - 89 AND CURRENT_DATE;
+  AND forecast_order.created_at::DATE BETWEEN CURRENT_DATE - 179 AND CURRENT_DATE;
 
 UPDATE orders forecast_order
 SET subtotal_amount = totals.subtotal,
