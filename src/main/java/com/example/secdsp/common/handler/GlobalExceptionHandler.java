@@ -261,7 +261,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<BaseResponse<Void>> handleUnexpectedException(Exception ex) {
         log.error("Unexpected error occurred", ex);
         String detail = ex.getMessage();
-        String message = (detail != null && !detail.isBlank() && detail.length() < 180)
+        String message = (detail != null && !detail.isBlank() && detail.length() < 400)
             ? detail
             : INTERNAL_SERVER_ERROR;
         return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, message);

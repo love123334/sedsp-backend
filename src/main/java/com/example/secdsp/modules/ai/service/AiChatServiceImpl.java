@@ -42,9 +42,11 @@ public class AiChatServiceImpl implements AiChatService {
     private static final int MAX_HISTORY_MESSAGES = 8;
     private static final List<String> MODEL_FALLBACKS = List.of(
         "gemini-3.6-flash",
+        "gemini-3.7-flash",
         "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
-        "gemini-2.5-flash"
+        "gemini-3-flash-preview"
     );
 
     private static final String SYSTEM_PROMPT = """
@@ -165,7 +167,8 @@ public class AiChatServiceImpl implements AiChatService {
                 e
             );
             String detail = rootMessage(e);
-            String shortDetail = detail.length() > 120 ? detail.substring(0, 117) + "…" : detail;
+            // Keep enough of the model-failure chain for Railway diagnosis (FE still sanitizes)
+            String shortDetail = detail.length() > 220 ? detail.substring(0, 217) + "…" : detail;
             throw new BusinessException(
                 "Chatbot Gemini tạm lỗi: " + shortDetail,
                 HttpStatus.BAD_GATEWAY
@@ -215,7 +218,7 @@ public class AiChatServiceImpl implements AiChatService {
         Object contents,
         GenerateContentConfig config
     ) throws Exception {
-        Exception last = null;
+        List<String> failures = new ArrayList<>();
         for (String candidate : modelCandidates()) {
             try {
                 GenerateContentResponse response = contents instanceof String text
@@ -230,11 +233,14 @@ public class AiChatServiceImpl implements AiChatService {
                 }
                 return response;
             } catch (Exception ex) {
-                last = ex;
+                String detail = candidate + "=" + rootMessage(ex);
+                failures.add(detail);
                 log.warn("Gemini model {} failed: {}", candidate, rootMessage(ex));
             }
         }
-        throw last != null ? last : new IllegalStateException("No Gemini model available");
+        throw new IllegalStateException(
+            "All Gemini models failed: " + String.join(" | ", failures)
+        );
     }
 
     private static String rootMessage(Throwable throwable) {
