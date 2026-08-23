@@ -553,20 +553,33 @@ public class AiChatServiceImpl implements AiChatService {
         }
     }
 
+    private static final java.util.regex.Pattern SAFETY_METADATA_LEAK = java.util.regex.Pattern.compile(
+        "(?im)^\\s*(?:User Safety|Response Safety|Phản hồi\\s*[Aa]n toàn|Khống chế người dùng|Khoản người dùng)\\s*:\\s*[^\\n]*\\n?"
+    );
+
     private AiChatResponse buildResponse(
         String content
     ) {
+        String sanitized = sanitizeAiContent(content);
 
         return AiChatResponse.builder()
             .content(
-                content == null || content.isBlank()
+                sanitized == null || sanitized.isBlank()
                     ? "Xin lỗi, tôi không thể tạo câu trả lời lúc này."
-                    : content
+                    : sanitized
             )
             .provider("google-gemini")
             .model(model)
             .fallback(false)
             .build();
+    }
+
+    private static String sanitizeAiContent(String content) {
+        if (content == null) {
+            return null;
+        }
+        String stripped = SAFETY_METADATA_LEAK.matcher(content).replaceAll("").trim();
+        return stripped.isBlank() ? null : stripped;
     }
 
     private Map<String, Object> executeGetMyOrders() {
