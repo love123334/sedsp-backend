@@ -13,21 +13,22 @@ Toàn bộ dữ liệu demo/marketplace được quản lý qua **Flyway migrati
 | V47 | Việt hóa label + backfill tồn kho |
 | V48 | Cleanup attributes, nhà cung cấp, category |
 | V51 | 180 ngày nhu cầu dự báo: tăng, giảm, ổn định theo tuần, bán gián đoạn |
+| V65 | seller@sedsp.vn — seed 180 ngày trên 4 SP catalog có sẵn (không tạo SP mới) |
 
 Chạy `flyway migrate` (tự động khi boot BE) sẽ áp dụng đầy đủ.
 
-## Sản phẩm kiểm thử dự báo nhu cầu
+## Sản phẩm kiểm thử dự báo nhu cầu (seller@sedsp.vn)
 
-Đăng nhập seller DSS và chọn một trong bốn sản phẩm sau:
+Đăng nhập **seller@sedsp.vn** / **12345678** → DSS → **Dự báo nhu cầu**:
 
-| Sản phẩm | Slug | Mẫu dữ liệu 180 ngày |
-|----------|------|----------------------|
-| DSS Forecast - Nhu cầu tăng | `dss-forecast-growing-demand` | Tăng dần, cao hơn vào cuối tuần |
-| DSS Forecast - Nhu cầu giảm | `dss-forecast-declining-demand` | Giảm dần theo thời gian |
-| DSS Forecast - Ổn định theo tuần | `dss-forecast-weekly-stable-demand` | Mức nền ổn định, có chu kỳ cuối tuần |
-| DSS Forecast - Bán gián đoạn | `dss-forecast-intermittent-demand` | Có ngày bằng 0, xu hướng tăng nhẹ |
+| Sản phẩm | Slug | Xu hướng DSS |
+|----------|------|----------------|
+| Bàn phím cơ RGB KeyPro K87 | `ban-phim-co-rgb-keypro-k87` | Đang tăng |
+| Tai nghe Bluetooth Pro ANC | `tai-nghe-bluetooth-pro-anc` | Đang giảm |
+| Nồi chiên không dầu 5L | `noi-chien-khong-dau-5l` | Tương đối ổn định |
+| Giày chạy bộ AirFlex Marathon | `giay-chay-bo-airflex-marathon` | Bán gián đoạn |
 
-Các sản phẩm này hỗ trợ kiểm thử lookback 7, 14, 30, 60 và 180 ngày.
+Dữ liệu bán: **180 ngày** kết thúc **hôm nay**. SP `DSS Forecast - …` / `seller-sedsp-trend-*` đã gỡ.
 
 ## Export full DB (cho teammate cập nhật)
 

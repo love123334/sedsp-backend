@@ -1,22 +1,24 @@
 -- =============================================================================
--- SEDSP — Seed demand-forecast trends for seller@sedsp.vn (existing catalog SKUs)
--- Marker: [SELLER-SEDSP-TREND]
--- Manual run: psql -f seed_seller_sedsp_demand_trends.sql
--- Flyway equivalent: V65__fix_seller_sedsp_demand_seed_existing_products.sql
+-- V65: Fix seller@sedsp.vn demand seed — use existing 4 catalog products only.
+-- Supersedes product-creation in V64 (seller-sedsp-trend-*).
 --
--- Does NOT create products — only seeds DELIVERED sales for:
---   ban-phim-co-rgb-keypro-k87      → UPWARD
---   tai-nghe-bluetooth-pro-anc      → DOWNWARD
---   noi-chien-khong-dau-5l          → STABLE_SEASONAL
---   giay-chay-bo-airflex-marathon   → INTERMITTENT_UPWARD
--- Window: CURRENT_DATE - 179 … CURRENT_DATE
+-- Demo products (seller@sedsp.vn / 12345678):
+--   ban-phim-co-rgb-keypro-k87      → UPWARD (Đang tăng)
+--   tai-nghe-bluetooth-pro-anc      → DOWNWARD (Đang giảm)
+--   noi-chien-khong-dau-5l          → STABLE_SEASONAL (Tương đối ổn định)
+--   giay-chay-bo-airflex-marathon   → INTERMITTENT_UPWARD (bán gián đoạn)
+--
+-- Sales window: CURRENT_DATE - 179 … CURRENT_DATE (180 days, ends today).
+-- Marker: [SELLER-SEDSP-TREND] — idempotent re-run.
 -- =============================================================================
 
+-- 0) Remove cart lines for fake V64 SKUs
 DELETE FROM cart_items
 WHERE product_id IN (
     SELECT id FROM products WHERE slug LIKE 'seller-sedsp-trend-%'
 );
 
+-- 1) Drop fake V64 products + their trend orders
 WITH doomed AS (
     SELECT o.id
     FROM orders o
@@ -51,6 +53,7 @@ SET deleted_at = CURRENT_TIMESTAMP,
 WHERE slug LIKE 'seller-sedsp-trend-%'
   AND deleted_at IS NULL;
 
+-- 2) Real catalog SKUs for seller@sedsp.vn
 CREATE TEMP TABLE seller_sedsp_demo_products ON COMMIT DROP AS
 SELECT
     product.id,
@@ -72,6 +75,7 @@ WHERE product.deleted_at IS NULL
   AND seller.email = 'seller@sedsp.vn'
   AND seller.deleted_at IS NULL;
 
+-- Strip prior sales on these SKUs (V39/V60/V61 noise) so DSS trends stay clean
 CREATE TEMP TABLE orders_after_demo_item_removal ON COMMIT DROP AS
 SELECT o.id
 FROM orders o
@@ -85,6 +89,7 @@ WHERE EXISTS (
 DELETE FROM order_items oi
 WHERE oi.product_id IN (SELECT id FROM seller_sedsp_demo_products);
 
+-- Remove orders left empty after line removal
 CREATE TEMP TABLE empty_orders ON COMMIT DROP AS
 SELECT o.id
 FROM orders o
@@ -100,6 +105,7 @@ WHERE p.order_id IN (SELECT id FROM empty_orders);
 DELETE FROM orders o
 WHERE o.id IN (SELECT id FROM empty_orders);
 
+-- Recalculate totals for orders that still have other lines
 UPDATE orders o
 SET subtotal_amount = COALESCE(totals.subtotal, 0),
     total_amount = COALESCE(totals.subtotal, 0) + o.shipping_fee - o.discount_amount,
@@ -112,6 +118,7 @@ FROM (
 ) totals
 WHERE o.id = totals.order_id;
 
+-- 3) One DELIVERED order per day (180 days → today)
 INSERT INTO orders (
     user_id,
     subtotal_amount,
@@ -145,6 +152,7 @@ WHERE EXISTS (SELECT 1 FROM seller_sedsp_demo_products)
             '[SELLER-SEDSP-TREND] ' || TO_CHAR(sale.sale_date, 'YYYY-MM-DD')
   );
 
+-- 4) Order lines — four distinct trend profiles + light random noise
 INSERT INTO order_items (
     order_id,
     product_id,
@@ -173,21 +181,44 @@ CROSS JOIN LATERAL (
         (
             CASE product.profile_name
                 WHEN 'UPWARD' THEN
-                    2 + (age.recency_index / 22)
-                    + CASE WHEN EXTRACT(ISODOW FROM forecast_order.created_at) IN (6, 7) THEN 2 ELSE 0 END
+                    2
+                    + (age.recency_index / 22)
+                    + CASE
+                        WHEN EXTRACT(ISODOW FROM forecast_order.created_at) IN (6, 7)
+                            THEN 2
+                        ELSE 0
+                      END
                 WHEN 'DOWNWARD' THEN
                     GREATEST(
                         2,
-                        12 - (age.recency_index / 20)
-                        + CASE WHEN EXTRACT(ISODOW FROM forecast_order.created_at) IN (6, 7) THEN 1 ELSE 0 END
+                        12
+                        - (age.recency_index / 20)
+                        + CASE
+                            WHEN EXTRACT(ISODOW FROM forecast_order.created_at) IN (6, 7)
+                                THEN 1
+                            ELSE 0
+                          END
                     )
                 WHEN 'STABLE_SEASONAL' THEN
                     6
-                    + CASE WHEN EXTRACT(ISODOW FROM forecast_order.created_at) IN (6, 7) THEN 3 ELSE 0 END
-                    + CASE WHEN MOD(EXTRACT(DAY FROM forecast_order.created_at)::INTEGER, 15) = 0 THEN 2 ELSE 0 END
+                    + CASE
+                        WHEN EXTRACT(ISODOW FROM forecast_order.created_at) IN (6, 7)
+                            THEN 3
+                        ELSE 0
+                      END
+                    + CASE
+                        WHEN MOD(EXTRACT(DAY FROM forecast_order.created_at)::INTEGER, 15) = 0
+                            THEN 2
+                        ELSE 0
+                      END
                 ELSE
-                    3 + (age.recency_index / 45)
-                    + CASE WHEN EXTRACT(ISODOW FROM forecast_order.created_at) = 7 THEN 2 ELSE 0 END
+                    3
+                    + (age.recency_index / 45)
+                    + CASE
+                        WHEN EXTRACT(ISODOW FROM forecast_order.created_at) = 7
+                            THEN 2
+                        ELSE 0
+                      END
             END
             + FLOOR(RANDOM() * 4)::INTEGER - 1
         )::INTEGER
@@ -208,7 +239,8 @@ WHERE forecast_order.shipping_address LIKE '[SELLER-SEDSP-TREND] %'
 
 UPDATE orders forecast_order
 SET subtotal_amount = totals.subtotal,
-    total_amount = totals.subtotal + forecast_order.shipping_fee - forecast_order.discount_amount,
+    total_amount = totals.subtotal + forecast_order.shipping_fee
+        - forecast_order.discount_amount,
     updated_at = forecast_order.created_at + INTERVAL '8 hours'
 FROM (
     SELECT item.order_id, ROUND(SUM(item.subtotal), 2) AS subtotal
@@ -221,8 +253,15 @@ WHERE totals.order_id = forecast_order.id
   AND forecast_order.shipping_address LIKE '[SELLER-SEDSP-TREND] %';
 
 INSERT INTO payments (
-    order_id, payment_method, gateway_name, amount, status,
-    transaction_id, currency, paid_at, created_at
+    order_id,
+    payment_method,
+    gateway_name,
+    amount,
+    status,
+    transaction_id,
+    currency,
+    paid_at,
+    created_at
 )
 SELECT
     forecast_order.id,
@@ -238,10 +277,18 @@ FROM orders forecast_order
 WHERE forecast_order.shipping_address LIKE '[SELLER-SEDSP-TREND] %'
   AND forecast_order.total_amount > 0
   AND NOT EXISTS (
-      SELECT 1 FROM payments existing_payment WHERE existing_payment.order_id = forecast_order.id
+      SELECT 1
+      FROM payments existing_payment
+      WHERE existing_payment.order_id = forecast_order.id
   );
 
-INSERT INTO order_tracking (order_id, event, note, updated_by, created_at)
+INSERT INTO order_tracking (
+    order_id,
+    event,
+    note,
+    updated_by,
+    created_at
+)
 SELECT
     forecast_order.id,
     'DELIVERED'::order_tracking_event,
@@ -252,7 +299,9 @@ FROM orders forecast_order
 JOIN order_items item ON item.order_id = forecast_order.id
 WHERE forecast_order.shipping_address LIKE '[SELLER-SEDSP-TREND] %'
   AND NOT EXISTS (
-      SELECT 1 FROM order_tracking t
-      WHERE t.order_id = forecast_order.id AND t.event = 'DELIVERED'
+      SELECT 1
+      FROM order_tracking existing_tracking
+      WHERE existing_tracking.order_id = forecast_order.id
+        AND existing_tracking.event = 'DELIVERED'
   )
 GROUP BY forecast_order.id, forecast_order.created_at;
