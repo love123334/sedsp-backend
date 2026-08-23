@@ -385,27 +385,30 @@ public class AiChatServiceImpl implements AiChatService {
         Map<String, Object> args
     ) {
 
-        Object keywordValue = args.get("keyword");
+        String keyword = args.get("keyword") == null
+            ? ""
+            : args.get("keyword").toString().trim();
+        java.math.BigDecimal minPrice = toBigDecimal(args.get("minPrice"));
+        java.math.BigDecimal maxPrice = toBigDecimal(args.get("maxPrice"));
 
-        if (keywordValue == null) {
+        if (!StringUtils.hasText(keyword) && minPrice == null && maxPrice == null) {
             return Map.of(
                 "error",
-                "keyword is required"
+                "Provide keyword and/or minPrice/maxPrice"
             );
         }
 
-        String keyword =
-            keywordValue.toString().trim();
-
         log.info(
-            "AI search_products called with keyword: {}",
-            keyword
+            "AI search_products called with keyword={} minPrice={} maxPrice={}",
+            keyword,
+            minPrice,
+            maxPrice
         );
 
         try {
 
             var products =
-                productAiTool.searchProducts(keyword);
+                productAiTool.searchProducts(keyword, minPrice, maxPrice);
 
             log.info(
                 "AI search_products returned {} products",
@@ -415,6 +418,8 @@ public class AiChatServiceImpl implements AiChatService {
             return Map.of(
                 "success", true,
                 "keyword", keyword,
+                "minPrice", minPrice != null ? minPrice : "",
+                "maxPrice", maxPrice != null ? maxPrice : "",
                 "count", products.size(),
                 "products", products
             );
@@ -432,6 +437,24 @@ public class AiChatServiceImpl implements AiChatService {
                 "error",
                 "Product search failed."
             );
+        }
+    }
+
+    private static java.math.BigDecimal toBigDecimal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            if (value instanceof Number number) {
+                return java.math.BigDecimal.valueOf(number.doubleValue());
+            }
+            String text = value.toString().trim().replace(",", "");
+            if (text.isEmpty()) {
+                return null;
+            }
+            return new java.math.BigDecimal(text);
+        } catch (Exception e) {
+            return null;
         }
     }
 
