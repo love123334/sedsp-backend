@@ -32,8 +32,8 @@ public class DeepSeekProperties {
 
     int maxTokens = 1200;
 
-    /** Polish Gemini drafts with catalog facts when useful (adds ~1–3s). */
-    boolean refineGemini = true;
+    /** Polish Gemini drafts — off by default (teammate = Gemini wording only). */
+    boolean refineGemini = false;
 
     public boolean isConfigured() {
         return enabled
