@@ -48,6 +48,9 @@ public class BusinessException extends RuntimeException {
         if (httpStatus == HttpStatus.BAD_REQUEST) {
             return ErrorCode.BUSINESS_ERROR;
         }
+        if (httpStatus == HttpStatus.TOO_MANY_REQUESTS) {
+            return ErrorCode.BUSINESS_ERROR;
+        }
         if (httpStatus.is5xxServerError()) {
             return ErrorCode.INTERNAL_SERVER_ERROR;
         }

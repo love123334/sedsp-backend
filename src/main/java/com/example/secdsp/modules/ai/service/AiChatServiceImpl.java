@@ -167,7 +167,12 @@ public class AiChatServiceImpl implements AiChatService {
                 e
             );
             String detail = rootMessage(e);
-            // Keep enough of the model-failure chain for Railway diagnosis (FE still sanitizes)
+            if (isNonRetryableGeminiError(e) && detail.toLowerCase().contains("quota")) {
+                throw new BusinessException(
+                    "Chatbot Gemini tạm hết hạn mức (quota). Thử lại sau vài phút hoặc kiểm tra GEMINI_API_KEY / billing trên Google AI Studio.",
+                    HttpStatus.TOO_MANY_REQUESTS
+                );
+            }
             String shortDetail = detail.length() > 220 ? detail.substring(0, 217) + "…" : detail;
             throw new BusinessException(
                 "Chatbot Gemini tạm lỗi: " + shortDetail,
@@ -236,11 +241,26 @@ public class AiChatServiceImpl implements AiChatService {
                 String detail = candidate + "=" + rootMessage(ex);
                 failures.add(detail);
                 log.warn("Gemini model {} failed: {}", candidate, rootMessage(ex));
+                // Shared project quota / auth — trying more models only burns the same limit
+                if (isNonRetryableGeminiError(ex)) {
+                    break;
+                }
             }
         }
         throw new IllegalStateException(
             "All Gemini models failed: " + String.join(" | ", failures)
         );
+    }
+
+    private static boolean isNonRetryableGeminiError(Throwable throwable) {
+        String message = rootMessage(throwable).toLowerCase();
+        return message.contains("429")
+            || message.contains("too many requests")
+            || message.contains("exceeded your current quota")
+            || message.contains("401")
+            || message.contains("403")
+            || message.contains("api key")
+            || message.contains("permission denied");
     }
 
     private static String rootMessage(Throwable throwable) {
