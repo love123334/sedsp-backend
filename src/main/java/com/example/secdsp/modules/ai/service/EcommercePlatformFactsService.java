@@ -159,7 +159,7 @@ public class EcommercePlatformFactsService {
                 + "tầm|tam|khoảng|khoang|ngân\\s*sách|ngan\\s*sach)\\s*\\d+[.,]?\\d*\\s*"
                 + "(triệu|trieu|tr|m|k|nghìn|nghin)?", " ")
             .replaceAll("(?i)\\d+[.,]?\\d*\\s*(triệu|trieu|tr)\\b", " ")
-            .replaceAll("(?i)^(cho\\s+mình|cho\\s+tôi|toi|mình|minh|bạn|ban|có\\s+gì|co\\s+gi)\\s+", "")
+            .replaceAll("(?i)^(tư\\s*vấn|tu\\s*van|gợi\\s*ý|goi\\s*y|tìm\\s*kiếm|tim\\s*kiem|tìm|tim|cho\\s+mình|cho\\s+tôi|toi|mình|minh|bạn|ban|có\\s+gì|co\\s+gi|mua|cần|can)\\s+", "")
             .replaceAll("(?i)(có|co)\\s+(không|khong|ko)\\s*\\??$", "")
             .replaceAll("[?!.]+$", "")
             .replaceAll("\\s+", " ")
@@ -184,7 +184,7 @@ public class EcommercePlatformFactsService {
 
     private static String sanitizeKeyword(String lastUser) {
         String k = lastUser.trim()
-            .replaceAll("(?i)^(cho\\s+mình|cho\\s+tôi|toi|mình|minh|bạn|ban)\\s+", "")
+            .replaceAll("(?i)^(tư\\s*vấn|tu\\s*van|gợi\\s*ý|goi\\s*y|tìm\\s*kiếm|tim\\s*kiem|tìm|tim|cho\\s+mình|cho\\s+tôi|toi|mình|minh|bạn|ban|mua|cần|can)\\s+", "")
             .replaceAll("(?i)(có|co)\\s+(không|khong|ko)\\s*\\??$", "")
             .replaceAll("[?!.]+$", "")
             .trim();

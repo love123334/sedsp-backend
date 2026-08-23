@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -81,6 +82,16 @@ public class ProductCatalogQueryRepositoryImpl implements ProductCatalogQueryRep
         return new PageImpl<>(ids, pageable, total.longValue());
     }
 
+    private static final java.util.Set<String> SEARCH_STOP_WORDS = java.util.Set.of(
+        "cho", "minh", "mình", "toi", "tôi", "mua", "can", "cần", "tim", "tìm",
+        "loai", "loại", "gia", "giá", "re", "rẻ", "dep", "đẹp", "xin", "xịn",
+        "tot", "tốt", "nao", "nào", "co", "có", "khong", "không", "ko", "k",
+        "voi", "với", "va", "và", "cua", "của", "ban", "bán", "xem", "tu", "tư",
+        "van", "vấn", "hoi", "hỏi", "duoi", "dưới", "tren", "trên", "khoang", "khoảng",
+        "tam", "tầm", "ngon", "nhat", "nhất", "chinh", "chính", "hang", "hãng",
+        "cao", "cap", "cấp", "moi", "mới", "nhe", "nhé", "a", "ạ", "shop", "store", "em"
+    );
+
     private static FilterClause buildFilterClause(String keyword, Long categoryId, Long sellerId) {
         StringBuilder sql = new StringBuilder("""
              WHERE p.deleted_at IS NULL
@@ -89,14 +100,53 @@ public class ProductCatalogQueryRepositoryImpl implements ProductCatalogQueryRep
         Map<String, Object> params = new HashMap<>();
 
         if (StringUtils.hasText(keyword)) {
+            String rawKw = keyword.trim();
+            String lowerKw = rawKw.toLowerCase(Locale.ROOT);
+            params.put("exactKeyword", "%" + lowerKw + "%");
+
+            String[] rawTokens = lowerKw.split("[\\s,._\\-+:/]+");
+            List<String> meaningfulTokens = Arrays.stream(rawTokens)
+                .map(String::trim)
+                .filter(t -> t.length() >= 2 && !SEARCH_STOP_WORDS.contains(t))
+                .toList();
+
             sql.append("""
                  AND (
-                    LOWER(p.name) LIKE LOWER(:keyword)
-                    OR LOWER(p.slug) LIKE LOWER(:keyword)
-                    OR LOWER(COALESCE(p.description, '')) LIKE LOWER(:keyword)
-                 )
+                    LOWER(p.name) LIKE :exactKeyword
+                    OR LOWER(p.slug) LIKE :exactKeyword
+                    OR LOWER(COALESCE(p.description, '')) LIKE :exactKeyword
                 """);
-            params.put("keyword", "%" + keyword.trim() + "%");
+
+            if (!meaningfulTokens.isEmpty()) {
+                sql.append(" OR (");
+                for (int i = 0; i < meaningfulTokens.size(); i++) {
+                    String paramName = "tok_" + i;
+                    if (i > 0) {
+                        sql.append(" AND ");
+                    }
+                    sql.append(" (LOWER(p.name) LIKE :").append(paramName)
+                       .append(" OR LOWER(p.slug) LIKE :").append(paramName)
+                       .append(" OR LOWER(COALESCE(p.description, '')) LIKE :").append(paramName).append(") ");
+                    params.put(paramName, "%" + meaningfulTokens.get(i) + "%");
+                }
+                sql.append(") ");
+            }
+
+            // Cross-category and synonym expansions
+            if (lowerKw.contains("tai nghe") || lowerKw.contains("headphone") || lowerKw.contains("earbuds") || lowerKw.contains("chống ồn") || lowerKw.contains("chong on")) {
+                sql.append(" OR (LOWER(p.slug) LIKE '%tai-nghe%' OR LOWER(p.slug) LIKE '%headphone%' OR LOWER(p.slug) LIKE '%airpods%') ");
+            }
+            if (lowerKw.contains("bàn phím") || lowerKw.contains("ban phim") || lowerKw.contains("keyboard") || lowerKw.contains("keypro")) {
+                sql.append(" OR (LOWER(p.slug) LIKE '%ban-phim%' OR LOWER(p.slug) LIKE '%keyboard%' OR LOWER(p.slug) LIKE '%keypro%') ");
+            }
+            if (lowerKw.contains("nồi chiên") || lowerKw.contains("noi chien") || lowerKw.contains("air fryer") || lowerKw.contains("chiên không dầu")) {
+                sql.append(" OR (LOWER(p.slug) LIKE '%noi-chien%' OR LOWER(p.slug) LIKE '%air-fryer%') ");
+            }
+            if (lowerKw.contains("giày") || lowerKw.contains("giay") || lowerKw.contains("chạy bộ") || lowerKw.contains("chay bo") || lowerKw.contains("sneaker") || lowerKw.contains("marathon")) {
+                sql.append(" OR (LOWER(p.slug) LIKE '%giay%' OR LOWER(p.slug) LIKE '%shoes%' OR LOWER(p.slug) LIKE '%sneakers%' OR LOWER(p.slug) LIKE '%marathon%') ");
+            }
+
+            sql.append(" ) ");
         }
         if (categoryId != null) {
             sql.append(" AND p.category_id = :categoryId ");
