@@ -1,8 +1,10 @@
 package com.example.secdsp.modules.ai.service;
 
+import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.modules.ai.dto.AiChatRequest;
 import com.example.secdsp.modules.ai.dto.AiChatResponse;
 import com.example.secdsp.modules.ai.tool.*;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.genai.Client;
 import com.google.genai.types.*;
@@ -11,8 +13,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +40,12 @@ public class AiChatServiceImpl implements AiChatService {
     private String model;
 
     private static final int MAX_HISTORY_MESSAGES = 8;
+    private static final List<String> MODEL_FALLBACKS = List.of(
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash"
+    );
 
     private static final String SYSTEM_PROMPT = """
     You are the AI assistant of a Vietnamese e-commerce platform.
@@ -59,192 +71,81 @@ public class AiChatServiceImpl implements AiChatService {
 
         try {
             String conversation = buildConversation(request);
-
-            GenerateContentConfig config =
-                GenerateContentConfig.builder()
-                    .systemInstruction(
-                        Content.fromParts(
-                            Part.fromText(SYSTEM_PROMPT)
-                        )
-                    )
-                    .tools(
-                        List.of(
-                            Tool.builder()
-                                .functionDeclarations(
-                                    List.of(
-                                        ProductToolDefinition.searchProducts(),
-                                        ProductToolDefinition.getProductDetail(),
-
-                                        OrderToolDefinition.getMyOrders(),
-                                        OrderToolDefinition.getOrderDetail(),
-
-                                        InventoryToolDefinition.getInventory(),
-                                        InventoryToolDefinition.getInventorySummary(),
-                                        InventoryToolDefinition.getLowStockProducts(),
-
-                                        VoucherToolDefinition.listPublicVouchers(),
-                                        VoucherToolDefinition.validateVoucher()
-                                    )
-                                )
-                                .build()
-                        )
-                    )
-                    .build();
-
-            // =========================================================
-            // GEMINI CALL #1
-            // =========================================================
+            GenerateContentConfig toolsConfig = buildConfig(true);
+            GenerateContentConfig plainConfig = buildConfig(false);
 
             long firstCallStart = System.currentTimeMillis();
-
-            GenerateContentResponse response =
-                googleAiClient.models.generateContent(
-                    model,
-                    conversation,
-                    config
+            GenerateContentResponse response;
+            try {
+                response = generateWithModelFallback(conversation, toolsConfig);
+            } catch (Exception toolsFailure) {
+                log.warn(
+                    "Gemini with tools failed ({}), retrying without tools",
+                    rootMessage(toolsFailure)
                 );
+                response = generateWithModelFallback(conversation, plainConfig);
+            }
+            long firstCallMs = System.currentTimeMillis() - firstCallStart;
+            log.info("AI Gemini #1 completed: {} ms", firstCallMs);
 
-            long firstCallMs =
-                System.currentTimeMillis() - firstCallStart;
-
-            log.info(
-                "AI Gemini #1 completed: {} ms",
-                firstCallMs
-            );
-
-            // =========================================================
-            // CHECK FUNCTION CALL
-            // =========================================================
-
-            FunctionCall functionCall =
-                extractFunctionCall(response);
-
-            /*
-             * Gemini can answer directly without using a tool.
-             */
+            FunctionCall functionCall = extractFunctionCall(response);
             if (functionCall == null) {
-
                 log.info(
                     "AI completed without tool. Total: {} ms",
                     System.currentTimeMillis() - totalStart
                 );
-
                 return buildResponse(response.text());
             }
 
-            String functionName =
-                functionCall.name().orElse("");
-
-            Map<String, Object> functionArgs =
-                functionCall.args()
-                    .map(value -> (Map<String, Object>) value)
-                    .orElse(Map.of());
-
-            log.info(
-                "Gemini requested tool: {} args: {}",
-                functionName,
-                functionArgs
-            );
-
-            // =========================================================
-            // EXECUTE BACKEND TOOL
-            // =========================================================
+            String functionName = functionCall.name().orElse("");
+            Map<String, Object> functionArgs = functionCall.args()
+                .map(value -> (Map<String, Object>) value)
+                .orElse(Map.of());
+            log.info("Gemini requested tool: {} args: {}", functionName, functionArgs);
 
             long toolStart = System.currentTimeMillis();
+            Map<String, Object> toolResult = executeAiTool(functionCall);
+            long toolMs = System.currentTimeMillis() - toolStart;
+            log.info("AI tool {} completed: {} ms", functionName, toolMs);
 
-            Map<String, Object> toolResult =
-                executeAiTool(functionCall);
+            // Preserve Gemini function-call content (incl. thought_signature) and
+            // return tool output via fromFunctionResponse — required by Gemini 3.x.
+            Map<String, Object> serializableToolResult = objectMapper.convertValue(
+                toolResult,
+                new TypeReference<Map<String, Object>>() {}
+            );
+            Content toolResponseContent = Content.builder()
+                .role("user")
+                .parts(
+                    List.of(
+                        Part.fromFunctionResponse(functionName, serializableToolResult)
+                    )
+                )
+                .build();
 
-            long toolMs =
-                System.currentTimeMillis() - toolStart;
+            Content modelResponseContent = response.candidates()
+                .orElse(List.of())
+                .stream()
+                .findFirst()
+                .flatMap(Candidate::content)
+                .orElseThrow(
+                    () -> new IllegalStateException(
+                        "Gemini response did not contain model content."
+                    )
+                );
 
-            log.info(
-                "AI tool {} completed: {} ms",
-                functionName,
-                toolMs
+            List<Content> followUpContents = List.of(
+                modelResponseContent,
+                toolResponseContent
             );
 
-            // =========================================================
-            // BUILD TOOL RESULT
-            // =========================================================
-
-            String toolResultJson =
-                objectMapper.writeValueAsString(toolResult);
-
-            Content toolResponseContent =
-                Content.fromParts(
-                    Part.fromText(
-                        "Tool result for "
-                            + functionName
-                            + ": "
-                            + toolResultJson
-                    )
-                );
-
-            // =========================================================
-            // GET GEMINI FUNCTION CALL CONTENT
-            // =========================================================
-
-            Content modelFunctionCall =
-                response.candidates()
-                    .orElse(List.of())
-                    .stream()
-                    .findFirst()
-                    .flatMap(candidate ->
-                                 candidate.content()
-                    )
-                    .orElseThrow(
-                        () -> new IllegalStateException(
-                            "Gemini response did not contain function call content."
-                        )
-                    );
-
-            // =========================================================
-            // GEMINI CALL #2
-            // =========================================================
-
-            String currentUserMessage =
-                request.getMessages()
-                    .get(request.getMessages().size() - 1)
-                    .getContent();
-
-            List<Content> followUpContents =
-                List.of(
-                    Content.builder()
-                        .role("user")
-                        .parts(
-                            List.of(
-                                Part.fromText(currentUserMessage)
-                            )
-                        )
-                        .build(),
-
-                    modelFunctionCall,
-
-                    toolResponseContent
-                );
-
-            long secondCallStart =
-                System.currentTimeMillis();
-
+            long secondCallStart = System.currentTimeMillis();
             GenerateContentResponse finalResponse =
-                googleAiClient.models.generateContent(
-                    model,
-                    followUpContents,
-                    config
-                );
+                generateWithModelFallback(followUpContents, toolsConfig);
+            long secondCallMs = System.currentTimeMillis() - secondCallStart;
+            long totalMs = System.currentTimeMillis() - totalStart;
 
-            long secondCallMs =
-                System.currentTimeMillis() - secondCallStart;
-
-            long totalMs =
-                System.currentTimeMillis() - totalStart;
-
-            log.info(
-                "AI Gemini #2 completed: {} ms",
-                secondCallMs
-            );
-
+            log.info("AI Gemini #2 completed: {} ms", secondCallMs);
             log.info(
                 "AI chat total completed: {} ms | Gemini #1: {} ms | Tool: {} ms | Gemini #2: {} ms",
                 totalMs,
@@ -255,19 +156,97 @@ public class AiChatServiceImpl implements AiChatService {
 
             return buildResponse(finalResponse.text());
 
+        } catch (BusinessException ex) {
+            throw ex;
         } catch (Exception e) {
-
             log.error(
                 "AI chat failed after {} ms",
                 System.currentTimeMillis() - totalStart,
                 e
             );
-
-            throw new RuntimeException(
-                "Failed to generate AI response: " + e.getMessage(),
-                e
+            String detail = rootMessage(e);
+            String shortDetail = detail.length() > 120 ? detail.substring(0, 117) + "…" : detail;
+            throw new BusinessException(
+                "Chatbot Gemini tạm lỗi: " + shortDetail,
+                HttpStatus.BAD_GATEWAY
             );
         }
+    }
+
+    private GenerateContentConfig buildConfig(boolean withTools) {
+        GenerateContentConfig.Builder builder = GenerateContentConfig.builder()
+            .systemInstruction(
+                Content.fromParts(Part.fromText(SYSTEM_PROMPT))
+            );
+        if (withTools) {
+            builder.tools(
+                List.of(
+                    Tool.builder()
+                        .functionDeclarations(
+                            List.of(
+                                ProductToolDefinition.searchProducts(),
+                                ProductToolDefinition.getProductDetail(),
+                                OrderToolDefinition.getMyOrders(),
+                                OrderToolDefinition.getOrderDetail(),
+                                InventoryToolDefinition.getInventory(),
+                                InventoryToolDefinition.getInventorySummary(),
+                                InventoryToolDefinition.getLowStockProducts(),
+                                VoucherToolDefinition.listPublicVouchers(),
+                                VoucherToolDefinition.validateVoucher()
+                            )
+                        )
+                        .build()
+                )
+            );
+        }
+        return builder.build();
+    }
+
+    private List<String> modelCandidates() {
+        LinkedHashSet<String> models = new LinkedHashSet<>();
+        if (StringUtils.hasText(model)) {
+            models.add(model.trim());
+        }
+        models.addAll(MODEL_FALLBACKS);
+        return new ArrayList<>(models);
+    }
+
+    private GenerateContentResponse generateWithModelFallback(
+        Object contents,
+        GenerateContentConfig config
+    ) throws Exception {
+        Exception last = null;
+        for (String candidate : modelCandidates()) {
+            try {
+                GenerateContentResponse response = contents instanceof String text
+                    ? googleAiClient.models.generateContent(candidate, text, config)
+                    : googleAiClient.models.generateContent(
+                        candidate,
+                        (List<Content>) contents,
+                        config
+                    );
+                if (!candidate.equals(model)) {
+                    log.info("Gemini model fallback succeeded with {}", candidate);
+                }
+                return response;
+            } catch (Exception ex) {
+                last = ex;
+                log.warn("Gemini model {} failed: {}", candidate, rootMessage(ex));
+            }
+        }
+        throw last != null ? last : new IllegalStateException("No Gemini model available");
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        if (message == null || message.isBlank()) {
+            return current.getClass().getSimpleName();
+        }
+        return message;
     }
 
     private String buildConversation(AiChatRequest request) {

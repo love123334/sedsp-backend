@@ -33,6 +33,9 @@ public class AiChatController {
     @Value("${google.ai.api-key:}")
     private String geminiApiKey;
 
+    @Value("${google.ai.model:gemini-3.6-flash}")
+    private String geminiModel;
+
     @GetMapping("/status")
     public ResponseEntity<BaseResponse<Map<String, Object>>> status() {
         boolean configured = StringUtils.hasText(geminiApiKey);
@@ -41,7 +44,7 @@ public class AiChatController {
                 Map.of(
                     "configured", configured,
                     "provider", configured ? "google-gemini" : "none",
-                    "model", configured ? "gemini-3.6-flash" : ""
+                    "model", configured ? geminiModel : ""
                 )
             )
         );
