@@ -1,8 +1,5 @@
 -- =============================================================================
--- SEDSP — Seed realistic demand history for DSS on existing 4 catalog products
--- Marker: [SELLER-SEDSP-TREND]
--- Manual run: psql -f seed_seller_sedsp_demand_trends.sql
--- Flyway equivalent: V66__seed_realistic_dss_demand_patterns.sql
+-- V66: Seed realistic demand history for DSS on existing 4 catalog products
 --
 -- Target products (seller@sedsp.vn / 12345678):
 --   1. tai-nghe-bluetooth-pro-anc      → DOWNWARD (Đang giảm: early 6-9, mid 4-7, late 2-5)
@@ -12,8 +9,10 @@
 --
 -- Deterministic pseudo-random seed = 2026 (reproducible across database resets)
 -- 90 continuous days: CURRENT_DATE - 89 … CURRENT_DATE
+-- Valid orders, order_items, payments, order_tracking (DELIVERED)
 -- =============================================================================
 
+-- 1) Cleanup prior trend orders
 WITH doomed AS (
     SELECT o.id
     FROM orders o
@@ -41,6 +40,7 @@ WHERE oi.order_id IN (SELECT id FROM doomed);
 DELETE FROM orders
 WHERE shipping_address LIKE '[SELLER-SEDSP-TREND] %';
 
+-- 2) Target demo products for seller@sedsp.vn
 CREATE TEMP TABLE seller_sedsp_demo_products ON COMMIT DROP AS
 SELECT
     product.id,
@@ -62,6 +62,7 @@ WHERE product.deleted_at IS NULL
   AND seller.email = 'seller@sedsp.vn'
   AND seller.deleted_at IS NULL;
 
+-- Remove legacy sales on these 4 demo products so DSS patterns stay pure
 CREATE TEMP TABLE orders_after_demo_item_removal ON COMMIT DROP AS
 SELECT o.id
 FROM orders o
@@ -102,6 +103,7 @@ FROM (
 ) totals
 WHERE o.id = totals.order_id;
 
+-- 3) Create 90 continuous daily DELIVERED orders (CURRENT_DATE - 89 … CURRENT_DATE)
 INSERT INTO orders (
     user_id,
     subtotal_amount,
@@ -129,6 +131,7 @@ CROSS JOIN (
 ) customer
 WHERE EXISTS (SELECT 1 FROM seller_sedsp_demo_products);
 
+-- 4) Create order items for the 4 demand profiles using deterministic random seed 2026
 INSERT INTO order_items (
     order_id,
     product_id,
@@ -160,12 +163,19 @@ CROSS JOIN LATERAL (
         1,
         ROUND(
             CASE product.profile_name
+                -- 1. DOWNWARD: Early 6-9, Mid 4-7, Late 2-5 (Slope < -0.05)
                 WHEN 'DOWNWARD' THEN
                     8.2 - (timeline.day_index / 89.0) * 5.4 + (noise_calc.noise * 1.5)
+
+                -- 2. STABLE: Baseline ~5 (4, 6, 5, 5, 7, 4, 6, 5... Slope ~ 0.0)
                 WHEN 'STABLE' THEN
                     5.0 + (noise_calc.noise * 1.6)
+
+                -- 3. UPWARD: Early 2-4, Mid 4-7, Late 7-10 (Slope > 0.05)
                 WHEN 'UPWARD' THEN
                     2.8 + (timeline.day_index / 89.0) * 5.8 + (noise_calc.noise * 1.5)
+
+                -- 4. SEASONAL: Weekly seasonality (T2: 3-4, T3-T4: 4-5, T5: 5-6, T6: 7-8, T7: 8-10, CN: 6-8)
                 WHEN 'SEASONAL' THEN
                     (CASE timeline.isodow
                         WHEN 1 THEN 3.5
@@ -183,6 +193,7 @@ CROSS JOIN LATERAL (
 WHERE forecast_order.shipping_address LIKE '[SELLER-SEDSP-TREND] %'
   AND forecast_order.created_at::DATE BETWEEN CURRENT_DATE - 89 AND CURRENT_DATE;
 
+-- 5) Update order totals
 UPDATE orders forecast_order
 SET subtotal_amount = totals.subtotal,
     total_amount = totals.subtotal + forecast_order.shipping_fee - forecast_order.discount_amount,
@@ -197,6 +208,7 @@ FROM (
 WHERE totals.order_id = forecast_order.id
   AND forecast_order.shipping_address LIKE '[SELLER-SEDSP-TREND] %';
 
+-- 6) Create matching payment records
 INSERT INTO payments (
     order_id,
     payment_method,
@@ -222,6 +234,7 @@ FROM orders forecast_order
 WHERE forecast_order.shipping_address LIKE '[SELLER-SEDSP-TREND] %'
   AND forecast_order.total_amount > 0;
 
+-- 7) Create tracking records
 INSERT INTO order_tracking (
     order_id,
     event,
