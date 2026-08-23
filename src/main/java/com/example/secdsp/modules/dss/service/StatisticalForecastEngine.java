@@ -16,7 +16,7 @@ public final class StatisticalForecastEngine {
     public static final String METHOD_HOLT_WINTERS = "holt_winters";
 
     private static final int WEEKLY_PERIOD = 7;
-    private static final double SEASONALITY_THRESHOLD = 0.18;
+    private static final double SEASONALITY_THRESHOLD = 0.15;
 
     private StatisticalForecastEngine() {
     }
@@ -48,7 +48,7 @@ public final class StatisticalForecastEngine {
     }
 
     /**
-     * &lt; 14 days → MA; 14–60 → Holt; &gt; 60 + strong weekly seasonality → Holt-Winters.
+     * < 14 days → MA; 14–21 → Holt; >= 21 + weekly seasonality → Holt-Winters.
      */
     public static Strategy selectStrategy(
         int historyDays,
@@ -58,7 +58,7 @@ public final class StatisticalForecastEngine {
         if (historyDays < 14 || positiveDays < 5) {
             return Strategy.MOVING_AVERAGE;
         }
-        if (historyDays >= 60 && seasonalityStrength >= SEASONALITY_THRESHOLD) {
+        if (historyDays >= 21 && seasonalityStrength >= SEASONALITY_THRESHOLD) {
             return Strategy.HOLT_WINTERS;
         }
         return Strategy.HOLT_LINEAR;
