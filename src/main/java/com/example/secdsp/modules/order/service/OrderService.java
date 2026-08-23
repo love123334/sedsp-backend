@@ -16,7 +16,7 @@ import java.util.Map;
 
 public interface OrderService {
 
-    OrderResponse createOrder(CreateOrderRequest request);
+    OrderDetailResponse createOrder(CreateOrderRequest request);
 
     OrderDetailResponse getOrderById(Long id);
 

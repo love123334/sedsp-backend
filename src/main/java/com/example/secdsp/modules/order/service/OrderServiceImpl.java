@@ -79,7 +79,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderResponse createOrder(CreateOrderRequest request) {
+    public OrderDetailResponse createOrder(CreateOrderRequest request) {
 
         Long userId = requireCurrentUserId();
 
@@ -116,7 +116,7 @@ public class OrderServiceImpl implements OrderService {
 
         orderNotificationService.notifyOrderCreated(order);
 
-        return buildOrderResponse(order);
+        return buildOrderDetailResponse(order, request.getPaymentMethod());
     }
 
     @Override
@@ -688,6 +688,24 @@ public class OrderServiceImpl implements OrderService {
                 itemsByOrder.getOrDefault(order.getId(), List.of())
             )
         );
+    }
+
+    private OrderDetailResponse buildOrderDetailResponse(
+        Order order,
+        PaymentMethod paymentMethod
+    ) {
+        Payment payment = paymentRepository.findByOrder_Id(order.getId()).orElse(null);
+        return OrderDetailResponse.builder()
+            .order(buildOrderResponse(order))
+            .shippingAddress(order.getShippingAddress())
+            .paymentMethod(
+                paymentMethod != null
+                    ? paymentMethod
+                    : payment != null ? payment.getPaymentMethod() : null
+            )
+            .momoTransfer(buildMomoTransferInfo(order, payment))
+            .tracking(List.of(OrderTrackingEvent.CREATED))
+            .build();
     }
 
     private OrderResponse buildOrderResponse(Order order) {
