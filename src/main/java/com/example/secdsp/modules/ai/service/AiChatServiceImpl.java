@@ -34,6 +34,7 @@ public class AiChatServiceImpl implements AiChatService {
     private final OrderAiTool orderAiTool;
     private final InventoryAiTool inventoryAiTool;
     private final VoucherAiTool voucherAiTool;
+    private final DssAiTool dssAiTool;
     private final ObjectMapper objectMapper;
     private final DeepSeekEcommerceChatService deepSeekEcommerceChatService;
     private final OpenRouterEcommerceChatService openRouterEcommerceChatService;
@@ -245,7 +246,12 @@ public class AiChatServiceImpl implements AiChatService {
                                 InventoryToolDefinition.getInventorySummary(),
                                 InventoryToolDefinition.getLowStockProducts(),
                                 VoucherToolDefinition.listPublicVouchers(),
-                                VoucherToolDefinition.validateVoucher()
+                                VoucherToolDefinition.validateVoucher(),
+                                DssToolDefinition.getDemandForecast(),
+                                DssToolDefinition.getRestockRecommendations(),
+                                DssToolDefinition.getWhatIfDiscountAnalysis(),
+                                DssToolDefinition.getPriceRecommendation(),
+                                DssToolDefinition.getBusinessHealth()
                             )
                         )
                         .build()
@@ -409,6 +415,16 @@ public class AiChatServiceImpl implements AiChatService {
             case "list_public_vouchers" -> executeListPublicVouchers(args);
 
             case "validate_voucher" -> executeValidateVoucher(args);
+
+            case "get_dss_demand_forecast" -> executeGetDemandForecast(args);
+
+            case "get_dss_restock_recommendations" -> executeGetRestockRecommendations(args);
+
+            case "get_dss_what_if_discount" -> executeGetWhatIfDiscount(args);
+
+            case "get_dss_price_recommendation" -> executeGetPriceRecommendation(args);
+
+            case "get_dss_business_health" -> executeGetBusinessHealth();
 
             default -> Map.of(
                 "error", "Unknown tool: " + functionName
@@ -894,4 +910,80 @@ public class AiChatServiceImpl implements AiChatService {
             );
         }
     }
-}
+
+    private Map<String, Object> executeGetDemandForecast(Map<String, Object> args) {
+        Object productIdVal = args.get("productId");
+        if (productIdVal == null) {
+            return Map.of("success", false, "error", "productId is required");
+        }
+        Long productId = ((Number) productIdVal).longValue();
+        Integer forecastDays = args.get("forecastDays") instanceof Number n ? n.intValue() : 30;
+
+        try {
+            var forecast = dssAiTool.getDemandForecast(productId, forecastDays);
+            return Map.of("success", true, "forecast", forecast);
+        } catch (Exception e) {
+            log.error("AI get_dss_demand_forecast failed for product {}", productId, e);
+            return Map.of("success", false, "error", "Failed to compute demand forecast: " + e.getMessage());
+        }
+    }
+
+    private Map<String, Object> executeGetRestockRecommendations(Map<String, Object> args) {
+        Integer planningDays = args.get("planningDays") instanceof Number n ? n.intValue() : 14;
+        Long productId = args.get("productId") instanceof Number n ? n.longValue() : null;
+
+        try {
+            var result = dssAiTool.getRestockRecommendations(planningDays, productId);
+            return Map.of("success", true, "restockAnalysis", result);
+        } catch (Exception e) {
+            log.error("AI get_dss_restock_recommendations failed", e);
+            return Map.of("success", false, "error", "Failed to get restock recommendations: " + e.getMessage());
+        }
+    }
+
+    private Map<String, Object> executeGetWhatIfDiscount(Map<String, Object> args) {
+        Object productIdVal = args.get("productId");
+        Object discountVal = args.get("priceChangePercent");
+        if (productIdVal == null || discountVal == null) {
+            return Map.of("success", false, "error", "productId and priceChangePercent are required");
+        }
+        Long productId = ((Number) productIdVal).longValue();
+        Double priceChangePct = ((Number) discountVal).doubleValue();
+        Integer period = args.get("simulationPeriod") instanceof Number n ? n.intValue() : 30;
+
+        try {
+            var analysis = dssAiTool.getWhatIfDiscountAnalysis(productId, priceChangePct, period);
+            return Map.of("success", true, "whatIfAnalysis", analysis);
+        } catch (Exception e) {
+            log.error("AI get_dss_what_if_discount failed for product {}", productId, e);
+            return Map.of("success", false, "error", "Failed to evaluate discount scenario: " + e.getMessage());
+        }
+    }
+
+    private Map<String, Object> executeGetPriceRecommendation(Map<String, Object> args) {
+        Object productIdVal = args.get("productId");
+        if (productIdVal == null) {
+            return Map.of("success", false, "error", "productId is required");
+        }
+        Long productId = ((Number) productIdVal).longValue();
+        Integer lookbackDays = args.get("lookbackDays") instanceof Number n ? n.intValue() : 30;
+
+        try {
+            var recommendation = dssAiTool.getPriceRecommendation(productId, lookbackDays);
+            return Map.of("success", true, "priceRecommendation", recommendation);
+        } catch (Exception e) {
+            log.error("AI get_dss_price_recommendation failed for product {}", productId, e);
+            return Map.of("success", false, "error", "Failed to compute price recommendation: " + e.getMessage());
+        }
+    }
+
+    private Map<String, Object> executeGetBusinessHealth() {
+        try {
+            var health = dssAiTool.getBusinessHealth();
+            return Map.of("success", true, "businessHealth", health);
+        } catch (Exception e) {
+            log.error("AI get_dss_business_health failed", e);
+            return Map.of("success", false, "error", "Failed to compute business health score: " + e.getMessage());
+        }
+    }
+}

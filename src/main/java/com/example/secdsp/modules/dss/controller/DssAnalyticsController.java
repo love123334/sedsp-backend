@@ -74,7 +74,6 @@ public class DssAnalyticsController {
         );
     }
 
-    /** Flat sales feed for Power BI Web connector */
     @GetMapping("/analytics/powerbi/sales")
     @PreAuthorize("hasAnyRole('SELLER','MANAGER','ADMIN')")
     public ResponseEntity<BaseResponse<List<Map<String, Object>>>> powerBiSales(
@@ -84,4 +83,14 @@ public class DssAnalyticsController {
             BaseResponse.success(dssAnalyticsService.powerBiSalesFeed(limit))
         );
     }
+
+    @GetMapping("/dss/business-health")
+    @PreAuthorize("hasAnyRole('SELLER','MANAGER','ADMIN')")
+    public ResponseEntity<BaseResponse<com.example.secdsp.modules.dss.dto.BusinessHealthResponse>> businessHealth() {
+        return ResponseEntity.ok(
+            BaseResponse.success(dssAnalyticsService.getBusinessHealthScore())
+        );
+    }
 }
+
+

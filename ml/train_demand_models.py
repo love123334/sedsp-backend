@@ -44,7 +44,7 @@ def parse_args() -> argparse.Namespace:
         description="Train a global LightGBM model from DELIVERED orders."
     )
     parser.add_argument("--product-id", type=int, action="append", dest="product_ids")
-    parser.add_argument("--min-days", type=int, default=60)
+    parser.add_argument("--min-days", type=int, default=30)
     parser.add_argument("--output-dir", type=Path, default=Path("models/demand"))
     return parser.parse_args()
 

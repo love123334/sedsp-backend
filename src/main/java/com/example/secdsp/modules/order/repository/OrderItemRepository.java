@@ -208,4 +208,22 @@ public interface OrderItemRepository
         @Param("startDateTime") OffsetDateTime startDateTime,
         @Param("endDateTime") OffsetDateTime endDateTime
     );
+
+    @Query(value = """
+        SELECT COALESCE(SUM(oi.subtotal), 0) AS total_revenue,
+               COUNT(DISTINCT oi.order_id) AS total_orders,
+               COALESCE(SUM(oi.quantity), 0) AS total_quantity
+        FROM order_items oi
+        INNER JOIN orders o ON o.id = oi.order_id
+        WHERE oi.seller_id = :sellerId
+          AND o.status = 'DELIVERED'
+          AND o.created_at >= :startDateTime
+          AND o.created_at < :endDateTime
+        """, nativeQuery = true)
+    List<Object[]> getSellerSalesStatsBetween(
+        @Param("sellerId") Long sellerId,
+        @Param("startDateTime") OffsetDateTime startDateTime,
+        @Param("endDateTime") OffsetDateTime endDateTime
+    );
 }
+

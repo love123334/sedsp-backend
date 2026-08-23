@@ -1,12 +1,11 @@
 {
   "scope": "global",
-  "productCount": 34,
+  "productCount": 39,
   "productIds": [
     1,
     2,
     3,
     4,
-    5,
     6,
     7,
     8,
@@ -22,8 +21,16 @@
     18,
     19,
     20,
-    55,
-    56,
+    21,
+    27,
+    32,
+    37,
+    38,
+    39,
+    41,
+    42,
+    47,
+    48,
     57,
     58,
     59,
@@ -33,9 +40,7 @@
     63,
     64,
     65,
-    66,
-    67,
-    68
+    66
   ],
   "products": [
     {
@@ -55,124 +60,144 @@
       "productName": "Nồi chiên không dầu 5L"
     },
     {
-      "productId": 5,
-      "productName": "iPhone 15 Pro 128GB"
-    },
-    {
       "productId": 6,
-      "productName": "Samsung Galaxy S24"
+      "productName": "Quocanh"
     },
     {
       "productId": 7,
-      "productName": "MacBook Air M3"
+      "productName": "iPhone 15 Pro 128GB"
     },
     {
       "productId": 8,
-      "productName": "AirPods Pro 2"
+      "productName": "Samsung Galaxy S24"
     },
     {
       "productId": 9,
-      "productName": "iPad Air 6"
+      "productName": "MacBook Air M3"
     },
     {
       "productId": 10,
-      "productName": "Dell XPS 15"
+      "productName": "AirPods Pro 2"
     },
     {
       "productId": 11,
-      "productName": "HP Spectre x360"
+      "productName": "iPad Air 6"
     },
     {
       "productId": 12,
-      "productName": "Xiaomi 14 Ultra"
+      "productName": "Dell XPS 15"
     },
     {
       "productId": 13,
-      "productName": "Logitech MX Master 3S"
+      "productName": "HP Spectre x360"
     },
     {
       "productId": 14,
-      "productName": "Samsung T7 SSD 1TB"
+      "productName": "Xiaomi 14 Ultra"
     },
     {
       "productId": 15,
-      "productName": "Men Slim Fit Blazer"
+      "productName": "Logitech MX Master 3S"
     },
     {
       "productId": 16,
-      "productName": "Men Casual Shirt"
+      "productName": "Samsung T7 SSD 1TB"
     },
     {
       "productId": 17,
-      "productName": "Women Floral Dress"
+      "productName": "Men Slim Fit Blazer"
     },
     {
       "productId": 18,
-      "productName": "Women Office Skirt"
+      "productName": "Men Casual Shirt"
     },
     {
       "productId": 19,
-      "productName": "Leather Oxford Shoes"
+      "productName": "Women Floral Dress"
     },
     {
       "productId": 20,
-      "productName": "Centella Facial Cleanser"
+      "productName": "Women Office Skirt"
     },
     {
-      "productId": 55,
-      "productName": "Wireless Mouse Pro"
+      "productId": 21,
+      "productName": "Leather Oxford Shoes"
     },
     {
-      "productId": 56,
-      "productName": "Mechanical Keyboard K87"
+      "productId": 27,
+      "productName": "Modern Sofa 3 Seater"
+    },
+    {
+      "productId": 32,
+      "productName": "Adjustable Dumbbell 20kg"
+    },
+    {
+      "productId": 37,
+      "productName": "Google Pixel 9"
+    },
+    {
+      "productId": 38,
+      "productName": "Samsung Galaxy Tab S9"
+    },
+    {
+      "productId": 39,
+      "productName": "Anker 65W Charger"
+    },
+    {
+      "productId": 41,
+      "productName": "Wireless Charging Pad"
+    },
+    {
+      "productId": 42,
+      "productName": "Oversized Hoodie"
+    },
+    {
+      "productId": 47,
+      "productName": "Air Fryer 5L"
+    },
+    {
+      "productId": 48,
+      "productName": "Blender 1000W"
     },
     {
       "productId": 57,
-      "productName": "Noise Cancelling Headphones"
+      "productName": "Wireless Mouse Pro"
     },
     {
       "productId": 58,
-      "productName": "USB-C Hub 8-in-1"
+      "productName": "Mechanical Keyboard K87"
     },
     {
       "productId": 59,
-      "productName": "Fitness Smart Watch"
+      "productName": "Noise Cancelling Headphones"
     },
     {
       "productId": 60,
-      "productName": "Running Shoes X1"
+      "productName": "USB-C Hub 8-in-1"
     },
     {
       "productId": 61,
-      "productName": "Premium Cotton Jacket"
+      "productName": "Fitness Smart Watch"
     },
     {
       "productId": 62,
-      "productName": "Urban Travel Backpack"
+      "productName": "Running Shoes X1"
     },
     {
       "productId": 63,
-      "productName": "Smart Air Fryer"
+      "productName": "Premium Cotton Jacket"
     },
     {
       "productId": 64,
-      "productName": "Digital Coffee Maker"
+      "productName": "Urban Travel Backpack"
     },
     {
       "productId": 65,
-      "productName": "DSS Forecast - Bán gián đoạn"
+      "productName": "Smart Air Fryer"
     },
     {
       "productId": 66,
-      "productName": "DSS Forecast - Ổn định theo tuần"
-    },
-    {
-      "productId": 67,
-      "productName": "DSS Forecast - Nhu cầu giảm"
-    },
-    {
-      "productId": 68,
-      "productName": "DSS Forecast - Nhu cầu tăng"
+      "productName": "Digital Coffee Maker"
     }
   ],
   "modelType": "LightGBMRegressor",
@@ -201,15 +226,15 @@
     120,
     180
   ],
-  "historyStart": "2026-02-19",
-  "historyEnd": "2026-08-17",
-  "trainingRows": 15048,
-  "validationRows": 5720,
-  "bestIteration": 281,
+  "historyStart": "2026-04-10",
+  "historyEnd": "2026-08-23",
+  "trainingRows": 14334,
+  "validationRows": 5448,
+  "bestIteration": 347,
   "metrics": {
-    "mae": 2.4273,
-    "rmse": 4.3667,
-    "mapePercent": 225.4607,
-    "maxOnnxPredictionDelta": 1.2e-05
+    "mae": 2.158,
+    "rmse": 3.9022,
+    "mapePercent": 205.6492,
+    "maxOnnxPredictionDelta": 8e-06
   }
 }

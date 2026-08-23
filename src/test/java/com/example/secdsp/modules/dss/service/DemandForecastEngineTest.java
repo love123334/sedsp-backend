@@ -95,7 +95,7 @@ class DemandForecastEngineTest {
         assertEquals(42, forecast.featureSnapshot().get("currentStock"));
         assertEquals(8L, forecast.featureSnapshot().get("reviewCount"));
         assertEquals(
-            "trend_blended_feature_forecast",
+            "holt_linear",
             forecast.method()
         );
     }

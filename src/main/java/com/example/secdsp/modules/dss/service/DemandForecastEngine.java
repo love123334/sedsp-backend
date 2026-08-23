@@ -27,14 +27,14 @@ import java.util.OptionalDouble;
 @RequiredArgsConstructor
 public class DemandForecastEngine {
 
-    private static final String BASELINE_METHOD = "trend_blended_feature_forecast";
     private static final String LIGHTGBM_METHOD = "lightgbm_onnx";
-    private static final String HYBRID_METHOD = "lightgbm_onnx_with_baseline_fallback";
+    private static final String HYBRID_STAT_ONNX_SUFFIX = "_with_lightgbm_onnx";
     private static final int MIN_HISTORY_DAYS = 7;
     private static final int MAX_HISTORY_DAYS = 180;
     private static final int MIN_FORECAST_DAYS = 1;
     private static final int MAX_FORECAST_DAYS = 90;
     private static final int MIN_SIGNAL_DAYS = 3;
+    private static final double ONNX_BLEND_WEIGHT = 0.40;
 
     private final OrderItemRepository orderItemRepository;
     private final InventoryRepository inventoryRepository;
@@ -138,6 +138,17 @@ public class DemandForecastEngine {
             historicalSales.add(point);
         }
 
+        double seasonalityStrength = StatisticalForecastEngine.seasonalityStrength(
+            startDate,
+            dailySeries
+        );
+        StatisticalForecastEngine.Strategy strategy =
+            StatisticalForecastEngine.selectStrategy(
+                hist,
+                positiveDays,
+                seasonalityStrength
+            );
+
         int recentWindow = Math.min(7, dailySeries.size());
         int mediumWindow = Math.min(14, dailySeries.size());
         double recentAverage = averageOfTail(dailySeries, recentWindow);
@@ -173,8 +184,10 @@ public class DemandForecastEngine {
             lag7,
             seasonalSignal,
             insufficientData,
-            BASELINE_METHOD,
-            onnxModelAvailable
+            strategy.methodId(),
+            onnxModelAvailable,
+            seasonalityStrength,
+            strategy.name()
         );
 
         if (insufficientData) {
@@ -185,7 +198,7 @@ public class DemandForecastEngine {
                 horizon,
                 0.0,
                 0L,
-                BASELINE_METHOD,
+                StatisticalForecastEngine.METHOD_MOVING_AVERAGE,
                 true,
                 historicalSales,
                 List.of(),
@@ -194,19 +207,24 @@ public class DemandForecastEngine {
             );
         }
 
-        double baseLevel = (recentAverage * 0.55)
-            + (mediumAverage * 0.30)
-            + (longAverage * 0.15);
+        StatisticalForecastEngine.ForecastResult statistical =
+            StatisticalForecastEngine.forecast(
+                startDate,
+                dailySeries,
+                horizon,
+                strategy
+            );
 
         List<Map<String, Object>> forecastSales = new ArrayList<>();
         List<Long> recursiveHistory = new ArrayList<>(dailySeries);
         double forecastTotal = 0.0;
         boolean usedOnnxModel = false;
-        boolean usedFallback = false;
 
         for (int horizonIndex = 1; horizonIndex <= horizon; horizonIndex++) {
             LocalDate targetDate = endDate.plusDays(horizonIndex);
-            OptionalDouble modelPrediction = onnxModelAvailable
+            double statisticalValue = statistical.dailyForecast().get(horizonIndex - 1);
+
+            OptionalDouble modelPrediction = onnxModelAvailable && hist >= 60
                 ? lightGbmPredictor.predict(
                     product.productId(),
                     targetDate,
@@ -215,19 +233,11 @@ public class DemandForecastEngine {
                 )
                 : OptionalDouble.empty();
 
-            double predictedValue;
+            double predictedValue = statisticalValue;
             if (modelPrediction.isPresent()) {
-                predictedValue = modelPrediction.getAsDouble();
+                predictedValue = (statisticalValue * (1.0 - ONNX_BLEND_WEIGHT))
+                    + (modelPrediction.getAsDouble() * ONNX_BLEND_WEIGHT);
                 usedOnnxModel = true;
-            } else {
-                double decay = Math.exp(
-                    -((double) (horizonIndex - 1) / Math.max(3.0, recentWindow))
-                );
-                predictedValue = baseLevel
-                    + (slope * horizonIndex)
-                    + (momentum * 0.35 * decay)
-                    + (seasonalSignal * 0.20 * decay);
-                usedFallback = usedFallback || onnxModelAvailable;
             }
 
             long predictedQty = Math.max(0L, Math.round(predictedValue));
@@ -242,17 +252,23 @@ public class DemandForecastEngine {
         }
 
         double forecastAverage = forecastTotal / horizon;
-        String method = usedOnnxModel
-            ? (usedFallback ? HYBRID_METHOD : LIGHTGBM_METHOD)
-            : BASELINE_METHOD;
+        String method = statistical.methodId();
+        if (usedOnnxModel) {
+            method = method + HYBRID_STAT_ONNX_SUFFIX;
+        }
 
         featureSnapshot.put("method", method);
+        featureSnapshot.put("statisticalMethod", statistical.methodId());
+        featureSnapshot.put("forecastStrategy", strategy.name());
+        featureSnapshot.put("seasonalityStrength", round4(seasonalityStrength));
+        featureSnapshot.put("forecastLevel", round2(statistical.level()));
+        featureSnapshot.put("forecastTrend", round4(statistical.trend()));
         featureSnapshot.put("onnxModelUsed", usedOnnxModel);
         featureSnapshot.put(
             "onnxModelAvailable",
             lightGbmPredictor.isModelAvailable(product.productId())
         );
-        featureSnapshot.put("baseForecastDailyDemand", round2(baseLevel));
+        featureSnapshot.put("baseForecastDailyDemand", round2(statistical.level()));
         featureSnapshot.put("forecastAverageDailyDemand", round2(forecastAverage));
 
         return new DemandForecastComputation(
@@ -287,7 +303,9 @@ public class DemandForecastEngine {
         double seasonalSignal,
         boolean insufficientData,
         String method,
-        boolean onnxModelAvailable
+        boolean onnxModelAvailable,
+        double seasonalityStrength,
+        String forecastStrategy
     ) {
         Optional<Inventory> inventory = inventoryRepository
             .findByProduct_Id(product.productId());
@@ -315,6 +333,9 @@ public class DemandForecastEngine {
 
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("method", method);
+        snapshot.put("statisticalMethod", method);
+        snapshot.put("forecastStrategy", forecastStrategy);
+        snapshot.put("seasonalityStrength", round4(seasonalityStrength));
         snapshot.put("onnxModelAvailable", onnxModelAvailable);
         snapshot.put("onnxModelUsed", false);
         snapshot.put("historicalDays", historicalDays);
