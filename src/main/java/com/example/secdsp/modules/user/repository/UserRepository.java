@@ -20,18 +20,30 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByPhoneAndIdNot(String phone, Long id);
 
-    @Query("""
-        SELECT u
-        FROM User u
-        WHERE (:keyword IS NULL
-               OR :keyword = ''
-               OR LOWER(u.username)
-                    LIKE LOWER(CONCAT('%', :keyword, '%'))
-               OR LOWER(u.email)
-                    LIKE LOWER(CONCAT('%', :keyword, '%'))
-               OR LOWER(u.fullName)
-                    LIKE LOWER(CONCAT('%', :keyword, '%')))
-        """)
+    /**
+     * Explicit countQuery — {@code @EntityGraph} + Page otherwise breaks count SQL
+     * (admin /users returned 400 DataAccessException on Railway).
+     */
+    @Query(
+        value = """
+            SELECT u
+            FROM User u
+            WHERE :keyword = ''
+               OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR (u.fullName IS NOT NULL
+                   AND LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            """,
+        countQuery = """
+            SELECT COUNT(u)
+            FROM User u
+            WHERE :keyword = ''
+               OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR (u.fullName IS NOT NULL
+                   AND LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            """
+    )
     @EntityGraph(attributePaths = "role")
     Page<User> searchUsers(
         @Param("keyword") String keyword,

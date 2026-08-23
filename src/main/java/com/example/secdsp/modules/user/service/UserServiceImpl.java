@@ -66,7 +66,8 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public Page<UserSummaryResponse> getUsers(String keyword, Pageable pageable) {
-        return userRepository.searchUsers(keyword, pageable)
+        String q = keyword == null ? "" : keyword.trim();
+        return userRepository.searchUsers(q, pageable)
             .map(userMapper::toSummaryResponse);
     }
 
