@@ -163,17 +163,17 @@ CROSS JOIN LATERAL (
         1,
         ROUND(
             CASE product.profile_name
-                -- 1. DOWNWARD: Early 6-9, Mid 4-7, Late 2-5 (Slope < -0.05)
+                -- 1. DOWNWARD: 9.0 -> 2.5 (Early 7-10, Mid 5-7, Late 2-4, Slope < -0.05 across all windows)
                 WHEN 'DOWNWARD' THEN
-                    8.2 - (timeline.day_index / 89.0) * 5.4 + (noise_calc.noise * 1.5)
+                    9.0 - (timeline.day_index / 89.0) * 6.5 + (noise_calc.noise * 1.2)
 
                 -- 2. STABLE: Baseline ~5 (4, 6, 5, 5, 7, 4, 6, 5... Slope ~ 0.0)
                 WHEN 'STABLE' THEN
-                    5.0 + (noise_calc.noise * 1.6)
+                    5.0 + (noise_calc.noise * 1.2)
 
-                -- 3. UPWARD: Early 2-4, Mid 4-7, Late 7-10 (Slope > 0.05)
+                -- 3. UPWARD: 2.5 -> 9.0 (Early 2-4, Mid 5-7, Late 7-10, Slope > +0.05 across all windows)
                 WHEN 'UPWARD' THEN
-                    2.8 + (timeline.day_index / 89.0) * 5.8 + (noise_calc.noise * 1.5)
+                    2.5 + (timeline.day_index / 89.0) * 6.5 + (noise_calc.noise * 1.2)
 
                 -- 4. SEASONAL: Weekly seasonality (T2: 3-4, T3-T4: 4-5, T5: 5-6, T6: 7-8, T7: 8-10, CN: 6-8)
                 WHEN 'SEASONAL' THEN

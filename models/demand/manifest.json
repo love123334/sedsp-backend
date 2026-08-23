@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-23T21:32:29.151695+07:00",
+  "generatedAt": "2026-08-23T21:38:46.423069+07:00",
   "model": {
     "scope": "global",
     "productCount": 39,
@@ -232,12 +232,12 @@
     "historyEnd": "2026-08-23",
     "trainingRows": 13514,
     "validationRows": 5100,
-    "bestIteration": 397,
+    "bestIteration": 365,
     "metrics": {
-      "mae": 2.2806,
-      "rmse": 3.9653,
-      "mapePercent": 216.6326,
-      "maxOnnxPredictionDelta": 0.150687
+      "mae": 2.0372,
+      "rmse": 3.8622,
+      "mapePercent": 193.8802,
+      "maxOnnxPredictionDelta": 1e-06
     }
   }
 }

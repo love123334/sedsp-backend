@@ -161,11 +161,11 @@ CROSS JOIN LATERAL (
         ROUND(
             CASE product.profile_name
                 WHEN 'DOWNWARD' THEN
-                    8.2 - (timeline.day_index / 89.0) * 5.4 + (noise_calc.noise * 1.5)
+                    9.0 - (timeline.day_index / 89.0) * 6.5 + (noise_calc.noise * 1.2)
                 WHEN 'STABLE' THEN
-                    5.0 + (noise_calc.noise * 1.6)
+                    5.0 + (noise_calc.noise * 1.2)
                 WHEN 'UPWARD' THEN
-                    2.8 + (timeline.day_index / 89.0) * 5.8 + (noise_calc.noise * 1.5)
+                    2.5 + (timeline.day_index / 89.0) * 6.5 + (noise_calc.noise * 1.2)
                 WHEN 'SEASONAL' THEN
                     (CASE timeline.isodow
                         WHEN 1 THEN 3.5
