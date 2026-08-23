@@ -35,6 +35,7 @@ public class AiChatServiceImpl implements AiChatService {
     private final InventoryAiTool inventoryAiTool;
     private final VoucherAiTool voucherAiTool;
     private final ObjectMapper objectMapper;
+    private final DeepSeekEcommerceChatService deepSeekEcommerceChatService;
     private final OpenRouterEcommerceChatService openRouterEcommerceChatService;
 
     @Value("${google.ai.model}")
@@ -80,7 +81,7 @@ public class AiChatServiceImpl implements AiChatService {
                     "AI completed without tool. Total: {} ms",
                     System.currentTimeMillis() - totalStart
                 );
-                return buildResponse(response.text());
+                return finalizeGeminiReply(request, buildResponse(response.text()));
             }
 
             String functionName = functionCall.name().orElse("");
@@ -140,17 +141,17 @@ public class AiChatServiceImpl implements AiChatService {
                 secondCallMs
             );
 
-            return buildResponse(finalResponse.text());
+            return finalizeGeminiReply(request, buildResponse(finalResponse.text()));
 
         } catch (Exception e) {
             log.warn(
-                "Gemini chat failed after {} ms ({}), trying OpenRouter fallback",
+                "Gemini chat failed after {} ms ({}), trying DeepSeek → OpenRouter fallback",
                 System.currentTimeMillis() - totalStart,
                 rootMessage(e)
             );
-            AiChatResponse viaOpenRouter = tryOpenRouterFallback(request);
-            if (viaOpenRouter != null) {
-                return viaOpenRouter;
+            AiChatResponse viaFallback = tryMultiProviderFallback(request);
+            if (viaFallback != null) {
+                return viaFallback;
             }
             if (e instanceof BusinessException be) {
                 throw be;
@@ -158,7 +159,8 @@ public class AiChatServiceImpl implements AiChatService {
             String detail = rootMessage(e);
             if (isNonRetryableGeminiError(e) && detail.toLowerCase().contains("quota")) {
                 throw new BusinessException(
-                    "Chatbot Gemini tạm hết hạn mức (quota) và OpenRouter chưa sẵn sàng. Kiểm tra GEMINI_API_KEY / OPENROUTER_API_KEY.",
+                    "Chatbot Gemini tạm hết hạn mức (quota) và DeepSeek/OpenRouter chưa sẵn sàng. "
+                        + "Kiểm tra GEMINI_API_KEY / DEEPSEEK_API_KEY / OPENROUTER_API_KEY.",
                     HttpStatus.TOO_MANY_REQUESTS
                 );
             }
@@ -168,6 +170,39 @@ public class AiChatServiceImpl implements AiChatService {
                 HttpStatus.BAD_GATEWAY
             );
         }
+    }
+
+    /** Gemini draft → optional DeepSeek polish with shared catalog facts. */
+    private AiChatResponse finalizeGeminiReply(AiChatRequest request, AiChatResponse gemini) {
+        if (gemini == null || !StringUtils.hasText(gemini.getContent())) {
+            return gemini;
+        }
+        if (deepSeekEcommerceChatService == null || !deepSeekEcommerceChatService.isRefineEnabled()) {
+            return gemini;
+        }
+        AiChatResponse refined = deepSeekEcommerceChatService.refineGeminiDraft(
+            request,
+            gemini.getContent()
+        );
+        if (refined != null && StringUtils.hasText(refined.getContent())) {
+            log.info("Multi-provider reply: gemini+deepseek");
+            return refined;
+        }
+        return gemini;
+    }
+
+    /** Cascade when Gemini is down: DeepSeek (grounded) → OpenRouter (grounded). */
+    private AiChatResponse tryMultiProviderFallback(AiChatRequest request) {
+        if (deepSeekEcommerceChatService != null && deepSeekEcommerceChatService.isConfigured()) {
+            try {
+                AiChatResponse response = deepSeekEcommerceChatService.chat(request);
+                log.info("DeepSeek chatbot fallback succeeded");
+                return response;
+            } catch (Exception deepSeekFailure) {
+                log.warn("DeepSeek chatbot fallback failed: {}", rootMessage(deepSeekFailure));
+            }
+        }
+        return tryOpenRouterFallback(request);
     }
 
     private AiChatResponse tryOpenRouterFallback(AiChatRequest request) {
