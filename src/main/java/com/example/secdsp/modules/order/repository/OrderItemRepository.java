@@ -55,13 +55,13 @@ public interface OrderItemRepository
     long countCompletedOrdersBySeller(Long sellerId);
 
     @Query(value = """
-        SELECT to_char(o.created_at, 'YYYY-MM') AS month,
+        SELECT to_char(timezone('Asia/Ho_Chi_Minh', o.created_at), 'YYYY-MM') AS month,
                COALESCE(SUM(oi.subtotal), 0)
         FROM order_items oi
         INNER JOIN orders o ON o.id = oi.order_id
         WHERE oi.seller_id = :sellerId
-          AND o.status = 'DELIVERED'
-        GROUP BY to_char(o.created_at, 'YYYY-MM')
+          AND o.status IN ('PAID', 'PROCESSING', 'SHIPPING', 'DELIVERED')
+        GROUP BY to_char(timezone('Asia/Ho_Chi_Minh', o.created_at), 'YYYY-MM')
         ORDER BY month
         """, nativeQuery = true)
     List<Object[]> calculateMonthlyRevenue(Long sellerId);
@@ -81,15 +81,15 @@ public interface OrderItemRepository
     List<Object[]> findTopSellingProducts(Long sellerId);
 
     @Query(value = """
-        SELECT CAST(o.created_at AS date) AS day,
+        SELECT CAST(timezone('Asia/Ho_Chi_Minh', o.created_at) AS date) AS day,
                COALESCE(SUM(oi.quantity), 0)
         FROM order_items oi
         INNER JOIN orders o ON o.id = oi.order_id
         WHERE oi.product_id = :productId
           AND oi.seller_id = :sellerId
           AND o.status IN ('PAID', 'PROCESSING', 'SHIPPING', 'DELIVERED')
-          AND o.created_at >= CURRENT_DATE - CAST(:historyDays AS integer)
-        GROUP BY CAST(o.created_at AS date)
+          AND o.created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh' - CAST(:historyDays || ' days' AS interval))
+        GROUP BY CAST(timezone('Asia/Ho_Chi_Minh', o.created_at) AS date)
         ORDER BY day
         """, nativeQuery = true)
     List<Object[]> findDailySoldQuantity(
@@ -108,7 +108,7 @@ public interface OrderItemRepository
         INNER JOIN orders o ON o.id = oi.order_id
         WHERE oi.seller_id = :sellerId
           AND o.status IN ('PAID', 'PROCESSING', 'SHIPPING', 'DELIVERED')
-          AND o.created_at >= CURRENT_DATE - CAST(:days AS integer)
+          AND o.created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh' - CAST(:days || ' days' AS interval))
         GROUP BY oi.product_id, oi.product_name_at_purchase
         ORDER BY qty DESC
         """, nativeQuery = true)
@@ -158,31 +158,31 @@ public interface OrderItemRepository
     List<Object[]> findPowerBiSalesRowsAll(@Param("limit") int limit);
 
     @Query(value = """
-        SELECT CAST(o.created_at AS DATE) AS sale_date,
+        SELECT CAST(timezone('Asia/Ho_Chi_Minh', o.created_at) AS DATE) AS sale_date,
                SUM(oi.quantity) AS quantity_sold
         FROM order_items oi
         JOIN orders o ON o.id = oi.order_id
         WHERE oi.product_id = :productId
-          AND o.status = 'DELIVERED'
+          AND o.status IN ('PAID', 'PROCESSING', 'SHIPPING', 'DELIVERED')
           AND o.created_at >= :startDateTime
           AND o.created_at < :endDateTime
-        GROUP BY CAST(o.created_at AS DATE)
+        GROUP BY CAST(timezone('Asia/Ho_Chi_Minh', o.created_at) AS DATE)
         ORDER BY sale_date
         """, nativeQuery = true)
     List<Object[]> findCompletedDailySalesByProduct(
-        Long productId,
-        LocalDateTime startDateTime,
-        LocalDateTime endDateTime
+        @Param("productId") Long productId,
+        @Param("startDateTime") OffsetDateTime startDateTime,
+        @Param("endDateTime") OffsetDateTime endDateTime
     );
 
     @Query(value = """
-        SELECT CAST(MIN(o.created_at) AS DATE)
+        SELECT CAST(MIN(timezone('Asia/Ho_Chi_Minh', o.created_at)) AS DATE)
         FROM order_items oi
         JOIN orders o ON o.id = oi.order_id
         WHERE oi.product_id = :productId
-          AND o.status = 'DELIVERED'
+          AND o.status IN ('PAID', 'PROCESSING', 'SHIPPING', 'DELIVERED')
         """, nativeQuery = true)
-    LocalDate findFirstCompletedSaleDateByProduct(Long productId);
+    LocalDate findFirstCompletedSaleDateByProduct(@Param("productId") Long productId);
 
     @Query("""
             SELECT oi.product.id, COALESCE(SUM(oi.quantity), 0)

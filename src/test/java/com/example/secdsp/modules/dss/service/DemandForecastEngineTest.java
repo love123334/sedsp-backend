@@ -15,7 +15,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.when;
 class DemandForecastEngineTest {
 
     private static final Long PRODUCT_ID = 15L;
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     @Mock
     OrderItemRepository orderItemRepository;
@@ -48,7 +50,7 @@ class DemandForecastEngineTest {
 
     @Test
     void forecastBuildsTrendAwareSeriesAndFeatureSnapshot() {
-        LocalDate endDate = LocalDate.now();
+        LocalDate endDate = LocalDate.now(APP_ZONE);
         LocalDate startDate = endDate.minusDays(13L);
         List<Object[]> rows = new ArrayList<>();
         for (int i = 0; i < 14; i++) {
@@ -58,8 +60,8 @@ class DemandForecastEngineTest {
 
         when(orderItemRepository.findCompletedDailySalesByProduct(
             anyLong(),
-            any(LocalDateTime.class),
-            any(LocalDateTime.class)
+            any(OffsetDateTime.class),
+            any(OffsetDateTime.class)
         )).thenReturn(rows);
         when(inventoryRepository.findByProduct_Id(PRODUCT_ID))
             .thenReturn(java.util.Optional.of(
@@ -104,8 +106,8 @@ class DemandForecastEngineTest {
     void forecastReturnsInsufficientDataWhenHistoryIsEmpty() {
         when(orderItemRepository.findCompletedDailySalesByProduct(
             anyLong(),
-            any(LocalDateTime.class),
-            any(LocalDateTime.class)
+            any(OffsetDateTime.class),
+            any(OffsetDateTime.class)
         )).thenReturn(List.of());
         when(inventoryRepository.findByProduct_Id(PRODUCT_ID))
             .thenReturn(java.util.Optional.empty());
@@ -132,12 +134,12 @@ class DemandForecastEngineTest {
 
     @Test
     void forecastSupportsAnExplicitHistoricalDateRange() {
-        LocalDate fromDate = LocalDate.now().minusDays(29);
-        LocalDate toDate = LocalDate.now();
+        LocalDate fromDate = LocalDate.now(APP_ZONE).minusDays(29);
+        LocalDate toDate = LocalDate.now(APP_ZONE);
         when(orderItemRepository.findCompletedDailySalesByProduct(
             PRODUCT_ID,
-            fromDate.atStartOfDay(),
-            toDate.plusDays(1).atStartOfDay()
+            fromDate.atStartOfDay(APP_ZONE).toOffsetDateTime(),
+            toDate.plusDays(1).atStartOfDay(APP_ZONE).toOffsetDateTime()
         )).thenReturn(List.of(
             new Object[] { Date.valueOf(fromDate), 4L },
             new Object[] { Date.valueOf(fromDate.plusDays(1)), 5L },

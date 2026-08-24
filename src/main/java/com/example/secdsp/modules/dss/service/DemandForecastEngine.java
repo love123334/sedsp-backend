@@ -15,6 +15,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -27,6 +29,7 @@ import java.util.OptionalDouble;
 @RequiredArgsConstructor
 public class DemandForecastEngine {
 
+    public static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final String LIGHTGBM_METHOD = "lightgbm_onnx";
     private static final String HYBRID_STAT_ONNX_SUFFIX = "_with_lightgbm_onnx";
     private static final int MIN_HISTORY_DAYS = 7;
@@ -50,7 +53,7 @@ public class DemandForecastEngine {
         int hist = clamp(historicalDays, MIN_HISTORY_DAYS, MAX_HISTORY_DAYS);
         int horizon = clamp(forecastDays, MIN_FORECAST_DAYS, MAX_FORECAST_DAYS);
 
-        LocalDate endDate = LocalDate.now();
+        LocalDate endDate = LocalDate.now(APP_ZONE);
         LocalDate startDate = endDate.minusDays(hist - 1L);
 
         return forecastBetween(product, startDate, endDate, hist, horizon);
@@ -101,8 +104,8 @@ public class DemandForecastEngine {
         int hist,
         int horizon
     ) {
-        LocalDateTime startDateTime = startDate.atStartOfDay();
-        LocalDateTime endDateTime = endDate.plusDays(1L).atStartOfDay();
+        OffsetDateTime startDateTime = startDate.atStartOfDay(APP_ZONE).toOffsetDateTime();
+        OffsetDateTime endDateTime = endDate.plusDays(1L).atStartOfDay(APP_ZONE).toOffsetDateTime();
 
         Map<LocalDate, Long> soldByDate = new LinkedHashMap<>();
         orderItemRepository.findCompletedDailySalesByProduct(
@@ -431,6 +434,6 @@ public class DemandForecastEngine {
     }
 
     private static String now() {
-        return LocalDateTime.now().toString();
+        return LocalDateTime.now(APP_ZONE).toString();
     }
 }

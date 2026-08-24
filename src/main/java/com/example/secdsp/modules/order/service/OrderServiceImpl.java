@@ -627,6 +627,8 @@ public class OrderServiceImpl implements OrderService {
             .findFirstCompletedSaleDateByProduct(productId);
     }
 
+    private static final java.time.ZoneId APP_ZONE = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
+
     @Override
     @Transactional(readOnly = true)
     public long getCompletedQuantitySold(
@@ -634,8 +636,8 @@ public class OrderServiceImpl implements OrderService {
         LocalDate startDate,
         LocalDate endDate
     ) {
-        LocalDateTime startDateTime = startDate.atStartOfDay();
-        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
+        OffsetDateTime startDateTime = startDate.atStartOfDay(APP_ZONE).toOffsetDateTime();
+        OffsetDateTime endDateTime = endDate.plusDays(1).atStartOfDay(APP_ZONE).toOffsetDateTime();
 
         return orderItemRepository
             .findCompletedDailySalesByProduct(
@@ -655,8 +657,8 @@ public class OrderServiceImpl implements OrderService {
         LocalDate startDate,
         LocalDate endDate
     ) {
-        LocalDateTime startDateTime = startDate.atStartOfDay();
-        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
+        OffsetDateTime startDateTime = startDate.atStartOfDay(APP_ZONE).toOffsetDateTime();
+        OffsetDateTime endDateTime = endDate.plusDays(1).atStartOfDay(APP_ZONE).toOffsetDateTime();
 
         Map<LocalDate, Long> map = new LinkedHashMap<>();
         for (Object[] row : orderItemRepository.findCompletedDailySalesByProduct(
