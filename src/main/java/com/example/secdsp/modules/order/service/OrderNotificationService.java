@@ -116,9 +116,21 @@ public class OrderNotificationService {
             }
         }
         for (Long sellerId : sellerIds) {
-            userRepository.findById(sellerId).ifPresent(u ->
-                jobs.add(new MailJob(u.getEmail(), displayName(u), "Người bán"))
-            );
+            userRepository.findById(sellerId).ifPresent(u -> {
+                jobs.add(new MailJob(u.getEmail(), displayName(u), "Người bán"));
+                String sellerTitle = status == OrderStatus.PENDING
+                    ? "🛒 Khách vừa đặt đơn #" + orderId
+                    : "Đơn #" + orderId + " · " + statusLabel;
+                String sellerMsg = status == OrderStatus.PENDING
+                    ? "Shop có đơn hàng mới từ khách " + (buyer != null && buyer.getFullName() != null ? buyer.getFullName() : "") + ". Tổng tiền: " + money(order.getTotalAmount()) + " VND. Hỏi chatbot \"đơn " + orderId + "\" để xem chi tiết."
+                    : message + " Hỏi chatbot \"đơn " + orderId + "\" để xem chi tiết.";
+                customerNotificationService.createOrderStatusNotification(
+                    sellerId,
+                    orderId,
+                    sellerTitle,
+                    sellerMsg
+                );
+            });
         }
 
         for (MailJob job : jobs) {
