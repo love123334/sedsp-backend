@@ -6,17 +6,22 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Explainable demand forecasting: Moving Average → Holt linear → Holt-Winters
- * based on history length and seasonality strength.
+ * Advanced explainable demand forecasting:
+ * - Moving Average (Short/Sparse series)
+ * - Croston / SBA (Intermittent / Sparse demand)
+ * - Damped Holt Linear (Trend with damping factor phi = 0.90)
+ * - Damped Holt-Winters (Trend + Seasonality with adaptive alpha/beta/gamma grid optimization)
  */
 public final class StatisticalForecastEngine {
 
     public static final String METHOD_MOVING_AVERAGE = "moving_average";
     public static final String METHOD_HOLT_LINEAR = "holt_linear";
     public static final String METHOD_HOLT_WINTERS = "holt_winters";
+    public static final String METHOD_CROSTON_SBA = "croston_sba";
 
     private static final int WEEKLY_PERIOD = 7;
     private static final double SEASONALITY_THRESHOLD = 0.15;
+    private static final double DEFAULT_DAMPING_PHI = 0.90;
 
     private StatisticalForecastEngine() {
     }
@@ -24,7 +29,8 @@ public final class StatisticalForecastEngine {
     public enum Strategy {
         MOVING_AVERAGE(METHOD_MOVING_AVERAGE),
         HOLT_LINEAR(METHOD_HOLT_LINEAR),
-        HOLT_WINTERS(METHOD_HOLT_WINTERS);
+        HOLT_WINTERS(METHOD_HOLT_WINTERS),
+        CROSTON_SBA(METHOD_CROSTON_SBA);
 
         private final String methodId;
 
@@ -48,17 +54,25 @@ public final class StatisticalForecastEngine {
     }
 
     /**
-     * < 14 days → MA; 14–21 → Holt; >= 21 + weekly seasonality → Holt-Winters.
+     * Strategy Selection:
+     * - < 14 days or < 4 positive days -> MA
+     * - >= 14 days and positive ratio < 35% -> Croston SBA (Intermittent)
+     * - >= 21 days + seasonal strength >= 0.15 + >= 6 positive days -> Holt-Winters
+     * - Otherwise -> Holt Linear
      */
     public static Strategy selectStrategy(
         int historyDays,
         long positiveDays,
         double seasonalityStrength
     ) {
-        if (historyDays < 14 || positiveDays < 5) {
+        if (historyDays < 14 || positiveDays < 4) {
             return Strategy.MOVING_AVERAGE;
         }
-        if (historyDays >= 21 && seasonalityStrength >= SEASONALITY_THRESHOLD) {
+        double positiveRatio = (double) positiveDays / Math.max(1, historyDays);
+        if (historyDays >= 14 && positiveRatio < 0.35 && positiveDays >= 3) {
+            return Strategy.CROSTON_SBA;
+        }
+        if (historyDays >= 21 && seasonalityStrength >= SEASONALITY_THRESHOLD && positiveDays >= 6) {
             return Strategy.HOLT_WINTERS;
         }
         return Strategy.HOLT_LINEAR;
@@ -90,7 +104,7 @@ public final class StatisticalForecastEngine {
             date = date.plusDays(1);
         }
 
-        if (positive < 7) {
+        if (positive < 6) {
             return 0.0;
         }
 
@@ -123,10 +137,14 @@ public final class StatisticalForecastEngine {
         int horizon,
         Strategy strategy
     ) {
+        // Step 1: Outlier winsorization (smooth single-day extreme shocks > 2.5 sigma)
+        double[] smoothed = winsorizeSeries(dailySeries);
+
         List<Double> predictions = switch (strategy) {
-            case MOVING_AVERAGE -> movingAverageForecast(dailySeries, horizon);
-            case HOLT_LINEAR -> holtLinearForecast(dailySeries, horizon);
-            case HOLT_WINTERS -> holtWintersForecast(startDate, dailySeries, horizon);
+            case MOVING_AVERAGE -> movingAverageForecast(smoothed, horizon);
+            case CROSTON_SBA -> crostonSbaForecast(smoothed, horizon);
+            case HOLT_LINEAR -> adaptiveHoltLinearForecast(smoothed, horizon);
+            case HOLT_WINTERS -> adaptiveHoltWintersForecast(startDate, smoothed, horizon);
         };
 
         double level = predictions.isEmpty() ? 0.0 : predictions.get(0);
@@ -144,9 +162,37 @@ public final class StatisticalForecastEngine {
         );
     }
 
-    private static List<Double> movingAverageForecast(List<Long> series, int horizon) {
-        int window = Math.min(7, series.size());
-        double avg = averageOfTail(series, window);
+    /** Outlier smoothing to prevent level distortion from temporary 1-day spikes */
+    private static double[] winsorizeSeries(List<Long> series) {
+        double[] y = toArray(series);
+        if (y.length < 7) {
+            return y;
+        }
+        double sum = 0.0;
+        for (double v : y) sum += v;
+        double mean = sum / y.length;
+
+        double variance = 0.0;
+        for (double v : y) variance += (v - mean) * (v - mean);
+        double std = Math.sqrt(variance / y.length);
+        double threshold = mean + 2.5 * Math.max(1.0, std);
+
+        double[] out = new double[y.length];
+        for (int i = 0; i < y.length; i++) {
+            out[i] = Math.min(y[i], threshold);
+        }
+        return out;
+    }
+
+    private static List<Double> movingAverageForecast(double[] y, int horizon) {
+        int window = Math.min(7, y.length);
+        double sum = 0.0;
+        int count = 0;
+        for (int i = Math.max(0, y.length - window); i < y.length; i++) {
+            sum += y[i];
+            count++;
+        }
+        double avg = count > 0 ? sum / count : 0.0;
         List<Double> out = new ArrayList<>(horizon);
         for (int i = 0; i < horizon; i++) {
             out.add(Math.max(0.0, avg));
@@ -154,54 +200,149 @@ public final class StatisticalForecastEngine {
         return out;
     }
 
-    private static List<Double> holtLinearForecast(List<Long> series, int horizon) {
-        double[] y = toArray(series);
-        if (y.length == 0) {
-            return zeroHorizon(horizon);
+    /** Croston's Syntetos-Boylan Approximation (SBA) for intermittent demand */
+    private static List<Double> crostonSbaForecast(double[] y, int horizon) {
+        if (y.length == 0) return zeroHorizon(horizon);
+
+        double alpha = 0.15;
+        double z = 0.0; // Demand magnitude
+        double p = 1.0; // Demand interval
+        int periodsSinceDemand = 1;
+        boolean firstOccurrence = true;
+
+        for (double val : y) {
+            if (val > 0) {
+                if (firstOccurrence) {
+                    z = val;
+                    p = Math.max(1.0, periodsSinceDemand);
+                    firstOccurrence = false;
+                } else {
+                    z = alpha * val + (1.0 - alpha) * z;
+                    p = alpha * periodsSinceDemand + (1.0 - alpha) * p;
+                }
+                periodsSinceDemand = 1;
+            } else {
+                periodsSinceDemand++;
+            }
         }
 
-        double alpha = 0.35;
-        double beta = 0.12;
-        double level = y[0];
-        double trend = y.length > 1 ? y[1] - y[0] : 0.0;
-
-        for (int t = 1; t < y.length; t++) {
-            double prevLevel = level;
-            level = alpha * y[t] + (1.0 - alpha) * (level + trend);
-            trend = beta * (level - prevLevel) + (1.0 - beta) * trend;
-        }
+        if (p <= 0.0) p = 1.0;
+        // Syntetos-Boylan bias correction
+        double sbaEstimate = Math.max(0.0, (1.0 - (alpha / 2.0)) * (z / p));
 
         List<Double> out = new ArrayList<>(horizon);
-        for (int h = 1; h <= horizon; h++) {
-            out.add(Math.max(0.0, level + h * trend));
+        for (int i = 0; i < horizon; i++) {
+            out.add(sbaEstimate);
         }
         return out;
     }
 
-    private static List<Double> holtWintersForecast(
+    /** Damped Holt Linear with adaptive grid search optimization (MSE minimization) */
+    private static List<Double> adaptiveHoltLinearForecast(double[] y, int horizon) {
+        int n = y.length;
+        if (n == 0) return zeroHorizon(horizon);
+        if (n < 3) return movingAverageForecast(y, horizon);
+
+        double phi = DEFAULT_DAMPING_PHI;
+        double bestMse = Double.MAX_VALUE;
+        double bestAlpha = 0.30;
+        double bestBeta = 0.08;
+
+        // Grid search for optimal (alpha, beta) on historical one-step-ahead MSE
+        double[] alphaCandidates = {0.15, 0.30, 0.45};
+        double[] betaCandidates = {0.03, 0.08, 0.15};
+
+        for (double a : alphaCandidates) {
+            for (double b : betaCandidates) {
+                double mse = evaluateHoltLinearMse(y, a, b, phi);
+                if (mse < bestMse) {
+                    bestMse = mse;
+                    bestAlpha = a;
+                    bestBeta = b;
+                }
+            }
+        }
+
+        double level = y[0];
+        double trend = y.length > 1 ? y[1] - y[0] : 0.0;
+
+        for (int t = 1; t < n; t++) {
+            double prevLevel = level;
+            level = bestAlpha * y[t] + (1.0 - bestAlpha) * (level + phi * trend);
+            trend = bestBeta * (level - prevLevel) + (1.0 - bestBeta) * phi * trend;
+        }
+
+        List<Double> out = new ArrayList<>(horizon);
+        double cumulativeDamp = 0.0;
+        for (int h = 1; h <= horizon; h++) {
+            cumulativeDamp += Math.pow(phi, h);
+            out.add(Math.max(0.0, level + cumulativeDamp * trend));
+        }
+        return out;
+    }
+
+    private static double evaluateHoltLinearMse(double[] y, double alpha, double beta, double phi) {
+        int n = y.length;
+        double level = y[0];
+        double trend = y.length > 1 ? y[1] - y[0] : 0.0;
+        double sumSqErr = 0.0;
+
+        for (int t = 1; t < n; t++) {
+            double forecast1Step = level + phi * trend;
+            double error = y[t] - forecast1Step;
+            sumSqErr += error * error;
+
+            double prevLevel = level;
+            level = alpha * y[t] + (1.0 - alpha) * (level + phi * trend);
+            trend = beta * (level - prevLevel) + (1.0 - beta) * phi * trend;
+        }
+        return sumSqErr / Math.max(1, n - 1);
+    }
+
+    /** Damped Holt-Winters with weekly seasonality and adaptive parameter optimization */
+    private static List<Double> adaptiveHoltWintersForecast(
         LocalDate startDate,
-        List<Long> series,
+        double[] y,
         int horizon
     ) {
-        double[] y = toArray(series);
         int n = y.length;
         int m = WEEKLY_PERIOD;
 
         if (n < m * 2) {
-            return holtLinearForecast(series, horizon);
+            return adaptiveHoltLinearForecast(y, horizon);
         }
 
-        double alpha = 0.25;
-        double beta = 0.08;
-        double gamma = 0.15;
+        double phi = DEFAULT_DAMPING_PHI;
+        double bestMse = Double.MAX_VALUE;
+        double bestAlpha = 0.25;
+        double bestBeta = 0.06;
+        double bestGamma = 0.15;
+
+        double[] alphaCandidates = {0.15, 0.25, 0.35};
+        double[] betaCandidates = {0.03, 0.06, 0.10};
+        double[] gammaCandidates = {0.10, 0.15, 0.25};
+
+        for (double a : alphaCandidates) {
+            for (double b : betaCandidates) {
+                for (double g : gammaCandidates) {
+                    double mse = evaluateHoltWintersMse(y, a, b, g, phi, m);
+                    if (mse < bestMse) {
+                        bestMse = mse;
+                        bestAlpha = a;
+                        bestBeta = b;
+                        bestGamma = g;
+                    }
+                }
+            }
+        }
 
         double[] seasonal = new double[m];
-        Arrays.fill(seasonal, 0.0);
+        double baseAvg = average(y, 0, m);
         for (int i = 0; i < m; i++) {
-            seasonal[i] = y[i] - average(y, 0, m);
+            seasonal[i] = y[i] - baseAvg;
         }
 
-        double level = average(y, 0, m);
+        double level = baseAvg;
         double trend = (average(y, m, Math.min(2 * m, n)) - average(y, 0, m)) / m;
 
         for (int t = 0; t < n; t++) {
@@ -210,17 +351,59 @@ public final class StatisticalForecastEngine {
             double prevLevel = level;
             double prevSeason = seasonal[si];
 
-            level = alpha * (value - prevSeason) + (1.0 - alpha) * (level + trend);
-            trend = beta * (level - prevLevel) + (1.0 - beta) * trend;
-            seasonal[si] = gamma * (value - level) + (1.0 - gamma) * prevSeason;
+            level = bestAlpha * (value - prevSeason) + (1.0 - bestAlpha) * (level + phi * trend);
+            trend = bestBeta * (level - prevLevel) + (1.0 - bestBeta) * phi * trend;
+            seasonal[si] = bestGamma * (value - level) + (1.0 - bestGamma) * prevSeason;
         }
 
         List<Double> out = new ArrayList<>(horizon);
+        double cumulativeDamp = 0.0;
         for (int h = 1; h <= horizon; h++) {
             int si = (n + h - 1) % m;
-            out.add(Math.max(0.0, level + h * trend + seasonal[si]));
+            cumulativeDamp += Math.pow(phi, h);
+            out.add(Math.max(0.0, level + cumulativeDamp * trend + seasonal[si]));
         }
         return out;
+    }
+
+    private static double evaluateHoltWintersMse(
+        double[] y,
+        double alpha,
+        double beta,
+        double gamma,
+        double phi,
+        int m
+    ) {
+        int n = y.length;
+        double[] seasonal = new double[m];
+        double baseAvg = average(y, 0, m);
+        for (int i = 0; i < m; i++) {
+            seasonal[i] = y[i] - baseAvg;
+        }
+
+        double level = baseAvg;
+        double trend = (average(y, m, Math.min(2 * m, n)) - average(y, 0, m)) / m;
+        double sumSqErr = 0.0;
+        int count = 0;
+
+        for (int t = 0; t < n; t++) {
+            int si = t % m;
+            if (t >= m) {
+                double forecast1Step = level + phi * trend + seasonal[si];
+                double error = y[t] - forecast1Step;
+                sumSqErr += error * error;
+                count++;
+            }
+
+            double value = y[t];
+            double prevLevel = level;
+            double prevSeason = seasonal[si];
+
+            level = alpha * (value - prevSeason) + (1.0 - alpha) * (level + phi * trend);
+            trend = beta * (level - prevLevel) + (1.0 - beta) * phi * trend;
+            seasonal[si] = gamma * (value - level) + (1.0 - gamma) * prevSeason;
+        }
+        return count > 0 ? sumSqErr / count : 0.0;
     }
 
     private static double[] toArray(List<Long> series) {

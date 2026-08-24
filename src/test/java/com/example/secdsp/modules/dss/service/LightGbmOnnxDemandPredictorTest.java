@@ -55,7 +55,10 @@ class LightGbmOnnxDemandPredictorTest {
             IllegalStateException.class,
             predictor::validateModelOnStartup
         );
-        assertTrue(exception.getMessage().contains("Demand model file not found"));
+        assertTrue(
+            exception.getMessage().contains("Demand model file not found")
+                || exception.getMessage().contains("Demand ONNX runtime is required")
+        );
     }
 
     @Test

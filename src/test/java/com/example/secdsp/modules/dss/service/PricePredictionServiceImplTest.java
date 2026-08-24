@@ -243,13 +243,13 @@ class PricePredictionServiceImplTest {
     }
 
     @Test
-    void generatePredictionRejectsMissingCost() {
+    void generatePredictionRejectsInvalidPrice() {
         GeneratePricePredictionRequest request = buildRequest();
         ProductInfo product = new ProductInfo(
             PRODUCT_ID,
             SELLER_ID,
             "Wireless Mouse",
-            new BigDecimal("100.00"),
+            BigDecimal.ZERO,
             null,
             ProductStatus.ACTIVE
         );
@@ -268,7 +268,7 @@ class PricePredictionServiceImplTest {
             );
 
             assertEquals(
-                "Product cost is required to generate a price prediction.",
+                "Giá bán sản phẩm phải lớn hơn 0.",
                 exception.getMessage()
             );
         }

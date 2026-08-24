@@ -36,6 +36,13 @@ public final class AiChatPrompts {
           Call get_dss_demand_forecast. Explain the daily forecasted sales, trend direction (increasing/decreasing/stable/seasonal), and why Holt-Winters, Holt, or Moving Average was chosen.
         - BUSINESS HEALTH ("sức khỏe kinh doanh của shop", "shop tôi thế nào?"):
           Call get_dss_business_health. Explain the 0-100 score across 5 pillars (Doanh thu, Đơn hàng, Lợi nhuận, Tồn kho, Nhu cầu), celebrate strengths, and provide 1-2 actionable tips for risks.
+        - DSS COMPREHENSIVE SUMMARY & STATISTICS ("thống kê giùm các chức năng DSS", "tổng hợp DSS", "báo cáo DSS toàn diện"):
+          Synthesize key insights by calling get_dss_business_health and get_dss_restock_recommendations. Present a clear, structured executive overview covering:
+          1) Sức khỏe gian hàng & Hiệu suất (Điểm số 0-100, Doanh thu, Đơn hàng, AOV).
+          2) Dự báo nhu cầu bán hàng (Mô hình Adaptive Holt-Winters/Croston, xu hướng ngày).
+          3) Cảnh báo tồn kho ROP & Đề xuất nhập hàng (Restock score, tồn an toàn, SKU cần nhập).
+          4) Chiến lược giá & Phân tích What-If (Độ co giãn giá, mô phỏng lợi nhuận).
+          5) Khuyến nghị hành động thiết thực cho người bán.
 
         GENERAL RULES:
         - NEVER invent prices, stock numbers, or nonexistent products. Use only tools and PLATFORM_FACTS.
