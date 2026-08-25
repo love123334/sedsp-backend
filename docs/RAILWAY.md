@@ -141,11 +141,10 @@ AI_ENABLED=true
 OPENROUTER_API_KEY=sk-or-v1-...
 # AI_MODEL=openrouter/free
 
-# DeepSeek — chatbot thông minh hơn (Gemini → DeepSeek refine → OpenRouter fallback)
-# Không commit key; chỉ set trên Railway Variables
+# DeepSeek — fallback khi Gemini lỗi. Tắt refine để chatbot không chờ thêm 1 vòng LLM.
 DEEPSEEK_API_KEY=sk-...
 DEEPSEEK_MODEL=deepseek-chat
-DEEPSEEK_REFINE_GEMINI=true
+DEEPSEEK_REFINE_GEMINI=false
 # DEEPSEEK_ENABLED=true
 
 # --- OTP email (Railway Hobby blocks outbound SMTP 25/465/587) ---

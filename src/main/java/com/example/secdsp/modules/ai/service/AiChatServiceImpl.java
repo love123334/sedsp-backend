@@ -43,13 +43,9 @@ public class AiChatServiceImpl implements AiChatService {
     private String model;
 
     private static final int MAX_HISTORY_MESSAGES = 8;
+    /** One fast fallback only — looping 6 models was burning ~1 minute per chat. */
     private static final List<String> MODEL_FALLBACKS = List.of(
-        "gemini-3.6-flash",
-        "gemini-3.7-flash",
-        "gemini-3.5-flash",
-        "gemini-3.5-flash-lite",
-        "gemini-3.1-flash-lite",
-        "gemini-3-flash-preview"
+        "gemini-3.5-flash-lite"
     );
 
     @Override
@@ -231,6 +227,13 @@ public class AiChatServiceImpl implements AiChatService {
         GenerateContentConfig.Builder builder = GenerateContentConfig.builder()
             .systemInstruction(
                 Content.fromParts(Part.fromText(AiChatPrompts.ECOMMERCE_SYSTEM))
+            )
+            .maxOutputTokens(900)
+            .thinkingConfig(
+                ThinkingConfig.builder()
+                    .includeThoughts(false)
+                    .thinkingLevel("minimal")
+                    .build()
             );
         if (withTools) {
             builder.tools(
@@ -986,4 +989,4 @@ public class AiChatServiceImpl implements AiChatService {
             return Map.of("success", false, "error", "Failed to compute business health score: " + e.getMessage());
         }
     }
-}
+}

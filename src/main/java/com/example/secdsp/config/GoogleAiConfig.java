@@ -1,6 +1,7 @@
 package com.example.secdsp.config;
 
 import com.google.genai.Client;
+import com.google.genai.types.HttpOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +17,11 @@ public class GoogleAiConfig {
     ) {
         return Client.builder()
             .apiKey(apiKey)
+            .httpOptions(
+                HttpOptions.builder()
+                    .timeout(20_000)
+                    .build()
+            )
             .build();
     }
 }

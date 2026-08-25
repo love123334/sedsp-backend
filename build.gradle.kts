@@ -28,7 +28,7 @@ val jjwtVersion = "0.12.5"
 
 dependencies {
     // --- OpenAI SDK ---
-    implementation("com.google.genai:google-genai:0.3.0") {
+    implementation("com.google.genai:google-genai:1.67.0") {
         exclude(group = "commons-logging", module = "commons-logging")
     }
 
