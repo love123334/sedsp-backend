@@ -1,8 +1,10 @@
 package com.example.secdsp.modules.ai.tool;
 
+import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.product.dto.response.ProductDetailResponse;
 import com.example.secdsp.modules.product.dto.response.ProductResponse;
 import com.example.secdsp.modules.product.service.ProductService;
+import com.example.secdsp.modules.user.entity.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -42,9 +44,10 @@ public class ProductAiTool {
 
         String sort = hasPrice ? "price-asc" : null;
         String kw = hasKeyword ? keyword.trim() : null;
+        Long sellerScope = shopSellerIdOrNull();
 
         List<ProductResponse> results = productService
-            .getProducts(kw, null, null, sort, PageRequest.of(0, FETCH_SIZE))
+            .getProducts(kw, null, sellerScope, sort, PageRequest.of(0, FETCH_SIZE))
             .getContent()
             .stream()
             .filter(p -> withinPrice(p, minPrice, maxPrice))
@@ -56,7 +59,7 @@ public class ProductAiTool {
             String fallbackKeyword = extractFallbackDomainKeyword(kw);
             if (StringUtils.hasText(fallbackKeyword) && !fallbackKeyword.equalsIgnoreCase(kw)) {
                 results = productService
-                    .getProducts(fallbackKeyword, null, null, sort, PageRequest.of(0, FETCH_SIZE))
+                    .getProducts(fallbackKeyword, null, sellerScope, sort, PageRequest.of(0, FETCH_SIZE))
                     .getContent()
                     .stream()
                     .filter(p -> withinPrice(p, minPrice, maxPrice))
@@ -66,6 +69,17 @@ public class ProductAiTool {
         }
 
         return results;
+    }
+
+    /** Seller JWT → only this shop's catalog. Manager/admin/customer keep marketplace search. */
+    private static Long shopSellerIdOrNull() {
+        if (SecurityUtils.hasRole(UserRole.MANAGER) || SecurityUtils.hasRole(UserRole.ADMIN)) {
+            return null;
+        }
+        if (SecurityUtils.hasRole(UserRole.SELLER)) {
+            return SecurityUtils.getCurrentUserId();
+        }
+        return null;
     }
 
     private static String extractFallbackDomainKeyword(String text) {
@@ -122,6 +136,11 @@ public class ProductAiTool {
     }
 
     public ProductDetailResponse getProductDetail(Long productId) {
-        return productService.getProductById(productId);
+        ProductDetailResponse detail = productService.getProductById(productId);
+        Long scope = shopSellerIdOrNull();
+        if (scope != null && detail != null && detail.getSellerId() != null && !scope.equals(detail.getSellerId())) {
+            throw new IllegalArgumentException("Product is not in this shop");
+        }
+        return detail;
     }
 }

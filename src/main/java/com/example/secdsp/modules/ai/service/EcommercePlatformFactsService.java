@@ -24,6 +24,11 @@ public class EcommercePlatformFactsService {
     private static final Pattern VOUCHER_HINT = Pattern.compile(
         "(?i)voucher|mã\\s*giảm|magiam|coupon|khuyến\\s*mãi|khuyen\\s*mai|giảm\\s*giá|giam\\s*gia|sedsp\\d*"
     );
+    private static final Pattern SELLER_OPS_HINT = Pattern.compile(
+        "(?i)doanh\\s*thu|dss|dự\\s*báo|du\\s*bao|tồn\\s*kho|ton\\s*kho|what-?if|"
+            + "gian\\s*hàng|gian hang|shop\\s*(tôi|toi|của|cua)|lợi\\s*nhuận|loi\\s*nhuan|"
+            + "sức\\s*khỏe\\s*shop|suc khoe shop|đơn\\s*bán|don ban"
+    );
     private static final Pattern PRODUCT_HINT = Pattern.compile(
         "(?i)sản\\s*phẩm|san\\s*pham|mặt\\s*hàng|mat\\s*hang|giá|gia\\s|mua|tìm|tim\\s|"
             + "laptop|điện\\s*thoại|dien\\s*thoai|phone|tai\\s*nghe|chuột|chuot|bàn\\s*phím|"
@@ -63,6 +68,10 @@ public class EcommercePlatformFactsService {
         }
 
         try {
+            if (SELLER_OPS_HINT.matcher(lastUser).find()) {
+                facts.append("seller_ops_query=true\n");
+                facts.append("do_not_use_marketplace_catalog=true\n");
+            } else {
             BigDecimal minPrice = extractMinPrice(lastUser);
             BigDecimal maxPrice = extractMaxPrice(lastUser);
             boolean budgetQuery = minPrice != null || maxPrice != null;
@@ -87,6 +96,7 @@ public class EcommercePlatformFactsService {
                     .append(objectMapper.writeValueAsString(products))
                     .append('\n');
                 facts.append("product_count=").append(products.size()).append('\n');
+            }
             }
         } catch (Exception e) {
             log.warn("Platform facts product grounding failed: {}", e.getMessage());
