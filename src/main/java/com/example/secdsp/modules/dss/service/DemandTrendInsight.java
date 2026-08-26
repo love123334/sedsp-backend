@@ -5,15 +5,25 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
- * Compares OLS trend on history vs the forecast horizon and explains
- * divergence only when the two directions differ.
+ * Interpretation layer on top of the forecast series.
+ * Historical direction and forecast movement are classified separately,
+ * then combined into a seller-facing story. A tiny negative slope on a
+ * high plateau is "ổn định ở mức cao", not "đang giảm".
  */
 public final class DemandTrendInsight {
 
     public static final double SLOPE_THRESHOLD = 0.02;
+    static final double SEASONAL_LABEL_THRESHOLD = 0.12;
+    private static final double STRONG_LIFT = 1.50;
+    private static final double HIGH_LEVEL_LIFT = 1.35;
+    /** Intra-horizon % change below this is a plateau, not a new trend. */
+    private static final double SIDEWAYS_PCT = 0.18;
+    /** Share of day-to-day steps that must agree before we call a short walk a trend. */
+    private static final double WALK_AGREEMENT = 0.65;
     private static final DateTimeFormatter VI_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public enum Direction {
@@ -23,7 +33,19 @@ public final class DemandTrendInsight {
         SEASONAL
     }
 
-    static final double SEASONAL_LABEL_THRESHOLD = 0.12;
+    public enum Combined {
+        CONTINUE_UP,
+        UP_TO_HIGH_STABLE,
+        UP_TO_STABLE,
+        UP_THEN_COOL,
+        STABLE,
+        SEASONAL,
+        MAY_RISE,
+        MAY_FALL,
+        CONTINUE_DOWN,
+        DOWN_TO_STABLE,
+        RECOVERING
+    }
 
     private DemandTrendInsight() {
     }
@@ -63,11 +85,33 @@ public final class DemandTrendInsight {
         double historySlope,
         double seasonalityStrength
     ) {
-        Direction historyDir = withSeasonalLabel(classify(historySlope), seasonalityStrength);
-        double forecastSlope = levelSlope(forecast);
-        Direction forecastDir = withSeasonalLabel(classify(forecastSlope), seasonalityStrength);
-
         int n = history.size();
+        int levelWindow = levelWindowSize(n);
+        double recentLevel = average(tail(history, levelWindow));
+        double earlierLevel = average(head(history, Math.max(levelWindow, n / 2)));
+        double liftRatio = recentLevel / Math.max(1.0, earlierLevel);
+        boolean highLevel = recentLevel >= earlierLevel * HIGH_LEVEL_LIFT && recentLevel >= 1.5;
+        boolean lowLevel = recentLevel <= earlierLevel * 0.75 && earlierLevel >= 1.5;
+
+        Direction historyBase = classify(historySlope);
+        if (liftRatio >= STRONG_LIFT) {
+            historyBase = Direction.UP;
+        } else if (liftRatio <= 0.67 && earlierLevel >= 1.5) {
+            historyBase = Direction.DOWN;
+        }
+        Direction historyDir = withSeasonalLabel(historyBase, seasonalityStrength);
+        String historyLabel = historyLabelVi(historyDir, liftRatio);
+
+        Direction forecastDir = classifyForecastMovement(
+            forecast,
+            recentLevel,
+            seasonalityStrength
+        );
+        String forecastLabel = forecastMovementLabel(forecastDir, highLevel, lowLevel);
+
+        Combined combined = combine(historyDir, forecastDir, highLevel);
+        double forecastSlope = levelSlope(forecast);
+
         int recentWindow = recentWindowSize(n);
         double recentSlope = n >= 4
             ? linearRegressionSlope(tail(history, recentWindow))
@@ -94,7 +138,10 @@ public final class DemandTrendInsight {
         }
 
         String reason = null;
-        if (historyDir != forecastDir) {
+        if (combined == Combined.UP_THEN_COOL
+            || combined == Combined.RECOVERING
+            || combined == Combined.MAY_FALL
+            || combined == Combined.MAY_RISE) {
             reason = divergenceReason(
                 historyStart,
                 history,
@@ -111,13 +158,261 @@ public final class DemandTrendInsight {
 
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("historyTrend", code(historyDir));
-        snapshot.put("historyTrendLabel", labelVi(historyDir));
+        snapshot.put("historyTrendLabel", historyLabel);
         snapshot.put("forecastTrendDirection", code(forecastDir));
-        snapshot.put("forecastTrendLabel", labelVi(forecastDir));
+        snapshot.put("forecastTrendLabel", forecastLabel);
         snapshot.put("forecastTrendSlope", round4(forecastSlope));
         snapshot.put("trendBreakDate", trendBreakDate == null ? null : trendBreakDate.toString());
         snapshot.put("trendDivergenceReason", reason);
+        snapshot.put("trendCombined", combinedCode(combined));
+        snapshot.put("trendInsightLabel", combinedLabel(combined));
+        snapshot.put("trendInsightDetail", insightDetail(
+            combined,
+            earlierLevel,
+            recentLevel,
+            forecast
+        ));
+        snapshot.put("trendRecommendation", recommendation(combined, recentLevel, forecast));
         return snapshot;
+    }
+
+    static Direction classifyForecastMovement(
+        List<Double> forecast,
+        double recentHistMean,
+        double seasonalityStrength
+    ) {
+        if (forecast == null || forecast.size() < 2) {
+            return withSeasonalLabel(Direction.STABLE, seasonalityStrength);
+        }
+        double forecastMean = averageNumbers(forecast);
+        int mid = Math.max(1, (forecast.size() + 1) / 2);
+        double first = forecast.size() >= 14
+            ? averageNumbers(forecast.subList(0, 7))
+            : averageNumbers(forecast.subList(0, mid));
+        double last = forecast.size() >= 14
+            ? averageNumbers(forecast.subList(forecast.size() - 7, forecast.size()))
+            : averageNumbers(forecast.subList(mid, forecast.size()));
+        double intraPct = (last - first) / Math.max(1.0, first);
+        double vsRecent = (forecastMean - recentHistMean) / Math.max(1.0, recentHistMean);
+
+        if (intraPct <= -SIDEWAYS_PCT) {
+            return Direction.DOWN;
+        }
+        if (intraPct >= SIDEWAYS_PCT) {
+            return Direction.UP;
+        }
+
+        Direction walk = consistentWalk(forecast, forecastMean);
+        if (walk != Direction.STABLE) {
+            return walk;
+        }
+
+        if (Math.abs(vsRecent) <= SIDEWAYS_PCT) {
+            return withSeasonalLabel(Direction.STABLE, seasonalityStrength);
+        }
+        if (vsRecent > SIDEWAYS_PCT) {
+            return Direction.UP;
+        }
+        if (vsRecent < -SIDEWAYS_PCT) {
+            return Direction.DOWN;
+        }
+        return withSeasonalLabel(Direction.STABLE, seasonalityStrength);
+    }
+
+    /**
+     * Tiny OLS slopes like -0.06/day on a level of ~12 are noise.
+     * A 7-day run of 14.0, 14.4, … 16.4 is a real walk up.
+     */
+    static Direction consistentWalk(List<Double> forecast, double mean) {
+        if (forecast == null || forecast.size() < 3) {
+            return Direction.STABLE;
+        }
+        double eps = Math.max(0.05, 0.02 * Math.abs(mean));
+        int up = 0;
+        int down = 0;
+        int steps = forecast.size() - 1;
+        for (int i = 1; i < forecast.size(); i++) {
+            double delta = forecast.get(i) - forecast.get(i - 1);
+            if (delta > eps) {
+                up++;
+            } else if (delta < -eps) {
+                down++;
+            }
+        }
+        double need = WALK_AGREEMENT * steps;
+        if (up >= need) {
+            return Direction.UP;
+        }
+        if (down >= need) {
+            return Direction.DOWN;
+        }
+        return Direction.STABLE;
+    }
+
+    static Combined combine(Direction historyDir, Direction forecastDir, boolean highLevel) {
+        Direction history = stripSeasonal(historyDir);
+        Direction forecast = stripSeasonal(forecastDir);
+        if (historyDir == Direction.SEASONAL
+            && (forecastDir == Direction.SEASONAL || forecast == Direction.STABLE)) {
+            return Combined.SEASONAL;
+        }
+        if (history == Direction.UP && forecast == Direction.UP) {
+            return Combined.CONTINUE_UP;
+        }
+        if (history == Direction.UP && forecast == Direction.STABLE) {
+            return highLevel ? Combined.UP_TO_HIGH_STABLE : Combined.UP_TO_STABLE;
+        }
+        if (history == Direction.UP && forecast == Direction.DOWN) {
+            return Combined.UP_THEN_COOL;
+        }
+        if (history == Direction.STABLE && forecast == Direction.UP) {
+            return Combined.MAY_RISE;
+        }
+        if (history == Direction.STABLE && forecast == Direction.DOWN) {
+            return Combined.MAY_FALL;
+        }
+        if (history == Direction.DOWN && forecast == Direction.DOWN) {
+            return Combined.CONTINUE_DOWN;
+        }
+        if (history == Direction.DOWN && forecast == Direction.STABLE) {
+            return Combined.DOWN_TO_STABLE;
+        }
+        if (history == Direction.DOWN && forecast == Direction.UP) {
+            return Combined.RECOVERING;
+        }
+        return historyDir == Direction.SEASONAL ? Combined.SEASONAL : Combined.STABLE;
+    }
+
+    static String combinedLabel(Combined combined) {
+        return switch (combined) {
+            case CONTINUE_UP -> "Tăng và tiếp tục tăng";
+            case UP_TO_HIGH_STABLE -> "Tăng → ổn định ở mức cao";
+            case UP_TO_STABLE -> "Tăng → ổn định";
+            case UP_THEN_COOL -> "Tăng nhưng có dấu hiệu hạ nhiệt";
+            case STABLE -> "Ổn định";
+            case SEASONAL -> "Theo mùa tuần";
+            case MAY_RISE -> "Có khả năng tăng";
+            case MAY_FALL -> "Có khả năng giảm";
+            case CONTINUE_DOWN -> "Giảm rõ rệt";
+            case DOWN_TO_STABLE -> "Giảm → ổn định";
+            case RECOVERING -> "Có dấu hiệu phục hồi";
+        };
+    }
+
+    static String combinedCode(Combined combined) {
+        return switch (combined) {
+            case CONTINUE_UP -> "continue_up";
+            case UP_TO_HIGH_STABLE -> "up_to_high_stable";
+            case UP_TO_STABLE -> "up_to_stable";
+            case UP_THEN_COOL -> "up_then_cool";
+            case STABLE -> "stable";
+            case SEASONAL -> "seasonal";
+            case MAY_RISE -> "may_rise";
+            case MAY_FALL -> "may_fall";
+            case CONTINUE_DOWN -> "continue_down";
+            case DOWN_TO_STABLE -> "down_to_stable";
+            case RECOVERING -> "recovering";
+        };
+    }
+
+    static String historyLabelVi(Direction direction, double liftRatio) {
+        if (direction == Direction.UP && liftRatio >= STRONG_LIFT) {
+            return "Đang tăng mạnh";
+        }
+        if (direction == Direction.DOWN && liftRatio <= 0.67) {
+            return "Đang giảm mạnh";
+        }
+        return labelVi(direction);
+    }
+
+    static String forecastMovementLabel(Direction direction, boolean highLevel, boolean lowLevel) {
+        if (direction == Direction.STABLE && highLevel) {
+            return "Ổn định ở mức cao";
+        }
+        if (direction == Direction.STABLE && lowLevel) {
+            return "Ổn định ở mức thấp";
+        }
+        if (direction == Direction.STABLE) {
+            return "Ổn định";
+        }
+        return labelVi(direction);
+    }
+
+    static String insightDetail(
+        Combined combined,
+        double earlierLevel,
+        double recentLevel,
+        List<Double> forecast
+    ) {
+        double forecastMean = averageNumbers(forecast);
+        String earlier = formatQty(earlierLevel);
+        String recent = formatQty(recentLevel);
+        String forecastQty = formatQty(forecastMean);
+        return switch (combined) {
+            case UP_TO_HIGH_STABLE, UP_TO_STABLE ->
+                "Nhu cầu tăng rõ trong giai đoạn gần đây, từ khoảng " + earlier
+                    + " lên " + recent + " đơn/ngày. Dự báo duy trì quanh "
+                    + forecastQty + " đơn/ngày, dù có dao động nhẹ.";
+            case CONTINUE_UP ->
+                "Nhu cầu vừa tăng (khoảng " + earlier + " → " + recent
+                    + " đơn/ngày) và dự báo tiếp tục đi lên.";
+            case UP_THEN_COOL ->
+                "Nhu cầu gần đây đã tăng lên khoảng " + recent
+                    + " đơn/ngày, nhưng đường dự báo đang hạ dần so với mức đó.";
+            case SEASONAL ->
+                "Nhu cầu lặp nhịp theo tuần; dự báo giữ pattern đó chứ không đổi hướng dài hạn.";
+            case RECOVERING ->
+                "Lịch sử đang giảm nhưng dự báo đảo chiều tăng — tín hiệu phục hồi.";
+            case CONTINUE_DOWN ->
+                "Nhu cầu giảm từ khoảng " + earlier + " xuống " + recent
+                    + " đơn/ngày và dự báo tiếp tục yếu.";
+            case DOWN_TO_STABLE ->
+                "Nhu cầu đã giảm rồi dự báo giữ quanh " + forecastQty + " đơn/ngày.";
+            case MAY_RISE ->
+                "Lịch sử tương đối ổn định, dự báo nghiêng tăng quanh " + forecastQty + " đơn/ngày.";
+            case MAY_FALL ->
+                "Lịch sử tương đối ổn định, nhưng kỳ dự báo nghiêng giảm.";
+            case STABLE ->
+                "Nhu cầu và dự báo đều quanh " + forecastQty + " đơn/ngày.";
+        };
+    }
+
+    static String recommendation(Combined combined, double recentLevel, List<Double> forecast) {
+        String qty = formatQty(recentLevel);
+        if (forecast != null && !forecast.isEmpty()) {
+            qty = formatQty(averageNumbers(forecast));
+        }
+        return switch (combined) {
+            case UP_TO_HIGH_STABLE, UP_TO_STABLE ->
+                "Nhu cầu gần đây đang tăng mạnh và dự báo duy trì ở mức cao khoảng "
+                    + qty
+                    + " đơn/ngày. Nên giữ tồn kho cao hơn giai đoạn trước và theo dõi xem mức này có đứng vững sau 2–4 tuần.";
+            case CONTINUE_UP ->
+                "Dự báo tiếp tục tăng — chủ động nhập thêm theo nhịp ~"
+                    + qty + " đơn/ngày, tránh hết hàng giữa kỳ.";
+            case UP_THEN_COOL ->
+                "Đã tăng nhưng có dấu hiệu hạ nhiệt. Giữ tồn đủ cho ~"
+                    + qty + " đơn/ngày, chưa tăng nhập mạnh thêm.";
+            case SEASONAL ->
+                "Chuẩn bị tồn theo nhịp tuần (cuối tuần thường cao hơn). Trung bình kỳ tới khoảng "
+                    + qty + " đơn/ngày.";
+            case RECOVERING ->
+                "Có tín hiệu phục hồi. Tăng tồn nhẹ theo dự báo ~"
+                    + qty + " đơn/ngày và theo dõi 1–2 tuần.";
+            case CONTINUE_DOWN ->
+                "Nhu cầu giảm rõ — hạ tồn, tránh nhập dày; kỳ tới khoảng "
+                    + qty + " đơn/ngày.";
+            case DOWN_TO_STABLE ->
+                "Đã giảm rồi đi ngang quanh " + qty
+                    + " đơn/ngày. Điều chỉnh tồn về mức mới, chưa cắt sâu thêm.";
+            case MAY_RISE ->
+                "Có khả năng tăng. Sẵn sàng tồn đệm quanh " + qty + " đơn/ngày.";
+            case MAY_FALL ->
+                "Có khả năng giảm. Giữ tồn vừa, ưu tiên xả chậm nếu bán chậm hơn kỳ trước.";
+            case STABLE ->
+                "Nhu cầu ổn định quanh " + qty
+                    + " đơn/ngày. Duy trì tồn xoay vòng, tránh nhập đột biến.";
+        };
     }
 
     static String divergenceReason(
@@ -147,15 +442,11 @@ public final class DemandTrendInsight {
 
         if (forecastDir == Direction.DOWN && recentAvg < earlierAvg * 0.85) {
             return "Suy giảm nhu cầu: trung bình " + recentWindow
-                + " ngày gần nhất thấp hơn giai đoạn trước, nên dự báo "
-                + labelVi(forecastDir).toLowerCase()
-                + " dù lịch sử " + labelVi(historyDir).toLowerCase() + ".";
+                + " ngày gần nhất thấp hơn giai đoạn trước.";
         }
 
         if (forecastDir == Direction.UP && recentAvg > earlierAvg * 1.15) {
-            return "Nhu cầu tăng tốc gần đây so với phần đầu cửa sổ lịch sử, nên dự báo "
-                + labelVi(forecastDir).toLowerCase()
-                + " dù lịch sử " + labelVi(historyDir).toLowerCase() + ".";
+            return "Nhu cầu tăng tốc gần đây so với phần đầu cửa sổ lịch sử.";
         }
 
         if (seasonalityStrength >= 0.08 && !forecast.isEmpty()) {
@@ -174,14 +465,10 @@ public final class DemandTrendInsight {
                     : "nhịp ngày thường trong tuần";
             }
             return "Kỳ dự báo " + labelVi(forecastDir).toLowerCase()
-                + " vì " + windowLabel
-                + ", khác với xu hướng lịch sử "
-                + labelVi(historyDir).toLowerCase() + ".";
+                + " vì " + windowLabel + ".";
         }
 
-        return "Đường dự báo " + labelVi(forecastDir).toLowerCase()
-            + " trong khi lịch sử " + labelVi(historyDir).toLowerCase()
-            + " vì mô hình ưu tiên tín hiệu gần đây và mùa theo thứ.";
+        return null;
     }
 
     static Direction withSeasonalLabel(Direction direction, double seasonalityStrength) {
@@ -195,7 +482,6 @@ public final class DemandTrendInsight {
         return direction == Direction.SEASONAL ? Direction.STABLE : direction;
     }
 
-    /** Slope of the series level, ignoring weekly wiggles: last-week mean vs first-week mean. */
     static double levelSlope(List<? extends Number> series) {
         if (series == null || series.size() < 2) {
             return 0.0;
@@ -253,6 +539,13 @@ public final class DemandTrendInsight {
         return Math.min(7, Math.max(5, historyDays / 4));
     }
 
+    static int levelWindowSize(int historyDays) {
+        if (historyDays < 14) {
+            return Math.max(3, historyDays / 2);
+        }
+        return Math.min(14, Math.max(7, historyDays / 6));
+    }
+
     static boolean weekendHeavy(LocalDate forecastStart, int horizon) {
         int weekendDays = 0;
         LocalDate date = forecastStart;
@@ -290,6 +583,17 @@ public final class DemandTrendInsight {
         return ((n * sumXY) - (sumX * sumY)) / denominator;
     }
 
+    private static String formatQty(double value) {
+        if (!Double.isFinite(value)) {
+            return "0";
+        }
+        double rounded = Math.round(value * 10.0) / 10.0;
+        if (Math.abs(rounded - Math.round(rounded)) < 0.05) {
+            return String.format(Locale.US, "%d", Math.round(rounded));
+        }
+        return String.format(Locale.US, "%.1f", rounded);
+    }
+
     private static List<Long> tail(List<Long> series, int window) {
         int start = Math.max(0, series.size() - window);
         return new ArrayList<>(series.subList(start, series.size()));
@@ -312,14 +616,7 @@ public final class DemandTrendInsight {
     }
 
     private static double averageDoubles(List<Double> series) {
-        if (series == null || series.isEmpty()) {
-            return 0.0;
-        }
-        double sum = 0.0;
-        for (double value : series) {
-            sum += value;
-        }
-        return sum / series.size();
+        return averageNumbers(series);
     }
 
     private static double average(List<Long> series) {

@@ -34,7 +34,9 @@ public final class DssToolDefinition {
             .description("""
                 Get demand forecast predictions for a product using adaptive time series models
                 (Moving Average, Holt Linear, Holt-Winters, and LightGBM ONNX).
-                Returns daily forecasted demand, average daily demand, trend slope, seasonality, and explanation.
+                Returns daily forecasted demand, average daily demand, seasonality, and seller-facing trend interpretation
+                (historyTrendLabel, forecastTrendLabel, trendInsightLabel, trendRecommendation).
+                A tiny negative slope on a high plateau is "ổn định ở mức cao", not declining demand.
                 """)
             .parameters(
                 Schema.builder()
