@@ -40,7 +40,7 @@ public class AiChatController {
     @Value("${google.ai.api-key:}")
     private String geminiApiKey;
 
-    @Value("${google.ai.model:gemini-3.6-flash}")
+    @Value("${google.ai.model:gemini-3.5-flash-lite}")
     private String geminiModel;
 
     @GetMapping("/status")

@@ -159,10 +159,10 @@ public class AiChatServiceImpl implements AiChatService {
                 rootMessage(e)
             );
             AiChatResponse viaFallback = null;
-            if (System.currentTimeMillis() - totalStart < 11_000) {
+            if (System.currentTimeMillis() - totalStart < 5_000) {
                 viaFallback = tryMultiProviderFallback(request);
             } else {
-                log.warn("Skip DeepSeek/OpenRouter fallback — already past 11s");
+                log.warn("Skip DeepSeek/OpenRouter fallback — already past 5s");
             }
             if (viaFallback != null) {
                 return viaFallback;
@@ -199,7 +199,7 @@ public class AiChatServiceImpl implements AiChatService {
             return gemini;
         }
         long elapsed = System.currentTimeMillis() - totalStart;
-        if (elapsed > 9_000) {
+        if (elapsed > 4_000) {
             log.info("Skip DeepSeek refine — Gemini already {} ms", elapsed);
             return gemini;
         }
@@ -254,7 +254,7 @@ public class AiChatServiceImpl implements AiChatService {
             .systemInstruction(
                 Content.fromParts(Part.fromText(AiChatPrompts.ECOMMERCE_SYSTEM))
             )
-            .maxOutputTokens(700)
+            .maxOutputTokens(400)
             .thinkingConfig(
                 ThinkingConfig.builder()
                     .includeThoughts(false)
@@ -319,6 +319,7 @@ public class AiChatServiceImpl implements AiChatService {
 
     private List<String> modelCandidates() {
         LinkedHashSet<String> models = new LinkedHashSet<>();
+        models.add("gemini-3.5-flash-lite");
         if (StringUtils.hasText(model)) {
             models.add(model.trim());
         }

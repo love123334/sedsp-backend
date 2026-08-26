@@ -32,8 +32,8 @@ public class DeepSeekProperties {
 
     int maxTokens = 1200;
 
-    /** Polish Gemini drafts into natural advisor copy (Gemini ~8s + DeepSeek ~6s). */
-    boolean refineGemini = true;
+    /** Off by default — polish adds 3–6s after Gemini. */
+    boolean refineGemini = false;
 
     public boolean isConfigured() {
         return enabled
