@@ -484,6 +484,12 @@ public class AiChatServiceImpl implements AiChatService {
         if (maxPrice == null) {
             maxPrice = ProductAiTool.parseMaxPrice(keyword);
         }
+        if (!StringUtils.hasText(keyword) && StringUtils.hasText(lastUser)) {
+            String inferred = ProductAiTool.parseDomainKeyword(lastUser);
+            if (StringUtils.hasText(inferred)) {
+                keyword = inferred;
+            }
+        }
 
         if (!StringUtils.hasText(keyword) && minPrice == null && maxPrice == null) {
             return Map.of(

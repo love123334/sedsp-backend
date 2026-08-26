@@ -162,12 +162,15 @@ public class ProductAiTool {
             return hay.contains("tai nghe") || hay.contains("headphone") || hay.contains("earbuds")
                 || hay.contains("airpods") || hay.contains("headset");
         }
+        if (d.contains("máy tính bảng") || d.contains("may tinh bang") || d.contains("tablet")) {
+            return looksLikeTablet(hay);
+        }
         if (d.contains("điện thoại") || d.contains("dien thoai")) {
-            return hay.contains("điện thoại") || hay.contains("dien thoai") || hay.contains("iphone")
-                || hay.contains("smartphone") || hay.contains("galaxy") || hay.contains("phone");
+            return looksLikePhone(hay);
         }
         if (d.contains("laptop")) {
-            return hay.contains("laptop") || hay.contains("macbook") || hay.contains("notebook");
+            return !looksLikeTablet(hay)
+                && (hay.contains("laptop") || hay.contains("macbook") || hay.contains("notebook"));
         }
         if (d.contains("bàn phím") || d.contains("ban phim")) {
             return hay.contains("bàn phím") || hay.contains("ban phim") || hay.contains("keyboard")
@@ -191,8 +194,48 @@ public class ProductAiTool {
         return (name + " " + slug + " " + cat).toLowerCase(Locale.ROOT);
     }
 
+    static boolean looksLikeTablet(String hay) {
+        if (hay == null || hay.isBlank()) {
+            return false;
+        }
+        String h = hay.toLowerCase(Locale.ROOT);
+        return h.contains("máy tính bảng")
+            || h.contains("may tinh bang")
+            || h.contains("tablet")
+            || h.contains("ipad")
+            || h.contains("galaxy tab")
+            || h.contains("xiaomi pad")
+            || h.matches(".*\\btab\\s*s\\d.*");
+    }
+
+    static boolean looksLikePhone(String hay) {
+        if (hay == null || hay.isBlank() || looksLikeTablet(hay)) {
+            return false;
+        }
+        String h = hay.toLowerCase(Locale.ROOT);
+        if (h.contains("điện thoại") || h.contains("dien thoai")
+            || h.contains("smartphone") || h.contains("iphone")
+            || h.contains("pixel") || h.contains("oneplus")) {
+            return true;
+        }
+        if (h.contains("headphone") || h.contains("earphone")) {
+            return false;
+        }
+        return h.contains("galaxy") || h.contains("xiaomi") || h.contains("oppo")
+            || h.contains("vivo") || h.contains("realme")
+            || h.contains("smartphone") || h.matches(".*\\bphone\\b.*");
+    }
+
+    public static String parseDomainKeyword(String text) {
+        return extractFallbackDomainKeyword(text);
+    }
+
     private static String extractFallbackDomainKeyword(String text) {
         String lower = text.toLowerCase(Locale.ROOT);
+        if (lower.contains("máy tính bảng") || lower.contains("may tinh bang")
+            || lower.contains("tablet") || lower.contains("ipad")) {
+            return "máy tính bảng";
+        }
         if (lower.contains("tai nghe") || lower.contains("headphone") || lower.contains("earbuds") || lower.contains("chống ồn") || lower.contains("chong on") || lower.contains("airpods")) {
             return "tai nghe";
         }
@@ -208,10 +251,10 @@ public class ProductAiTool {
         if (lower.contains("chuột") || lower.contains("chuot") || lower.contains("mouse")) {
             return "chuột";
         }
-        if (lower.contains("laptop") || lower.contains("macbook") || lower.contains("máy tính")) {
+        if (lower.contains("laptop") || lower.contains("macbook")) {
             return "laptop";
         }
-        if (lower.contains("điện thoại") || lower.contains("dien thoai") || lower.contains("phone") || lower.contains("iphone") || lower.contains("galaxy") || lower.contains("pixel")) {
+        if (lower.contains("điện thoại") || lower.contains("dien thoai") || lower.contains("smartphone") || lower.contains("iphone") || lower.contains("pixel")) {
             return "điện thoại";
         }
         if (lower.contains("váy") || lower.contains("đầm") || lower.contains("áo") || lower.contains("quần") || lower.contains("hoodie") || lower.contains("blazer")) {

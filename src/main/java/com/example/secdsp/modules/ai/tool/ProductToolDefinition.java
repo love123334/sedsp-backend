@@ -52,9 +52,10 @@ public final class ProductToolDefinition {
                 Use when the user wants to find, browse, or filter products
                 by name/keyword and/or price range (budget).
                 For budget questions like "điện thoại dưới 20 triệu", you MUST set
-                maxPrice=20000000 (VND, inclusive) AND a product keyword such as "điện thoại".
+                maxPrice=20000000 (VND, inclusive) AND keyword "điện thoại".
                 Never invent products — only report tool results. Never recommend a product
                 whose price exceeds maxPrice.
+                If the keyword is a phone request, do not return tablets (máy tính bảng, iPad, Galaxy Tab).
                 """)
             .parameters(
                 Schema.builder()

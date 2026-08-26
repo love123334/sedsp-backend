@@ -145,6 +145,7 @@ public class DeepSeekEcommerceChatService {
                 - Keep Vietnamese with full diacritics; sound like a natural shopping advisor.
                 - Prefer PLATFORM_FACTS over the draft when they conflict.
                 - If PLATFORM_FACTS has maxPrice, drop any product above that cap — never recommend it.
+                - If the shopper asked for điện thoại, drop tablets (Galaxy Tab, iPad, máy tính bảng).
                 - Give 2–4 reasons to pick (budget fit, rating/sold, a real spec). Not a one-liner.
                 - Never narrate the UI ("bên dưới", "bấm card", "danh sách sản phẩm", "mình tìm được N…").
                 - Do not mention Gemini, DeepSeek, OpenRouter, or that you are refining.
