@@ -9,6 +9,8 @@ import org.mapstruct.Mapping;
 public interface CartItemMapper {
 
     @Mapping(target = "productId", source = "product.id")
+    @Mapping(target = "sellerId", source = "product.seller.id")
+    @Mapping(target = "storeName", source = "product.seller.storeName")
     @Mapping(target = "productName", source = "product.name")
     @Mapping(target = "price", source = "product.price")
     @Mapping(target = "productImageUrl", ignore = true)

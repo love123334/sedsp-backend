@@ -26,7 +26,11 @@ public class DssAiTool {
 
     public Map<String, Object> getDemandForecast(Long productId, Integer forecastDays) {
         int horizon = (forecastDays != null && forecastDays > 0) ? forecastDays : 30;
-        DemandForecastResponse forecast = dssAnalyticsService.forecastDemand(productId, 90, horizon);
+        DemandForecastResponse forecast = dssAnalyticsService.forecastDemand(productId, 180, horizon);
+
+        Map<String, Object> snapshot = forecast.getFeatureSnapshot() != null
+            ? forecast.getFeatureSnapshot()
+            : Map.of();
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("productId", forecast.getProductId());
@@ -36,8 +40,14 @@ public class DssAiTool {
         result.put("averageDailyDemand", forecast.getAverageDailyDemand());
         result.put("predictedTotalDemand", forecast.getPredictedDemand());
         result.put("forecastingMethod", forecast.getMethod());
-        result.put("featureSnapshot", forecast.getFeatureSnapshot());
+        result.put("historyTrendLabel", snapshot.get("historyTrendLabel"));
+        result.put("forecastTrendLabel", snapshot.get("forecastTrendLabel"));
+        result.put("trendInsightLabel", snapshot.get("trendInsightLabel"));
+        result.put("trendCombined", snapshot.get("trendCombined"));
+        result.put("trendInsightDetail", snapshot.get("trendInsightDetail"));
+        result.put("trendRecommendation", snapshot.get("trendRecommendation"));
         result.put("insufficientData", forecast.isInsufficientData());
+        result.put("featureSnapshot", snapshot);
         return result;
     }
 

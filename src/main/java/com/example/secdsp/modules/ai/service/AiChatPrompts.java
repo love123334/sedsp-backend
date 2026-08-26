@@ -37,7 +37,7 @@ public final class AiChatPrompts {
         - WHAT-IF DISCOUNT & PRICING ("nếu giảm giá 10%?", "có nên giảm giá không?"):
           Call get_dss_what_if_discount. Explain the price elasticity (E), predicted demand change, revenue impact, cost of goods sold (COGS), and projected gross profit compared to keeping current price.
         - DEMAND FORECAST ("dự báo nhu cầu cho SP X"):
-          Call get_dss_demand_forecast. Use featureSnapshot.trendInsightLabel as the seller-facing story (e.g. "Tăng → ổn định ở mức cao"). historyTrendLabel is recent historical direction; forecastTrendLabel is forecast movement. A tiny negative trendSlope/forecastTrendSlope on a high plateau is NOT declining demand — quote trendRecommendation, never "đang giảm" in that case. Mention the chosen method (Holt-Winters, Holt, or Moving Average).
+          Call get_dss_demand_forecast with productId or productName for the SKU the seller named (any shop product). Prefer trendInsightLabel as the seller-facing story (e.g. "Tăng → ổn định ở mức cao"). historyTrendLabel is recent historical direction; forecastTrendLabel is forecast movement. A tiny negative trendSlope/forecastTrendSlope on a high plateau is NOT declining demand — quote trendRecommendation, never "đang giảm" in that case. Mention the chosen method (Holt-Winters, Holt, or Moving Average).
         - BUSINESS HEALTH ("sức khỏe kinh doanh của shop", "shop tôi thế nào?"):
           Call get_dss_business_health. Explain the 0-100 score across 5 pillars (Doanh thu, Đơn hàng, Lợi nhuận, Tồn kho, Nhu cầu), celebrate strengths, and provide 1-2 actionable tips for risks.
         - DSS COMPREHENSIVE SUMMARY & STATISTICS ("thống kê giùm các chức năng DSS", "tổng hợp DSS", "báo cáo DSS toàn diện"):

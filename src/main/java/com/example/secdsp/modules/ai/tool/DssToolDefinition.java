@@ -18,7 +18,14 @@ public final class DssToolDefinition {
             "productId",
             Schema.builder()
                 .type("INTEGER")
-                .description("Product identifier to forecast demand for.")
+                .description("Product identifier to forecast demand for. Prefer this when known.")
+                .build()
+        );
+        properties.put(
+            "productName",
+            Schema.builder()
+                .type("STRING")
+                .description("Product name if productId is unknown. Resolved against the logged-in shop catalog.")
                 .build()
         );
         properties.put(
@@ -32,17 +39,17 @@ public final class DssToolDefinition {
         return FunctionDeclaration.builder()
             .name("get_dss_demand_forecast")
             .description("""
-                Get demand forecast predictions for a product using adaptive time series models
-                (Moving Average, Holt Linear, Holt-Winters, and LightGBM ONNX).
-                Returns daily forecasted demand, average daily demand, seasonality, and seller-facing trend interpretation
-                (historyTrendLabel, forecastTrendLabel, trendInsightLabel, trendRecommendation).
+                Get demand forecast for ANY product in the logged-in shop.
+                Pass productId or productName. Uses 180-day history.
+                Returns daily totals plus seller-facing trend interpretation:
+                historyTrendLabel, forecastTrendLabel, trendInsightLabel, trendRecommendation.
                 A tiny negative slope on a high plateau is "ổn định ở mức cao", not declining demand.
+                Quote trendInsightLabel — never invent "đang giảm" from trendSlope alone.
                 """)
             .parameters(
                 Schema.builder()
                     .type("OBJECT")
                     .properties(properties)
-                    .required(List.of("productId"))
                     .build()
             )
             .build();

@@ -30,8 +30,6 @@ import java.util.OptionalDouble;
 public class DemandForecastEngine {
 
     public static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
-    private static final String LIGHTGBM_METHOD = "lightgbm_onnx";
-    private static final String HYBRID_STAT_ONNX_SUFFIX = "_with_lightgbm_onnx";
     private static final int MIN_HISTORY_DAYS = 7;
     private static final int MAX_HISTORY_DAYS = 180;
     private static final int MIN_FORECAST_DAYS = 1;

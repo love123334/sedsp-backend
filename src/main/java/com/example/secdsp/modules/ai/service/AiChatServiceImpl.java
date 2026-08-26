@@ -274,19 +274,38 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     private GenerateContentResponse generateWithModelFallback(
-        Object contents,
+        String contents,
+        GenerateContentConfig config
+    ) throws Exception {
+        return generateWithModelFallback(
+            (candidate, cfg) -> googleAiClient.models.generateContent(candidate, contents, cfg),
+            config
+        );
+    }
+
+    private GenerateContentResponse generateWithModelFallback(
+        List<Content> contents,
+        GenerateContentConfig config
+    ) throws Exception {
+        return generateWithModelFallback(
+            (candidate, cfg) -> googleAiClient.models.generateContent(candidate, contents, cfg),
+            config
+        );
+    }
+
+    @FunctionalInterface
+    private interface GeminiGenerate {
+        GenerateContentResponse generate(String modelName, GenerateContentConfig config) throws Exception;
+    }
+
+    private GenerateContentResponse generateWithModelFallback(
+        GeminiGenerate call,
         GenerateContentConfig config
     ) throws Exception {
         List<String> failures = new ArrayList<>();
         for (String candidate : modelCandidates()) {
             try {
-                GenerateContentResponse response = contents instanceof String text
-                    ? googleAiClient.models.generateContent(candidate, text, config)
-                    : googleAiClient.models.generateContent(
-                        candidate,
-                        (List<Content>) contents,
-                        config
-                    );
+                GenerateContentResponse response = call.generate(candidate, config);
                 if (!candidate.equals(model)) {
                     log.info("Gemini model fallback succeeded with {}", candidate);
                 }
@@ -949,12 +968,23 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     private Map<String, Object> executeGetDemandForecast(Map<String, Object> args) {
-        Object productIdVal = args.get("productId");
-        if (productIdVal == null) {
-            return Map.of("success", false, "error", "productId is required");
-        }
-        Long productId = ((Number) productIdVal).longValue();
+        Long productId = args.get("productId") instanceof Number n ? n.longValue() : null;
+        String productName = args.get("productName") instanceof String s ? s.trim() : "";
         Integer forecastDays = args.get("forecastDays") instanceof Number n ? n.intValue() : 30;
+
+        if (productId == null && !productName.isBlank()) {
+            var hits = productAiTool.searchProducts(productName);
+            if (hits.isEmpty()) {
+                return Map.of(
+                    "success", false,
+                    "error", "No shop product matched \"" + productName + "\" for demand forecast."
+                );
+            }
+            productId = hits.get(0).getId();
+        }
+        if (productId == null) {
+            return Map.of("success", false, "error", "productId or productName is required");
+        }
 
         try {
             var forecast = dssAiTool.getDemandForecast(productId, forecastDays);
