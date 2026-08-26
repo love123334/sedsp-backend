@@ -217,6 +217,8 @@ public class DemandForecastEngine {
                 horizon,
                 strategy
             );
+        CalendarDemandOverlay.Lifts calendarLifts =
+            CalendarDemandOverlay.estimate(startDate, dailySeries);
 
         List<Map<String, Object>> forecastSales = new ArrayList<>();
         List<Long> recursiveHistory = new ArrayList<>(dailySeries);
@@ -242,6 +244,7 @@ public class DemandForecastEngine {
                     + (modelPrediction.getAsDouble() * ONNX_BLEND_WEIGHT);
                 usedOnnxModel = true;
             }
+            predictedValue += CalendarDemandOverlay.liftOn(targetDate, calendarLifts);
 
             double predictedQty = round2(Math.max(0.0, predictedValue));
             forecastTotal += predictedQty;

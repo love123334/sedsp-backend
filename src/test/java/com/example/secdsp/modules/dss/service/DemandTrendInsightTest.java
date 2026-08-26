@@ -79,9 +79,40 @@ class DemandTrendInsightTest {
             0.35
         );
 
-        assertEquals("stable", insight.get("historyTrend"));
+        assertEquals("seasonal", insight.get("historyTrend"));
         assertEquals("down", insight.get("forecastTrendDirection"));
         String reason = (String) insight.get("trendDivergenceReason");
         assertTrue(reason != null && reason.contains("cuối tuần đi qua sớm"), reason);
+    }
+
+    @Test
+    void thirtyDayWeeklyForecastIsLabeledSeasonalNotDown() {
+        LocalDate start = LocalDate.of(2026, 3, 1);
+        int[] weekly = {3, 4, 4, 5, 8, 10, 8};
+        List<Long> history = new ArrayList<>();
+        for (int i = 0; i < 180; i++) {
+            history.add((long) weekly[i % 7]);
+        }
+        List<Double> forecast = new ArrayList<>();
+        for (int i = 0; i < 30; i++) {
+            forecast.add((double) weekly[(180 + i) % 7]);
+        }
+        double historySlope = DemandTrendInsight.linearRegressionSlope(history);
+        double seasonality = StatisticalForecastEngine.seasonalityStrength(start, history);
+
+        Map<String, Object> insight = DemandTrendInsight.analyze(
+            start,
+            history,
+            forecast,
+            historySlope,
+            seasonality
+        );
+
+        assertEquals("seasonal", insight.get("historyTrend"));
+        assertEquals("Theo mùa tuần", insight.get("historyTrendLabel"));
+        assertEquals("seasonal", insight.get("forecastTrendDirection"));
+        assertEquals("Theo mùa tuần", insight.get("forecastTrendLabel"));
+        assertNull(insight.get("trendDivergenceReason"));
+        assertNull(insight.get("trendBreakDate"));
     }
 }

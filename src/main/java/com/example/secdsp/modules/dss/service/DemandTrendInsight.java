@@ -19,8 +19,11 @@ public final class DemandTrendInsight {
     public enum Direction {
         UP,
         DOWN,
-        STABLE
+        STABLE,
+        SEASONAL
     }
+
+    static final double SEASONAL_LABEL_THRESHOLD = 0.12;
 
     private DemandTrendInsight() {
     }
@@ -40,6 +43,7 @@ public final class DemandTrendInsight {
             case UP -> "Đang tăng";
             case DOWN -> "Đang giảm";
             case STABLE -> "Tương đối ổn định";
+            case SEASONAL -> "Theo mùa tuần";
         };
     }
 
@@ -48,6 +52,7 @@ public final class DemandTrendInsight {
             case UP -> "up";
             case DOWN -> "down";
             case STABLE -> "stable";
+            case SEASONAL -> "seasonal";
         };
     }
 
@@ -58,9 +63,9 @@ public final class DemandTrendInsight {
         double historySlope,
         double seasonalityStrength
     ) {
-        Direction historyDir = classify(historySlope);
-        double forecastSlope = linearRegressionSlope(forecast);
-        Direction forecastDir = classify(forecastSlope);
+        Direction historyDir = withSeasonalLabel(classify(historySlope), seasonalityStrength);
+        double forecastSlope = levelSlope(forecast);
+        Direction forecastDir = withSeasonalLabel(classify(forecastSlope), seasonalityStrength);
 
         int n = history.size();
         int recentWindow = recentWindowSize(n);
@@ -73,8 +78,18 @@ public final class DemandTrendInsight {
         Direction recentDir = classify(recentSlope);
         Direction earlierDir = classify(earlierSlope);
 
+        boolean weeklyCycleNotBreak = seasonalityStrength >= SEASONAL_LABEL_THRESHOLD
+            && Math.abs(meanWeekdayResidual(historyStart, history, recentWindow))
+                < 0.25 * Math.max(1.0, average(history));
+        if (weeklyCycleNotBreak) {
+            recentDir = stripSeasonal(historyDir);
+        }
+
         LocalDate trendBreakDate = null;
-        if (n >= 8 && recentDir != earlierDir && recentDir != Direction.STABLE) {
+        if (!weeklyCycleNotBreak
+            && n >= 8
+            && recentDir != earlierDir
+            && recentDir != Direction.STABLE) {
             trendBreakDate = historyStart.plusDays(n - recentWindow);
         }
 
@@ -169,6 +184,68 @@ public final class DemandTrendInsight {
             + " vì mô hình ưu tiên tín hiệu gần đây và mùa theo thứ.";
     }
 
+    static Direction withSeasonalLabel(Direction direction, double seasonalityStrength) {
+        if (direction == Direction.STABLE && seasonalityStrength >= SEASONAL_LABEL_THRESHOLD) {
+            return Direction.SEASONAL;
+        }
+        return direction;
+    }
+
+    static Direction stripSeasonal(Direction direction) {
+        return direction == Direction.SEASONAL ? Direction.STABLE : direction;
+    }
+
+    /** Slope of the series level, ignoring weekly wiggles: last-week mean vs first-week mean. */
+    static double levelSlope(List<? extends Number> series) {
+        if (series == null || series.size() < 2) {
+            return 0.0;
+        }
+        if (series.size() < 14) {
+            int mid = Math.max(1, (series.size() + 1) / 2);
+            double first = averageNumbers(series.subList(0, mid));
+            double second = averageNumbers(series.subList(mid, series.size()));
+            return (second - first) / Math.max(1, series.size() - mid);
+        }
+        double first = averageNumbers(series.subList(0, 7));
+        double last = averageNumbers(series.subList(series.size() - 7, series.size()));
+        return (last - first) / (series.size() - 7);
+    }
+
+    static double meanWeekdayResidual(
+        LocalDate historyStart,
+        List<Long> history,
+        int recentWindow
+    ) {
+        if (history.isEmpty() || recentWindow <= 0) {
+            return 0.0;
+        }
+        double[] dowSum = new double[7];
+        int[] dowCount = new int[7];
+        LocalDate date = historyStart;
+        for (long qty : history) {
+            int dow = date.getDayOfWeek().getValue() % 7;
+            dowSum[dow] += qty;
+            dowCount[dow]++;
+            date = date.plusDays(1);
+        }
+        double[] dowMean = new double[7];
+        for (int i = 0; i < 7; i++) {
+            dowMean[i] = dowCount[i] > 0 ? dowSum[i] / dowCount[i] : 0.0;
+        }
+
+        int from = Math.max(0, history.size() - recentWindow);
+        date = historyStart.plusDays(from);
+        double residual = 0.0;
+        int count = 0;
+        for (int i = from; i < history.size(); i++) {
+            int dow = date.getDayOfWeek().getValue() % 7;
+            residual += history.get(i) - dowMean[dow];
+            count++;
+            date = date.plusDays(1);
+        }
+        return count > 0 ? residual / count : 0.0;
+    }
+
     static int recentWindowSize(int historyDays) {
         if (historyDays < 8) {
             return Math.max(2, historyDays / 2);
@@ -221,6 +298,17 @@ public final class DemandTrendInsight {
     private static List<Long> head(List<Long> series, int length) {
         int end = Math.max(0, Math.min(length, series.size()));
         return new ArrayList<>(series.subList(0, end));
+    }
+
+    private static double averageNumbers(List<? extends Number> series) {
+        if (series == null || series.isEmpty()) {
+            return 0.0;
+        }
+        double sum = 0.0;
+        for (Number value : series) {
+            sum += value.doubleValue();
+        }
+        return sum / series.size();
     }
 
     private static double averageDoubles(List<Double> series) {
