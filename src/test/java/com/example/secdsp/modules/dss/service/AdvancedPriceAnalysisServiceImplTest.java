@@ -1,6 +1,7 @@
 package com.example.secdsp.modules.dss.service;
 
 import com.example.secdsp.common.exception.BusinessException;
+import com.example.secdsp.common.util.AppTime;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.dss.dto.internal.DemandForecastComputation;
 import com.example.secdsp.modules.dss.dto.internal.DemandForecastProductView;
@@ -330,8 +331,8 @@ class AdvancedPriceAnalysisServiceImplTest {
         CreateAdvancedPriceSessionRequest request =
             new CreateAdvancedPriceSessionRequest();
         request.setProductId(PRODUCT_ID);
-        request.setFromDate(LocalDate.now().minusDays(29));
-        request.setToDate(LocalDate.now());
+        request.setFromDate(AppTime.today().minusDays(29));
+        request.setToDate(AppTime.today());
         request.setForecastPeriod(7);
         request.setEstimatedOrderCost(new BigDecimal("5.00"));
         return request;
@@ -350,8 +351,8 @@ class AdvancedPriceAnalysisServiceImplTest {
             .sellerId(SELLER_ID)
             .productId(PRODUCT_ID)
             .productName("Demo Product")
-            .fromDate(LocalDate.now().minusDays(29))
-            .toDate(LocalDate.now())
+            .fromDate(AppTime.today().minusDays(29))
+            .toDate(AppTime.today())
             .forecastPeriod(7)
             .estimatedOrderCost(new BigDecimal("5.00"))
             .basePrice(new BigDecimal("100.00"))

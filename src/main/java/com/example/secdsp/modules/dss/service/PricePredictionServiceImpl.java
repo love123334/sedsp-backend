@@ -3,6 +3,7 @@ package com.example.secdsp.modules.dss.service;
 import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ForbiddenException;
 import com.example.secdsp.common.exception.UnauthorizedException;
+import com.example.secdsp.common.util.AppTime;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.config.DssProperties;
 import com.example.secdsp.modules.dss.dto.internal.PriceRegimeInfo;
@@ -400,7 +401,7 @@ public class PricePredictionServiceImpl
             throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
         }
 
-        LocalDate currentDate = LocalDate.now();
+        LocalDate currentDate = AppTime.today();
         List<PriceHistoryInfo> priceHistories = productService
             .getPriceHistory(productId)
             .stream()
@@ -698,7 +699,7 @@ public class PricePredictionServiceImpl
             );
         }
 
-        if (toDate.isAfter(LocalDate.now())) {
+        if (toDate.isAfter(AppTime.today())) {
             throw new BusinessException(
                 "To date cannot be in the future."
             );

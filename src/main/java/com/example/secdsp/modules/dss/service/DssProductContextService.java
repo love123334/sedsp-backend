@@ -1,6 +1,7 @@
 package com.example.secdsp.modules.dss.service;
 
 import com.example.secdsp.modules.dss.dto.response.DssProductContextResponse;
+import com.example.secdsp.common.util.AppTime;
 import com.example.secdsp.modules.order.repository.OrderItemRepository;
 import com.example.secdsp.modules.product.dto.internal.PriceHistoryInfo;
 import com.example.secdsp.modules.product.repository.ProductRepository;
@@ -17,7 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DssProductContextService {
 
-    private static final ZoneId VIETNAM = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final ZoneId VIETNAM = AppTime.ZONE;
 
     private final OrderItemRepository orderItemRepository;
     private final ProductRepository productRepository;
@@ -36,11 +37,11 @@ public class DssProductContextService {
 
         int daysListed = listedAt == null
             ? 0
-            : (int) ChronoUnit.DAYS.between(listedAt.toLocalDate(), LocalDate.now()) + 1;
+            : (int) ChronoUnit.DAYS.between(AppTime.toAppDate(listedAt), AppTime.today()) + 1;
 
         Integer daysSinceFirstSale = firstSaleDate == null
             ? null
-            : (int) ChronoUnit.DAYS.between(firstSaleDate, LocalDate.now()) + 1;
+            : (int) ChronoUnit.DAYS.between(firstSaleDate, AppTime.today()) + 1;
 
         int priceChangeCount = priceHistoriesInRange == null ? 0 : priceHistoriesInRange.size();
 

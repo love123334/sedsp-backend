@@ -1,6 +1,7 @@
 package com.example.secdsp.modules.order.service;
 
 import com.example.secdsp.common.exception.BusinessException;
+import com.example.secdsp.common.util.AppTime;
 import com.example.secdsp.common.util.PublicAssetUrlResolver;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
@@ -626,7 +627,7 @@ public class OrderServiceImpl implements OrderService {
             .findFirstCompletedSaleDateByProduct(productId);
     }
 
-    private static final java.time.ZoneId APP_ZONE = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final java.time.ZoneId APP_ZONE = AppTime.ZONE;
 
     @Override
     @Transactional(readOnly = true)
@@ -665,10 +666,10 @@ public class OrderServiceImpl implements OrderService {
             startDateTime,
             endDateTime
         )) {
-            LocalDate day = row[0] instanceof java.sql.Date sqlDate
-                ? sqlDate.toLocalDate()
-                : ((java.time.LocalDate) row[0]);
-            map.put(day, ((Number) row[1]).longValue());
+            LocalDate day = AppTime.toAppDate(row[0]);
+            if (day != null) {
+                map.put(day, ((Number) row[1]).longValue());
+            }
         }
         return map;
     }

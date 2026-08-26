@@ -17,6 +17,7 @@ spring:
       connection-timeout: 15000
       validation-timeout: 5000
       initialization-fail-timeout: 30000
+      connection-init-sql: SET TIME ZONE 'Asia/Ho_Chi_Minh'
 
   # Redis starter is unused (OTP is DB-backed). Exclude so missing REDIS_URL cannot break boot.
   autoconfigure:

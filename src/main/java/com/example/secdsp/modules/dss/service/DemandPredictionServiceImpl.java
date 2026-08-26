@@ -3,6 +3,7 @@ package com.example.secdsp.modules.dss.service;
 import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ForbiddenException;
 import com.example.secdsp.common.exception.UnauthorizedException;
+import com.example.secdsp.common.util.AppTime;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.dss.dto.request.GenerateDemandPredictionRequest;
 import com.example.secdsp.modules.dss.dto.response.DemandPredictionResponse;
@@ -63,7 +64,7 @@ public class DemandPredictionServiceImpl
             throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
         }
 
-        LocalDate endDate = LocalDate.now();
+        LocalDate endDate = AppTime.today();
         LocalDate startDate = endDate.minusDays(request.getHistoricalDays() - 1L);
         if (firstSaleDate.isAfter(startDate)) {
             throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);

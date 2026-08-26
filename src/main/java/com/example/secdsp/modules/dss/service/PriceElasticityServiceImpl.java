@@ -1,6 +1,7 @@
 package com.example.secdsp.modules.dss.service;
 
 import com.example.secdsp.common.exception.BusinessException;
+import com.example.secdsp.common.util.AppTime;
 import com.example.secdsp.modules.dss.dto.internal.PriceElasticitySnapshot;
 import com.example.secdsp.modules.dss.dto.internal.PriceRegimeInfo;
 import com.example.secdsp.modules.order.service.OrderService;
@@ -54,7 +55,7 @@ public class PriceElasticityServiceImpl implements PriceElasticityService {
             throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
         }
 
-        LocalDate toDate = LocalDate.now();
+        LocalDate toDate = AppTime.today();
         List<PriceHistoryInfo> histories = productService.getPriceHistory(productId)
             .stream()
             .filter(history -> isWithinRange(history, firstSaleDate, toDate))
@@ -200,7 +201,7 @@ public class PriceElasticityServiceImpl implements PriceElasticityService {
     }
 
     private void validateDateRange(LocalDate fromDate, LocalDate toDate) {
-        if (fromDate.isAfter(toDate) || toDate.isAfter(LocalDate.now())) {
+        if (fromDate.isAfter(toDate) || toDate.isAfter(AppTime.today())) {
             throw new BusinessException(INSUFFICIENT_DATA_MESSAGE);
         }
     }

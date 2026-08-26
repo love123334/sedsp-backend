@@ -1,6 +1,7 @@
 package com.example.secdsp.modules.dss.service;
 
 import com.example.secdsp.common.exception.BusinessException;
+import com.example.secdsp.common.util.AppTime;
 import com.example.secdsp.config.DssProperties;
 import com.example.secdsp.common.exception.ForbiddenException;
 import com.example.secdsp.common.util.SecurityUtils;
@@ -327,8 +328,8 @@ class PricePredictionServiceImplTest {
 
     @Test
     void calculateElasticityUsesCompletedSalesAcrossPriceRegimes() {
-        LocalDate firstSaleDate = LocalDate.now().minusDays(30);
-        LocalDate changeDate = LocalDate.now().minusDays(15);
+        LocalDate firstSaleDate = AppTime.today().minusDays(30);
+        LocalDate changeDate = AppTime.today().minusDays(15);
 
         when(orderService.getFirstCompletedSaleDate(PRODUCT_ID))
             .thenReturn(firstSaleDate);
@@ -348,7 +349,7 @@ class PricePredictionServiceImplTest {
         when(orderService.getCompletedQuantitySold(
             PRODUCT_ID,
             changeDate,
-            LocalDate.now()
+            AppTime.today()
         )).thenReturn(40L);
 
         double elasticity = pricePredictionService

@@ -3,6 +3,7 @@ package com.example.secdsp.modules.dss.service;
 import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ForbiddenException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
+import com.example.secdsp.common.util.AppTime;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.dss.dto.request.GenerateDemandPredictionRequest;
 import com.example.secdsp.modules.dss.dto.response.DssAiInsightResponse;
@@ -78,13 +79,13 @@ class DemandPredictionServiceImplTest {
                 .predictedDemand(new BigDecimal("300.00"))
                 .build();
 
-        LocalDate endDate = LocalDate.now();
+        LocalDate endDate = AppTime.today();
         LocalDate startDate = endDate.minusDays(89);
 
         when(productService.getProductInfo(PRODUCT_ID))
             .thenReturn(product);
         when(orderService.getFirstCompletedSaleDate(PRODUCT_ID))
-            .thenReturn(LocalDate.now().minusDays(120));
+            .thenReturn(AppTime.today().minusDays(120));
         when(orderService.getCompletedDailySalesMap(
             PRODUCT_ID,
             startDate,
@@ -184,7 +185,7 @@ class DemandPredictionServiceImplTest {
         when(productService.getProductInfo(PRODUCT_ID))
             .thenReturn(buildProductInfo());
         when(orderService.getFirstCompletedSaleDate(PRODUCT_ID))
-            .thenReturn(LocalDate.now().minusDays(44));
+            .thenReturn(AppTime.today().minusDays(44));
 
         try (MockedStatic<SecurityUtils> securityUtils =
                  mockSellerSecurityContext()) {

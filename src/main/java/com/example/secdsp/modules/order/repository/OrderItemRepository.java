@@ -54,13 +54,13 @@ public interface OrderItemRepository
     long countCompletedOrdersBySeller(Long sellerId);
 
     @Query(value = """
-        SELECT to_char(timezone('Asia/Ho_Chi_Minh', o.created_at), 'YYYY-MM') AS month,
+        SELECT to_char(o.created_at, 'YYYY-MM') AS month,
                COALESCE(SUM(oi.subtotal), 0)
         FROM order_items oi
         INNER JOIN orders o ON o.id = oi.order_id
         WHERE oi.seller_id = :sellerId
           AND o.status IN ('PAID', 'PROCESSING', 'SHIPPING', 'DELIVERED')
-        GROUP BY to_char(timezone('Asia/Ho_Chi_Minh', o.created_at), 'YYYY-MM')
+        GROUP BY to_char(o.created_at, 'YYYY-MM')
         ORDER BY month
         """, nativeQuery = true)
     List<Object[]> calculateMonthlyRevenue(Long sellerId);
@@ -80,7 +80,7 @@ public interface OrderItemRepository
     List<Object[]> findTopSellingProducts(Long sellerId);
 
     @Query(value = """
-        SELECT CAST(timezone('Asia/Ho_Chi_Minh', o.created_at) AS date) AS day,
+        SELECT CAST(o.created_at AS date) AS day,
                COALESCE(SUM(oi.quantity), 0)
         FROM order_items oi
         INNER JOIN orders o ON o.id = oi.order_id
@@ -88,7 +88,7 @@ public interface OrderItemRepository
           AND oi.seller_id = :sellerId
           AND o.status IN ('PAID', 'PROCESSING', 'SHIPPING', 'DELIVERED')
           AND o.created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Ho_Chi_Minh' - CAST(:historyDays || ' days' AS interval))
-        GROUP BY CAST(timezone('Asia/Ho_Chi_Minh', o.created_at) AS date)
+        GROUP BY CAST(o.created_at AS date)
         ORDER BY day
         """, nativeQuery = true)
     List<Object[]> findDailySoldQuantity(
@@ -156,8 +156,14 @@ public interface OrderItemRepository
         """, nativeQuery = true)
     List<Object[]> findPowerBiSalesRowsAll(@Param("limit") int limit);
 
+    /**
+     * Daily sold qty keyed by Vietnam calendar date stored on {@code orders.created_at}.
+     * Column is TIMESTAMP WITHOUT TIME ZONE (Hibernate jdbc.time_zone=Asia/Ho_Chi_Minh).
+     * Do not wrap with {@code timezone('Asia/Ho_Chi_Minh', ...)} then CAST: Railway
+     * Postgres session TZ is UTC, so 00:00–06:59 VN becomes the previous UTC day.
+     */
     @Query(value = """
-        SELECT CAST(timezone('Asia/Ho_Chi_Minh', o.created_at) AS DATE) AS sale_date,
+        SELECT CAST(o.created_at AS DATE) AS sale_date,
                SUM(oi.quantity) AS quantity_sold
         FROM order_items oi
         JOIN orders o ON o.id = oi.order_id
@@ -165,7 +171,7 @@ public interface OrderItemRepository
           AND o.status IN ('PAID', 'PROCESSING', 'SHIPPING', 'DELIVERED')
           AND o.created_at >= :startDateTime
           AND o.created_at < :endDateTime
-        GROUP BY CAST(timezone('Asia/Ho_Chi_Minh', o.created_at) AS DATE)
+        GROUP BY CAST(o.created_at AS DATE)
         ORDER BY sale_date
         """, nativeQuery = true)
     List<Object[]> findCompletedDailySalesByProduct(
@@ -175,7 +181,7 @@ public interface OrderItemRepository
     );
 
     @Query(value = """
-        SELECT CAST(MIN(timezone('Asia/Ho_Chi_Minh', o.created_at)) AS DATE)
+        SELECT CAST(MIN(o.created_at) AS DATE)
         FROM order_items oi
         JOIN orders o ON o.id = oi.order_id
         WHERE oi.product_id = :productId
@@ -225,4 +231,4 @@ public interface OrderItemRepository
         @Param("endDateTime") OffsetDateTime endDateTime
     );
 }
-
+

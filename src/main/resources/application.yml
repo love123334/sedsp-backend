@@ -5,6 +5,12 @@ spring:
   profiles:
     default: dev
 
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+
   # --- Cấu hình Mail ---
   mail:
     host: smtp.gmail.com

@@ -1,5 +1,6 @@
 package com.example.secdsp.modules.dss.service;
 
+import com.example.secdsp.common.util.AppTime;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,7 +90,7 @@ public class LightGbmOnnxDemandPredictor {
             double smoke = OnnxDemandRuntime.predict(
                 path,
                 buildFeatures(
-                    LocalDate.now(),
+                    AppTime.today(),
                     List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L),
                     7
                 )

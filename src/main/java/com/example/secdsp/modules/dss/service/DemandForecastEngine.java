@@ -1,6 +1,7 @@
 package com.example.secdsp.modules.dss.service;
 
 import com.example.secdsp.common.exception.BusinessException;
+import com.example.secdsp.common.util.AppTime;
 import com.example.secdsp.modules.dss.dto.internal.DemandForecastComputation;
 import com.example.secdsp.modules.dss.dto.internal.DemandForecastProductView;
 import com.example.secdsp.modules.inventory.entity.Inventory;
@@ -29,7 +30,7 @@ import java.util.OptionalDouble;
 @RequiredArgsConstructor
 public class DemandForecastEngine {
 
-    public static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    public static final ZoneId APP_ZONE = AppTime.ZONE;
     private static final int MIN_HISTORY_DAYS = 7;
     private static final int MAX_HISTORY_DAYS = 180;
     private static final int MIN_FORECAST_DAYS = 1;
@@ -112,9 +113,10 @@ public class DemandForecastEngine {
                 endDateTime
             )
             .forEach(row -> {
-                LocalDate saleDate = row[0] instanceof java.sql.Date sqlDate
-                    ? sqlDate.toLocalDate()
-                    : (LocalDate) row[0];
+                LocalDate saleDate = AppTime.toAppDate(row[0]);
+                if (saleDate == null) {
+                    return;
+                }
                 long quantity = ((Number) row[1]).longValue();
                 soldByDate.put(saleDate, quantity);
             });

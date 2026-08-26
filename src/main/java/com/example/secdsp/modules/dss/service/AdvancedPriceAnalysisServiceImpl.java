@@ -4,6 +4,7 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.common.exception.ForbiddenException;
 import com.example.secdsp.common.exception.ResourceNotFoundException;
 import com.example.secdsp.common.exception.UnauthorizedException;
+import com.example.secdsp.common.util.AppTime;
 import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.dss.dto.internal.DemandForecastComputation;
 import com.example.secdsp.modules.dss.dto.internal.DemandForecastProductView;
@@ -331,7 +332,7 @@ public class AdvancedPriceAnalysisServiceImpl
                 "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc."
             );
         }
-        if (request.getToDate().isAfter(LocalDate.now())) {
+        if (request.getToDate().isAfter(AppTime.today())) {
             throw new BusinessException("Ngày kết thúc không được ở tương lai.");
         }
 

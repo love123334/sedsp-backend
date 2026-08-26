@@ -221,4 +221,38 @@ class DemandForecastEngineTest {
         assertEquals(toDate.plusDays(1).toString(),
             forecast.forecastSales().get(0).get("date"));
     }
+
+    @Test
+    void utcInstantJustAfterVnMidnightBucketsOntoVnCalendarDay() {
+        LocalDate fromDate = LocalDate.of(2026, 8, 20);
+        LocalDate toDate = LocalDate.of(2026, 8, 27);
+        OffsetDateTime createdUtc = OffsetDateTime.parse("2026-08-26T17:13:37Z");
+        when(orderItemRepository.findCompletedDailySalesByProduct(
+            PRODUCT_ID,
+            fromDate.atStartOfDay(APP_ZONE).toOffsetDateTime(),
+            toDate.plusDays(1).atStartOfDay(APP_ZONE).toOffsetDateTime()
+        )).thenReturn(List.<Object[]>of(new Object[] { createdUtc, 12L }));
+        when(inventoryRepository.findByProduct_Id(PRODUCT_ID))
+            .thenReturn(java.util.Optional.empty());
+        when(productReviewRepository.getRatingSummary(PRODUCT_ID))
+            .thenReturn(new Object[] { null, 0L });
+        when(lightGbmPredictor.isModelAvailable(anyLong())).thenReturn(false);
+
+        DemandForecastComputation forecast = demandForecastEngine.forecast(
+            new DemandForecastProductView(
+                PRODUCT_ID,
+                7L,
+                "Nồi chiên không dầu 5L",
+                new BigDecimal("890000.00")
+            ),
+            fromDate,
+            toDate,
+            7
+        );
+
+        var history = forecast.historicalSales();
+        assertEquals("2026-08-27", history.get(history.size() - 1).get("date"));
+        assertEquals(12L, ((Number) history.get(history.size() - 1).get("qty")).longValue());
+        assertEquals(0L, ((Number) history.get(history.size() - 2).get("qty")).longValue());
+    }
 }
