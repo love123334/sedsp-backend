@@ -87,8 +87,8 @@ app:
     base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
     model: ${DEEPSEEK_MODEL:deepseek-chat}
     temperature: ${DEEPSEEK_TEMPERATURE:0.4}
-    max-tokens: ${DEEPSEEK_MAX_TOKENS:1200}
-    refine-gemini: ${DEEPSEEK_REFINE_GEMINI:false}
+    max-tokens: ${DEEPSEEK_MAX_TOKENS:800}
+    refine-gemini: ${DEEPSEEK_REFINE_GEMINI:true}
 
   # --- Power BI / Looker Studio (embed URL sau khi publish report) ---
   powerbi:

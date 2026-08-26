@@ -240,7 +240,7 @@ public class AiChatServiceImpl implements AiChatService {
             .systemInstruction(
                 Content.fromParts(Part.fromText(AiChatPrompts.ECOMMERCE_SYSTEM))
             )
-            .maxOutputTokens(512)
+            .maxOutputTokens(700)
             .thinkingConfig(
                 ThinkingConfig.builder()
                     .includeThoughts(false)

@@ -4,8 +4,8 @@ import com.example.secdsp.common.exception.BusinessException;
 import com.example.secdsp.config.DeepSeekProperties;
 import com.example.secdsp.modules.ai.dto.AiChatRequest;
 import com.example.secdsp.modules.ai.dto.AiChatResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -22,11 +22,18 @@ import java.util.Map;
 /** Low-level OpenAI-compatible client for DeepSeek. */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class DeepSeekChatService {
 
     private final DeepSeekProperties deepSeekProperties;
     private final RestTemplate restTemplate;
+
+    public DeepSeekChatService(
+        DeepSeekProperties deepSeekProperties,
+        @Qualifier("deepSeekRestTemplate") RestTemplate restTemplate
+    ) {
+        this.deepSeekProperties = deepSeekProperties;
+        this.restTemplate = restTemplate;
+    }
 
     public boolean isConfigured() {
         return deepSeekProperties.isConfigured();

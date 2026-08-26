@@ -32,8 +32,8 @@ public class DeepSeekProperties {
 
     int maxTokens = 1200;
 
-    /** Polish Gemini drafts — off by default (teammate = Gemini wording only). */
-    boolean refineGemini = false;
+    /** Polish Gemini drafts into natural advisor copy (Gemini ~8s + DeepSeek ~6s). */
+    boolean refineGemini = true;
 
     public boolean isConfigured() {
         return enabled

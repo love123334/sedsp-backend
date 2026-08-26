@@ -67,37 +67,25 @@ public class DeepSeekEcommerceChatService {
             return null;
         }
         String lastUser = lastUserContent(request);
-        String facts = platformFactsService.buildPlatformFacts(lastUser);
-        boolean shopping = platformFactsService.looksShoppingRelated(lastUser);
+        boolean grounded = lastUser.contains("[CONTEXT SẢN PHẨM/SHOP")
+            || lastUser.contains("PLATFORM_FACTS");
+        boolean shopping = grounded || platformFactsService.looksShoppingRelated(lastUser);
         boolean weak = looksWeak(geminiDraft);
-        boolean hasFacts = StringUtils.hasText(facts);
-        boolean draftHasPrice = geminiDraft.matches("(?s).*\\d[\\d.,]*\\s*(đ|₫|VND|triệu|tr|k\\b).*")
-            || geminiDraft.matches("(?s).*\\d{1,3}(?:[.,]\\d{3})+.*");
-        boolean factsHaveProducts = facts.contains("product_count=")
-            && !facts.contains("product_count=0");
 
-        // Skip polish for tiny greetings / no catalog work
-        if (!shopping && !weak && !hasFacts) {
+        // Greetings / tiny chit-chat: keep Gemini, skip extra round
+        if (!shopping && !weak && lastUser.length() < 40) {
             return null;
         }
-        if (!weak && !hasFacts && lastUser.length() < 24) {
-            return null;
-        }
-        // Strong Gemini answer that already cites prices → keep (avoid extra latency)
-        if (!weak && shopping && draftHasPrice && !(factsHaveProducts && WEAK_REPLY.matcher(geminiDraft).find())) {
-            return null;
-        }
-        // Need something useful to refine with
-        if (!weak && !hasFacts && !shopping) {
-            return null;
-        }
+
+        // FE already sent catalog facts in the user turn — don't spend the 15s budget on another DB search
+        String facts = grounded ? "" : platformFactsService.buildPlatformFacts(lastUser);
 
         try {
             AiChatRequest bridged = bridgeWithFacts(request, facts, geminiDraft);
             log.info(
-                "DeepSeek refine Gemini draft (factsChars={}, weak={}, shopping={})",
+                "DeepSeek refine Gemini draft (factsChars={}, grounded={}, shopping={})",
                 facts.length(),
-                weak,
+                grounded,
                 shopping
             );
             AiChatResponse refined = deepSeekChatService.chat(bridged);
@@ -131,7 +119,9 @@ public class DeepSeekEcommerceChatService {
 
         AiChatRequest.ChatTurn system = new AiChatRequest.ChatTurn();
         system.setRole("system");
-        StringBuilder sys = new StringBuilder(AiChatPrompts.ECOMMERCE_SYSTEM);
+        StringBuilder sys = new StringBuilder(
+            StringUtils.hasText(geminiDraft) ? AiChatPrompts.POLISH_SYSTEM : AiChatPrompts.ECOMMERCE_SYSTEM
+        );
         if (StringUtils.hasText(facts)) {
             sys.append("\n\nPLATFORM_FACTS (source of truth — do not invent SKUs/prices):\n")
                 .append(facts);
@@ -141,14 +131,10 @@ public class DeepSeekEcommerceChatService {
                 """
 
                 MULTI_PROVIDER_RULES:
-                - You refine a draft from Gemini using PLATFORM_FACTS.
-                - Keep Vietnamese with full diacritics; sound like a natural shopping advisor.
-                - Prefer PLATFORM_FACTS over the draft when they conflict.
-                - If PLATFORM_FACTS has maxPrice, drop any product above that cap — never recommend it.
+                - Rewrite the Gemini draft into a natural advisor reply.
+                - Prefer PLATFORM_FACTS / CONTEXT over the draft when they conflict.
+                - If maxPrice is set, drop any product above that cap.
                 - If the shopper asked for điện thoại, drop tablets (Galaxy Tab, iPad, máy tính bảng).
-                - Give 2–4 reasons to pick (budget fit, rating/sold, a real spec). Not a one-liner.
-                - Never narrate the UI ("bên dưới", "bấm card", "danh sách sản phẩm", "mình tìm được N…").
-                - Do not mention Gemini, DeepSeek, OpenRouter, or that you are refining.
                 """.stripIndent()
             );
         }
