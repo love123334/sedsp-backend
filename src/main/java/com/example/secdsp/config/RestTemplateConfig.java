@@ -20,12 +20,12 @@ public class RestTemplateConfig {
         return builder.requestFactory(() -> factory).build();
     }
 
-    /** DeepSeek polish must fit in the leftover Gemini+DeepSeek 15s budget. */
+    /** DeepSeek as Gemini-fail fallback — needs a real chat window, not leftover polish time. */
     @Bean
     public RestTemplate deepSeekRestTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(3_000);
-        factory.setReadTimeout(6_000);
+        factory.setReadTimeout(8_000);
         return new RestTemplate(factory);
     }
 }

@@ -46,9 +46,12 @@ public class DeepSeekEcommerceChatService {
             throw new BusinessException("DeepSeek chưa cấu hình (DEEPSEEK_API_KEY).");
         }
         String lastUser = lastUserContent(request);
-        String facts = platformFactsService.buildPlatformFacts(lastUser);
+        boolean grounded = lastUser.contains("[CONTEXT SẢN PHẨM/SHOP")
+            || lastUser.contains("PLATFORM_FACTS")
+            || lastUser.contains("VERIFIED FACTS");
+        String facts = grounded ? "" : platformFactsService.buildPlatformFacts(lastUser);
         AiChatRequest bridged = bridgeWithFacts(request, facts, null);
-        log.info("DeepSeek ecommerce chat (groundingChars={})", facts.length());
+        log.info("DeepSeek ecommerce chat (groundingChars={}, feGrounded={})", facts.length(), grounded);
         AiChatResponse response = deepSeekChatService.chat(bridged);
         return AiChatResponse.builder()
             .content(response.getContent())

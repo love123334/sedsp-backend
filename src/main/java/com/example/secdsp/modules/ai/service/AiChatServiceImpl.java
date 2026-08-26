@@ -90,7 +90,10 @@ public class AiChatServiceImpl implements AiChatService {
                     "AI completed without tool. Total: {} ms",
                     System.currentTimeMillis() - totalStart
                 );
-                return finalizeGeminiReply(request, buildResponse(response.text()), totalStart);
+                return geminiOrFallback(
+                    request,
+                    finalizeGeminiReply(request, buildResponse(response.text()), totalStart)
+                );
             }
 
             String functionName = functionCall.name().orElse("");
@@ -150,21 +153,19 @@ public class AiChatServiceImpl implements AiChatService {
                 secondCallMs
             );
 
-            return finalizeGeminiReply(request, buildResponse(finalResponse.text()), totalStart);
+            return geminiOrFallback(
+                request,
+                finalizeGeminiReply(request, buildResponse(finalResponse.text()), totalStart)
+            );
 
         } catch (Exception e) {
             log.warn(
-                "Gemini chat failed after {} ms ({}), trying DeepSeek → OpenRouter fallback",
+                "Gemini chat failed after {} ms ({}), trying DeepSeek fallback",
                 System.currentTimeMillis() - totalStart,
                 rootMessage(e)
             );
-            AiChatResponse viaFallback = null;
-            if (System.currentTimeMillis() - totalStart < 5_000) {
-                viaFallback = tryMultiProviderFallback(request);
-            } else {
-                log.warn("Skip DeepSeek/OpenRouter fallback — already past 5s");
-            }
-            if (viaFallback != null) {
+            AiChatResponse viaFallback = tryMultiProviderFallback(request);
+            if (viaFallback != null && StringUtils.hasText(viaFallback.getContent())) {
                 return viaFallback;
             }
             if (e instanceof BusinessException be) {
@@ -186,7 +187,17 @@ public class AiChatServiceImpl implements AiChatService {
         }
     }
 
-    /** Gemini draft → optional DeepSeek polish if still inside the ~15s budget. */
+    /** Gemini OK → keep it. Empty/null → DeepSeek (then OpenRouter). */
+    private AiChatResponse geminiOrFallback(AiChatRequest request, AiChatResponse gemini) {
+        if (gemini != null && StringUtils.hasText(gemini.getContent())) {
+            return gemini;
+        }
+        log.warn("Gemini returned empty, trying DeepSeek fallback");
+        AiChatResponse fallback = tryMultiProviderFallback(request);
+        return fallback != null && StringUtils.hasText(fallback.getContent()) ? fallback : gemini;
+    }
+
+    /** Gemini draft → optional DeepSeek polish (off by default; fallback is separate). */
     private AiChatResponse finalizeGeminiReply(
         AiChatRequest request,
         AiChatResponse gemini,

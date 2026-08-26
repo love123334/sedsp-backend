@@ -70,10 +70,10 @@ public class AiChatController {
 
     private static String buildRoutingLabel(boolean gemini, boolean deepSeek, boolean openRouter) {
         if (gemini && deepSeek && openRouter) {
-            return "gemini-primary-deepseek-refine-openrouter-fallback";
+            return "gemini-primary-deepseek-fallback-openrouter";
         }
         if (gemini && deepSeek) {
-            return "gemini-primary-deepseek-refine-fallback";
+            return "gemini-primary-deepseek-fallback";
         }
         if (gemini && openRouter) {
             return "gemini-primary-openrouter-fallback";

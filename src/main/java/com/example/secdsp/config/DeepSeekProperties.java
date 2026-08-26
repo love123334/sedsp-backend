@@ -32,7 +32,7 @@ public class DeepSeekProperties {
 
     int maxTokens = 1200;
 
-    /** Off by default — polish adds 3–6s after Gemini. */
+    /** Polish Gemini drafts (off). DeepSeek still runs as Gemini-fail fallback. */
     boolean refineGemini = false;
 
     public boolean isConfigured() {
