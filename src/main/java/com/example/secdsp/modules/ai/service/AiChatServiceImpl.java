@@ -88,7 +88,7 @@ public class AiChatServiceImpl implements AiChatService {
             log.info("Gemini requested tool: {} args: {}", functionName, functionArgs);
 
             long toolStart = System.currentTimeMillis();
-            Map<String, Object> toolResult = executeAiTool(functionCall);
+            Map<String, Object> toolResult = executeAiTool(functionCall, lastUserContent(request));
             long toolMs = System.currentTimeMillis() - toolStart;
             log.info("AI tool {} completed: {} ms", functionName, toolMs);
 
@@ -353,6 +353,19 @@ public class AiChatServiceImpl implements AiChatService {
         return input.toString();
     }
 
+    private static String lastUserContent(AiChatRequest request) {
+        if (request == null || request.getMessages() == null) {
+            return "";
+        }
+        for (int i = request.getMessages().size() - 1; i >= 0; i--) {
+            AiChatRequest.ChatTurn turn = request.getMessages().get(i);
+            if (turn != null && "user".equalsIgnoreCase(turn.getRole())) {
+                return turn.getContent() == null ? "" : turn.getContent();
+            }
+        }
+        return "";
+    }
+
     private FunctionCall extractFunctionCall(
         GenerateContentResponse response
     ) {
@@ -382,7 +395,8 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     private Map<String, Object> executeAiTool(
-        FunctionCall functionCall
+        FunctionCall functionCall,
+        String lastUser
     ) {
 
         String functionName =
@@ -401,7 +415,7 @@ public class AiChatServiceImpl implements AiChatService {
 
         return switch (functionName) {
 
-            case "search_products" -> executeSearchProducts(args);
+            case "search_products" -> executeSearchProducts(args, lastUser);
 
             case "get_product_detail" -> executeGetProductDetail(args);
 
@@ -436,7 +450,8 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     private Map<String, Object> executeSearchProducts(
-        Map<String, Object> args
+        Map<String, Object> args,
+        String lastUser
     ) {
 
         String keyword = args.get("keyword") == null
@@ -444,6 +459,12 @@ public class AiChatServiceImpl implements AiChatService {
             : args.get("keyword").toString().trim();
         java.math.BigDecimal minPrice = toBigDecimal(args.get("minPrice"));
         java.math.BigDecimal maxPrice = toBigDecimal(args.get("maxPrice"));
+        if (maxPrice == null) {
+            maxPrice = ProductAiTool.parseMaxPrice(lastUser);
+        }
+        if (maxPrice == null) {
+            maxPrice = ProductAiTool.parseMaxPrice(keyword);
+        }
 
         if (!StringUtils.hasText(keyword) && minPrice == null && maxPrice == null) {
             return Map.of(

@@ -51,9 +51,10 @@ public final class ProductToolDefinition {
                 Search products on the e-commerce platform.
                 Use when the user wants to find, browse, or filter products
                 by name/keyword and/or price range (budget).
-                For budget-only questions like "có gì dưới 2 triệu", call with
-                maxPrice=2000000 and an empty or omitted keyword.
-                Never invent products — only report tool results.
+                For budget questions like "điện thoại dưới 20 triệu", you MUST set
+                maxPrice=20000000 (VND, inclusive) AND a product keyword such as "điện thoại".
+                Never invent products — only report tool results. Never recommend a product
+                whose price exceeds maxPrice.
                 """)
             .parameters(
                 Schema.builder()

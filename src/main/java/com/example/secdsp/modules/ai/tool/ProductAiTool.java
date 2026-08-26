@@ -15,6 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 @RequiredArgsConstructor
@@ -47,6 +49,19 @@ public class ProductAiTool {
         String sort = hasPrice ? "price-asc" : null;
         String kw = hasKeyword ? keyword.trim() : null;
         Long sellerScope = shopSellerIdOrNull();
+
+        if (maxPrice == null && StringUtils.hasText(kw)) {
+            maxPrice = extractMaxPriceFromText(kw);
+            hasPrice = minPrice != null || maxPrice != null;
+            if (hasPrice) {
+                sort = "price-asc";
+            }
+        }
+        if (StringUtils.hasText(kw) && maxPrice != null) {
+            String stripped = stripBudgetTokens(kw);
+            kw = StringUtils.hasText(stripped) ? stripped : extractFallbackDomainKeyword(kw);
+            hasKeyword = StringUtils.hasText(kw);
+        }
 
         List<ProductResponse> results = productService
             .getProducts(kw, null, sellerScope, sort, PageRequest.of(0, FETCH_SIZE))
@@ -206,6 +221,56 @@ public class ProductAiTool {
             return "bàn";
         }
         return null;
+    }
+
+    private static final Pattern UNDER_BUDGET = Pattern.compile(
+        "(?i)(?:dưới|duoi|under|tối\\s*đa|toi\\s*da|không\\s*quá|khong\\s*qua|tầm|tam|khoảng|khoang)"
+            + "\\s*(\\d+[.,]?\\d*)\\s*(triệu|trieu|tr|m|k|nghìn|nghin)?"
+    );
+
+    public static BigDecimal parseMaxPrice(String text) {
+        return extractMaxPriceFromText(text);
+    }
+
+    private static BigDecimal extractMaxPriceFromText(String text) {
+        if (!StringUtils.hasText(text)) {
+            return null;
+        }
+        Matcher m = UNDER_BUDGET.matcher(text);
+        if (!m.find()) {
+            return null;
+        }
+        return toVnd(m.group(1), m.group(2));
+    }
+
+    private static String stripBudgetTokens(String text) {
+        String k = text
+            .replaceAll("(?i)(dưới|duoi|under|tối\\s*đa|toi\\s*da|không\\s*quá|khong\\s*qua|"
+                + "tầm|tam|khoảng|khoang|ngân\\s*sách|ngan\\s*sach)\\s*\\d+[.,]?\\d*\\s*"
+                + "(triệu|trieu|tr|m|k|nghìn|nghin)?", " ")
+            .replaceAll("(?i)\\d+[.,]?\\d*\\s*(triệu|trieu|tr)\\b", " ")
+            .replaceAll("(?i)(có|co)\\s+(không|khong|ko)\\s*\\??$", "")
+            .replaceAll("[?!.]+$", "")
+            .replaceAll("\\s+", " ")
+            .trim();
+        return k.length() < 2 ? "" : k;
+    }
+
+    private static BigDecimal toVnd(String amountRaw, String unitRaw) {
+        if (amountRaw == null) {
+            return null;
+        }
+        double amount = Double.parseDouble(amountRaw.replace(',', '.'));
+        String unit = unitRaw == null ? "" : unitRaw.toLowerCase(Locale.ROOT);
+        double multiplier = 1;
+        if (unit.startsWith("tr") || unit.equals("m")) {
+            multiplier = 1_000_000;
+        } else if (unit.startsWith("k") || unit.startsWith("ngh")) {
+            multiplier = 1_000;
+        } else if (amount < 1000) {
+            multiplier = 1_000_000;
+        }
+        return BigDecimal.valueOf(Math.round(amount * multiplier));
     }
 
     private static boolean withinPrice(
