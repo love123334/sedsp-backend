@@ -20,8 +20,10 @@ public final class StatisticalForecastEngine {
     public static final String METHOD_CROSTON_SBA = "croston_sba";
 
     private static final int WEEKLY_PERIOD = 7;
-    private static final double SEASONALITY_THRESHOLD = 0.15;
-    private static final double DEFAULT_DAMPING_PHI = 0.90;
+    private static final double SEASONALITY_THRESHOLD = 0.08;
+    private static final double DEFAULT_DAMPING_PHI = 0.95;
+    private static final double FLAT_FORECAST_RANGE = 0.25;
+    private static final double SLOPE_PERSISTENCE = 0.85;
 
     private StatisticalForecastEngine() {
     }
@@ -55,9 +57,9 @@ public final class StatisticalForecastEngine {
 
     /**
      * Strategy Selection:
-     * - < 14 days or < 4 positive days -> MA
-     * - >= 14 days and positive ratio < 35% -> Croston SBA (Intermittent)
-     * - >= 21 days + seasonal strength >= 0.15 + >= 6 positive days -> Holt-Winters
+     * - &lt; 14 days or &lt; 4 positive days -> MA
+     * - >= 14 days and positive ratio &lt; 35% -> Croston SBA (Intermittent)
+     * - >= 14 days + seasonal strength >= 0.08 + >= 6 positive days -> Holt-Winters
      * - Otherwise -> Holt Linear
      */
     public static Strategy selectStrategy(
@@ -72,7 +74,7 @@ public final class StatisticalForecastEngine {
         if (historyDays >= 14 && positiveRatio < 0.35 && positiveDays >= 3) {
             return Strategy.CROSTON_SBA;
         }
-        if (historyDays >= 21 && seasonalityStrength >= SEASONALITY_THRESHOLD && positiveDays >= 6) {
+        if (historyDays >= 14 && seasonalityStrength >= SEASONALITY_THRESHOLD && positiveDays >= 6) {
             return Strategy.HOLT_WINTERS;
         }
         return Strategy.HOLT_LINEAR;
@@ -146,6 +148,15 @@ public final class StatisticalForecastEngine {
             case HOLT_LINEAR -> adaptiveHoltLinearForecast(smoothed, horizon);
             case HOLT_WINTERS -> adaptiveHoltWintersForecast(startDate, smoothed, horizon);
         };
+
+        if (strategy != Strategy.CROSTON_SBA) {
+            predictions = rescueDegenerateForecast(
+                startDate,
+                dailySeries,
+                predictions,
+                horizon
+            );
+        }
 
         double level = predictions.isEmpty() ? 0.0 : predictions.get(0);
         double trend = dailySeries.size() >= 2
@@ -250,7 +261,7 @@ public final class StatisticalForecastEngine {
 
         // Grid search for optimal (alpha, beta) on historical one-step-ahead MSE
         double[] alphaCandidates = {0.15, 0.30, 0.45};
-        double[] betaCandidates = {0.03, 0.08, 0.15};
+        double[] betaCandidates = {0.03, 0.08, 0.15, 0.25};
 
         for (double a : alphaCandidates) {
             for (double b : betaCandidates) {
@@ -404,6 +415,102 @@ public final class StatisticalForecastEngine {
             seasonal[si] = gamma * (value - level) + (1.0 - gamma) * prevSeason;
         }
         return count > 0 ? sumSqErr / count : 0.0;
+    }
+
+    /**
+     * Holt / MA often collapse noisy 2–5 unit series to a constant mean.
+     * If the horizon is visually flat, re-project with the OLS slope and
+     * weekly day-of-week means so the forecast line actually moves.
+     */
+    private static List<Double> rescueDegenerateForecast(
+        LocalDate startDate,
+        List<Long> dailySeries,
+        List<Double> predictions,
+        int horizon
+    ) {
+        if (predictions.isEmpty() || horizon < 2 || dailySeries.size() < 2) {
+            return predictions;
+        }
+
+        double predMin = Double.POSITIVE_INFINITY;
+        double predMax = Double.NEGATIVE_INFINITY;
+        for (double value : predictions) {
+            predMin = Math.min(predMin, value);
+            predMax = Math.max(predMax, value);
+        }
+        double predRange = predMax - predMin;
+        double slope = linearRegressionSlope(dailySeries);
+        double seasonal = seasonalityStrength(startDate, dailySeries);
+        boolean needTrend = predRange < FLAT_FORECAST_RANGE && Math.abs(slope) >= 0.01;
+        boolean needSeason = dailySeries.size() >= 14 && seasonal >= 0.06;
+
+        if (!needTrend && !needSeason) {
+            return predictions;
+        }
+
+        double level = averageOfTail(dailySeries, Math.min(7, dailySeries.size()));
+        if (level <= 0.0 && !predictions.isEmpty()) {
+            level = predictions.get(0);
+        }
+
+        double[] dowMean = dayOfWeekMeans(startDate, dailySeries);
+        double overall = seriesMean(dailySeries);
+
+        List<Double> out = new ArrayList<>(horizon);
+        LocalDate next = startDate.plusDays(dailySeries.size());
+        for (int h = 1; h <= horizon; h++) {
+            double base = needTrend
+                ? level + slope * h * SLOPE_PERSISTENCE
+                : predictions.get(h - 1);
+            double seas = 0.0;
+            if (needSeason) {
+                int dow = next.getDayOfWeek().getValue() % 7;
+                seas = dowMean[dow] - overall;
+            }
+            out.add(Math.max(0.0, base + seas));
+            next = next.plusDays(1);
+        }
+        return out;
+    }
+
+    private static double[] dayOfWeekMeans(LocalDate startDate, List<Long> dailySeries) {
+        double[] sum = new double[7];
+        int[] count = new int[7];
+        LocalDate date = startDate;
+        for (long qty : dailySeries) {
+            int dow = date.getDayOfWeek().getValue() % 7;
+            sum[dow] += qty;
+            count[dow]++;
+            date = date.plusDays(1);
+        }
+        double filled = 0.0;
+        int buckets = 0;
+        double[] mean = new double[7];
+        for (int i = 0; i < 7; i++) {
+            if (count[i] > 0) {
+                mean[i] = sum[i] / count[i];
+                filled += mean[i];
+                buckets++;
+            }
+        }
+        double fallback = buckets > 0 ? filled / buckets : 0.0;
+        for (int i = 0; i < 7; i++) {
+            if (count[i] == 0) {
+                mean[i] = fallback;
+            }
+        }
+        return mean;
+    }
+
+    private static double seriesMean(List<Long> series) {
+        if (series.isEmpty()) {
+            return 0.0;
+        }
+        long sum = 0L;
+        for (long value : series) {
+            sum += value;
+        }
+        return sum / (double) series.size();
     }
 
     private static double[] toArray(List<Long> series) {

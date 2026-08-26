@@ -63,11 +63,14 @@ public class ProductAiTool {
             hasKeyword = StringUtils.hasText(kw);
         }
 
+        final BigDecimal priceFloor = minPrice;
+        final BigDecimal priceCap = maxPrice;
+
         List<ProductResponse> results = productService
             .getProducts(kw, null, sellerScope, sort, PageRequest.of(0, FETCH_SIZE))
             .getContent()
             .stream()
-            .filter(p -> withinPrice(p, minPrice, maxPrice))
+            .filter(p -> withinPrice(p, priceFloor, priceCap))
             .toList();
 
         // If specific keyword gave no results, try extracting primary shopping terms
@@ -78,7 +81,7 @@ public class ProductAiTool {
                     .getProducts(fallbackKeyword, null, sellerScope, sort, PageRequest.of(0, FETCH_SIZE))
                     .getContent()
                     .stream()
-                    .filter(p -> withinPrice(p, minPrice, maxPrice))
+                    .filter(p -> withinPrice(p, priceFloor, priceCap))
                     .toList();
             }
         }

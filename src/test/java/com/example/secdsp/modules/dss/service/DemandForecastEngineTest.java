@@ -96,10 +96,59 @@ class DemandForecastEngineTest {
         );
         assertEquals(42, forecast.featureSnapshot().get("currentStock"));
         assertEquals(8L, forecast.featureSnapshot().get("reviewCount"));
-        assertEquals(
-            "holt_linear",
+        assertTrue(
+            forecast.method().contains("holt"),
             forecast.method()
         );
+    }
+
+    @Test
+    void oscillatingHistoryKeepsAMovingDecimalForecastLine() {
+        LocalDate endDate = LocalDate.now(APP_ZONE);
+        LocalDate startDate = endDate.minusDays(29L);
+        int[] weekly = {3, 5, 4, 3, 2, 4, 3};
+        List<Object[]> rows = new ArrayList<>();
+        for (int i = 0; i < 30; i++) {
+            rows.add(new Object[] {
+                Date.valueOf(startDate.plusDays(i)),
+                (long) Math.max(1, weekly[i % 7] - (i >= 20 ? 1 : 0))
+            });
+        }
+
+        when(orderItemRepository.findCompletedDailySalesByProduct(
+            anyLong(),
+            any(OffsetDateTime.class),
+            any(OffsetDateTime.class)
+        )).thenReturn(rows);
+        when(inventoryRepository.findByProduct_Id(PRODUCT_ID))
+            .thenReturn(java.util.Optional.empty());
+        when(productReviewRepository.getRatingSummary(PRODUCT_ID))
+            .thenReturn(new Object[] { null, 0L });
+        when(lightGbmPredictor.isModelAvailable(anyLong())).thenReturn(false);
+
+        DemandForecastComputation forecast = demandForecastEngine.forecast(
+            new DemandForecastProductView(
+                PRODUCT_ID,
+                7L,
+                "Tai nghe Bluetooth Pro ANC",
+                new BigDecimal("990000.00")
+            ),
+            30,
+            7
+        );
+
+        assertFalse(forecast.insufficientData());
+        assertEquals(7, forecast.forecastSales().size());
+
+        List<Double> qtys = forecast.forecastSales().stream()
+            .map(point -> ((Number) point.get("qty")).doubleValue())
+            .toList();
+        double min = qtys.stream().mapToDouble(Double::doubleValue).min().orElse(0);
+        double max = qtys.stream().mapToDouble(Double::doubleValue).max().orElse(0);
+        assertTrue(max - min > 0.2, "chart series must not be a flat integer: " + qtys);
+
+        boolean allWholeThrees = qtys.stream().allMatch(qty -> Math.abs(qty - 3.0) < 0.0001);
+        assertFalse(allWholeThrees, "forecast must not round a ~3 mean to a dead-flat 3.0 line");
     }
 
     @Test

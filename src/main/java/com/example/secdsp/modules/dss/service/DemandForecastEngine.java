@@ -243,9 +243,9 @@ public class DemandForecastEngine {
                 usedOnnxModel = true;
             }
 
-            long predictedQty = Math.max(0L, Math.round(predictedValue));
+            double predictedQty = round2(Math.max(0.0, predictedValue));
             forecastTotal += predictedQty;
-            recursiveHistory.add(predictedQty);
+            recursiveHistory.add(Math.max(0L, Math.round(predictedQty)));
 
             Map<String, Object> point = new LinkedHashMap<>();
             point.put("day", horizonIndex);
