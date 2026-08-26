@@ -575,6 +575,17 @@ public class AiChatServiceImpl implements AiChatService {
     private static final java.util.regex.Pattern SAFETY_METADATA_LEAK = java.util.regex.Pattern.compile(
         "(?im)^\\s*(?:User Safety|Response Safety|Phản hồi\\s*[Aa]n toàn|Khống chế người dùng|Khoản người dùng)\\s*:\\s*[^\\n]*\\n?"
     );
+    private static final java.util.regex.Pattern PROMPT_SCAFFOLD_LEAK = java.util.regex.Pattern.compile(
+        "(?is)(?:\\[CONTEXT SẢN PHẨM/SHOP[^\\]]*\\].*?(?:\\n\\n|$))"
+            + "|(?:\\[English gloss[^\\]]*\\][^\\n]*\\n?)"
+            + "|(?:PLATFORM_FACTS.*?(?:\\n\\n|$))"
+            + "|(?:Bản nháp trợ lý.*?cho khách\\.?\\s*)"
+            + "|(?:Hãy viết lại câu trả lời cuối cùng cho khách\\.?\\s*)"
+            + "|(?:You are SEDSP's intelligent.*?bullet points\\.\\s*)"
+            + "|(?:MULTI_PROVIDER_RULES:.*?(?:\\n\\n|$))"
+            + "|(?:product_search_keyword\\s*=\\s*[^\\n]+\\n?)"
+            + "|(?:^\\s*(?:Thinking|Thoughts?)\\s*:\\s*.*?(?:\\n\\n|$))"
+    );
 
     private AiChatResponse buildResponse(
         String content
@@ -597,7 +608,9 @@ public class AiChatServiceImpl implements AiChatService {
         if (content == null) {
             return null;
         }
-        String stripped = SAFETY_METADATA_LEAK.matcher(content).replaceAll("").trim();
+        String stripped = SAFETY_METADATA_LEAK.matcher(content).replaceAll("");
+        stripped = PROMPT_SCAFFOLD_LEAK.matcher(stripped).replaceAll("");
+        stripped = stripped.replaceAll("\\n{3,}", "\n\n").trim();
         return stripped.isBlank() ? null : stripped;
     }
 

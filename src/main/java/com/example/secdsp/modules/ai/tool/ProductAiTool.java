@@ -11,15 +11,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
 public class ProductAiTool {
 
     private static final int FETCH_SIZE = 50;
-    private static final int MAX_RESULTS = 10;
+    private static final int MAX_RESULTS = 5;
 
     private final ProductService productService;
 
@@ -51,7 +53,6 @@ public class ProductAiTool {
             .getContent()
             .stream()
             .filter(p -> withinPrice(p, minPrice, maxPrice))
-            .limit(MAX_RESULTS)
             .toList();
 
         // If specific keyword gave no results, try extracting primary shopping terms
@@ -63,12 +64,11 @@ public class ProductAiTool {
                     .getContent()
                     .stream()
                     .filter(p -> withinPrice(p, minPrice, maxPrice))
-                    .limit(MAX_RESULTS)
                     .toList();
             }
         }
 
-        return results;
+        return keepCoherentResults(results, kw);
     }
 
     /** Seller JWT → only this shop's catalog. Manager/admin/customer keep marketplace search. */
@@ -80,6 +80,97 @@ public class ProductAiTool {
             return SecurityUtils.getCurrentUserId();
         }
         return null;
+    }
+
+    /** Drop the odd-category tail so chat cards stay on one product group. */
+    private static List<ProductResponse> keepCoherentResults(
+        List<ProductResponse> results,
+        String keyword
+    ) {
+        if (results == null || results.isEmpty()) {
+            return List.of();
+        }
+        List<ProductResponse> pool = results;
+        String domain = StringUtils.hasText(keyword) ? extractFallbackDomainKeyword(keyword) : null;
+        if (StringUtils.hasText(domain)) {
+            List<ProductResponse> domainHits = results.stream()
+                .filter(p -> matchesDomain(p, domain))
+                .toList();
+            if (!domainHits.isEmpty()) {
+                pool = domainHits;
+            }
+        }
+
+        Map<String, Long> counts = new LinkedHashMap<>();
+        int head = Math.min(5, pool.size());
+        for (int i = 0; i < head; i++) {
+            String cat = categoryKey(pool.get(i));
+            if (cat.isEmpty()) {
+                continue;
+            }
+            counts.merge(cat, 1L, Long::sum);
+        }
+        String dominant = "";
+        long max = 0;
+        for (Map.Entry<String, Long> e : counts.entrySet()) {
+            if (e.getValue() > max) {
+                max = e.getValue();
+                dominant = e.getKey();
+            }
+        }
+        if (!dominant.isEmpty() && max >= 2) {
+            final String keep = dominant;
+            List<ProductResponse> same = pool.stream()
+                .filter(p -> keep.equals(categoryKey(p)))
+                .toList();
+            if (!same.isEmpty()) {
+                pool = same;
+            }
+        }
+        return pool.stream().limit(MAX_RESULTS).toList();
+    }
+
+    private static String categoryKey(ProductResponse product) {
+        if (product == null || !StringUtils.hasText(product.getCategoryName())) {
+            return "";
+        }
+        return product.getCategoryName().trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean matchesDomain(ProductResponse product, String domain) {
+        String hay = haystack(product);
+        String d = domain.toLowerCase(Locale.ROOT);
+        if (d.contains("tai nghe")) {
+            return hay.contains("tai nghe") || hay.contains("headphone") || hay.contains("earbuds")
+                || hay.contains("airpods") || hay.contains("headset");
+        }
+        if (d.contains("điện thoại") || d.contains("dien thoai")) {
+            return hay.contains("điện thoại") || hay.contains("dien thoai") || hay.contains("iphone")
+                || hay.contains("smartphone") || hay.contains("galaxy") || hay.contains("phone");
+        }
+        if (d.contains("laptop")) {
+            return hay.contains("laptop") || hay.contains("macbook") || hay.contains("notebook");
+        }
+        if (d.contains("bàn phím") || d.contains("ban phim")) {
+            return hay.contains("bàn phím") || hay.contains("ban phim") || hay.contains("keyboard")
+                || hay.contains("keypro");
+        }
+        if (d.contains("giày") || d.contains("giay")) {
+            return hay.contains("giày") || hay.contains("giay") || hay.contains("sneaker")
+                || hay.contains("shoe");
+        }
+        if (d.equals("áo") || d.equals("ao")) {
+            return hay.contains("áo") || hay.contains("shirt") || hay.contains("hoodie")
+                || hay.contains("thời trang") || hay.contains("thoi trang");
+        }
+        return hay.contains(d);
+    }
+
+    private static String haystack(ProductResponse product) {
+        String name = product.getName() == null ? "" : product.getName();
+        String slug = product.getSlug() == null ? "" : product.getSlug().replace('-', ' ');
+        String cat = product.getCategoryName() == null ? "" : product.getCategoryName();
+        return (name + " " + slug + " " + cat).toLowerCase(Locale.ROOT);
     }
 
     private static String extractFallbackDomainKeyword(String text) {

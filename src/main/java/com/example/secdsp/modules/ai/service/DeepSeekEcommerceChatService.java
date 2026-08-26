@@ -105,6 +105,10 @@ public class DeepSeekEcommerceChatService {
             if (!StringUtils.hasText(content) || content.length() < 12) {
                 return null;
             }
+            if (looksLikePromptEcho(content)) {
+                log.warn("DeepSeek refine echoed internal prompt; keeping Gemini draft");
+                return null;
+            }
             return AiChatResponse.builder()
                 .content(content)
                 .provider("gemini+deepseek")
@@ -188,6 +192,17 @@ public class DeepSeekEcommerceChatService {
         }
         return WEAK_REPLY.matcher(c).find()
             || c.toLowerCase(Locale.ROOT).contains("không thể tạo câu trả lời");
+    }
+
+    private static boolean looksLikePromptEcho(String content) {
+        String n = content.toLowerCase(Locale.ROOT);
+        return n.contains("platform_facts")
+            || n.contains("bản nháp trợ lý")
+            || n.contains("hãy viết lại câu trả lời cuối cùng")
+            || n.contains("you are sedsp's intelligent")
+            || n.contains("multi_provider_rules")
+            || n.contains("[english gloss")
+            || n.contains("[context sản phẩm");
     }
 
     private static String lastUserContent(AiChatRequest request) {
