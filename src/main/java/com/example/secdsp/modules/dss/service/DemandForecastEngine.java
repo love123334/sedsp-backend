@@ -272,6 +272,17 @@ public class DemandForecastEngine {
         );
         featureSnapshot.put("baseForecastDailyDemand", round2(statistical.level()));
         featureSnapshot.put("forecastAverageDailyDemand", round2(forecastAverage));
+        List<Double> forecastQty = new ArrayList<>();
+        for (Map<String, Object> point : forecastSales) {
+            forecastQty.add(((Number) point.get("qty")).doubleValue());
+        }
+        featureSnapshot.putAll(DemandTrendInsight.analyze(
+            startDate,
+            dailySeries,
+            forecastQty,
+            slope,
+            seasonalityStrength
+        ));
 
         return new DemandForecastComputation(
             product.productId(),

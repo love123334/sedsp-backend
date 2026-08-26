@@ -94,6 +94,9 @@ class DemandForecastEngineTest {
             ((Number) forecast.featureSnapshot().get("trendSlope")).doubleValue()
                 > 0.0
         );
+        assertEquals("up", forecast.featureSnapshot().get("historyTrend"));
+        assertEquals("Đang tăng", forecast.featureSnapshot().get("historyTrendLabel"));
+        assertTrue(forecast.featureSnapshot().get("forecastTrendLabel") instanceof String);
         assertEquals(42, forecast.featureSnapshot().get("currentStock"));
         assertEquals(8L, forecast.featureSnapshot().get("reviewCount"));
         assertTrue(

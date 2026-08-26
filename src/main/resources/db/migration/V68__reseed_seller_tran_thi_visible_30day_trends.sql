@@ -1,24 +1,17 @@
 -- =============================================================================
--- SEDSP — Seed 180 days of realistic demand history for DSS with holiday & trend effects
--- Marker: [SELLER-SEDSP-TREND]
--- Manual run: psql -f seed_seller_sedsp_demand_trends.sql
--- Flyway equivalent: V68__reseed_seller_tran_thi_visible_30day_trends.sql
+-- V68: Reseed seller@sedsp.vn (Trần Thị Bán) so the default 30-day DSS window
+-- shows the intended trend instead of a near-flat tail of a 180-day ramp.
 --
--- Target products (seller@sedsp.vn / 12345678):
---   1. tai-nghe-bluetooth-pro-anc      → DOWNWARD (40 ngày gần nhất 12 → 3)
---   2. noi-chien-khong-dau-5l          → STABLE (~6/ngày)
---   3. ban-phim-co-rgb-keypro-k87      → UPWARD (40 ngày gần nhất 3.5 → 13)
---   4. giay-chay-bo-airflex-marathon   → SEASONAL (T2 thấp, T6–CN cao)
+--   tai-nghe-bluetooth-pro-anc    → DOWNWARD  (last 40 days 12 → 3)
+--   noi-chien-khong-dau-5l        → STABLE    (~6 / ngày, nhiễu nhỏ)
+--   ban-phim-co-rgb-keypro-k87    → UPWARD    (last 40 days 3.5 → 13)
+--   giay-chay-bo-airflex-marathon → SEASONAL  (T2 thấp, T6–CN cao)
 --
--- External factors:
---   - Double-day mega-sales (3/3, 4/4, 5/5, 6/6, 7/7, 8/8, 9/9, 10/10, 11/11, 12/12, 1/1, 2/2)
---   - Payday sales (15th, 25th)
---   - Major holidays (30/4, 1/5, 2/9, 1/1)
---
--- Deterministic pseudo-random seed = 2026 (reproducible across database resets)
 -- 180 continuous days: CURRENT_DATE - 179 … CURRENT_DATE
+-- Marker: [SELLER-SEDSP-TREND]
 -- =============================================================================
 
+-- 1) Cleanup all prior trend orders
 WITH doomed AS (
     SELECT o.id
     FROM orders o
@@ -46,6 +39,7 @@ WHERE oi.order_id IN (SELECT id FROM doomed);
 DELETE FROM orders
 WHERE shipping_address LIKE '[SELLER-SEDSP-TREND] %';
 
+-- 2) Target demo products for seller@sedsp.vn
 CREATE TEMP TABLE seller_sedsp_demo_products ON COMMIT DROP AS
 SELECT
     product.id,
@@ -67,6 +61,7 @@ WHERE product.deleted_at IS NULL
   AND seller.email = 'seller@sedsp.vn'
   AND seller.deleted_at IS NULL;
 
+-- Remove legacy sales on these 4 demo products so DSS patterns stay pure
 CREATE TEMP TABLE orders_after_demo_item_removal ON COMMIT DROP AS
 SELECT o.id
 FROM orders o
@@ -107,6 +102,7 @@ FROM (
 ) totals
 WHERE o.id = totals.order_id;
 
+-- 3) Create 180 continuous daily DELIVERED orders (CURRENT_DATE - 179 … CURRENT_DATE)
 INSERT INTO orders (
     user_id,
     subtotal_amount,
@@ -134,6 +130,7 @@ CROSS JOIN (
 ) customer
 WHERE EXISTS (SELECT 1 FROM seller_sedsp_demo_products);
 
+-- 4) Create order items for the 4 demand profiles using deterministic random seed 2026 + holiday factors
 INSERT INTO order_items (
     order_id,
     product_id,
@@ -179,6 +176,7 @@ CROSS JOIN LATERAL (
         1,
         ROUND(
             CASE product.profile_name
+                -- DOWNWARD: cao ổn định rồi dốc rõ trong 40 ngày gần nhất (cửa sổ 30 ngày mặc định = Đang giảm)
                 WHEN 'DOWNWARD' THEN
                     CASE
                         WHEN timeline.day_index < 140 THEN
@@ -188,9 +186,13 @@ CROSS JOIN LATERAL (
                             + (noise_calc.noise * 0.30)
                     END
                     + CASE WHEN holiday_calc.holiday_boost >= 3 AND timeline.day_index < 140 THEN 2 ELSE 0 END
+
+                -- STABLE: ~6/ngày, nhiễu nhỏ — độ dốc 30 ngày ≈ 0
                 WHEN 'STABLE' THEN
                     6.0 + (noise_calc.noise * 0.30)
                     + CASE WHEN holiday_calc.holiday_boost >= 3 THEN 1 ELSE 0 END
+
+                -- UPWARD: thấp ổn định rồi dốc lên rõ trong 40 ngày gần nhất
                 WHEN 'UPWARD' THEN
                     CASE
                         WHEN timeline.day_index < 140 THEN
@@ -200,6 +202,8 @@ CROSS JOIN LATERAL (
                             + (noise_calc.noise * 0.30)
                     END
                     + CASE WHEN holiday_calc.holiday_boost >= 3 THEN 2 ELSE 0 END
+
+                -- SEASONAL: T2 thấp, T6–CN cao — OLS 30 ngày ≈ ổn định, đường dự báo có mùa tuần
                 WHEN 'SEASONAL' THEN
                     (CASE timeline.isodow
                         WHEN 1 THEN 3.0
@@ -219,6 +223,7 @@ CROSS JOIN LATERAL (
 WHERE forecast_order.shipping_address LIKE '[SELLER-SEDSP-TREND] %'
   AND forecast_order.created_at::DATE BETWEEN CURRENT_DATE - 179 AND CURRENT_DATE;
 
+-- 5) Update order totals
 UPDATE orders forecast_order
 SET subtotal_amount = totals.subtotal,
     total_amount = totals.subtotal + forecast_order.shipping_fee - forecast_order.discount_amount,
@@ -233,6 +238,7 @@ FROM (
 WHERE totals.order_id = forecast_order.id
   AND forecast_order.shipping_address LIKE '[SELLER-SEDSP-TREND] %';
 
+-- 6) Create matching payment records
 INSERT INTO payments (
     order_id,
     payment_method,
@@ -258,6 +264,7 @@ FROM orders forecast_order
 WHERE forecast_order.shipping_address LIKE '[SELLER-SEDSP-TREND] %'
   AND forecast_order.total_amount > 0;
 
+-- 7) Create tracking records
 INSERT INTO order_tracking (
     order_id,
     event,
