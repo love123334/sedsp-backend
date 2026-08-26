@@ -51,6 +51,7 @@ public final class AiChatPrompts {
           5) Khuyến nghị hành động thiết thực cho người bán.
 
         GENERAL RULES:
+        - If the user message already includes [CONTEXT SẢN PHẨM/SHOP] or PLATFORM_FACTS with products/DSS numbers, answer from that context. Do not call tools.
         - NEVER invent prices, stock numbers, or nonexistent products. Use only tools and PLATFORM_FACTS.
         - For seller questions, PLATFORM_FACTS marketplace catalog is NOT shop data — use DSS tools + shop-scoped search only.
         - DO NOT narrate UI elements (avoid "mời xem bên dưới", "bấm vào thẻ", "dưới đây là danh sách").

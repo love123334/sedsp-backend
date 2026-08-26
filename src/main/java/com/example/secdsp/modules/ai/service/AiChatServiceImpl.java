@@ -42,7 +42,7 @@ public class AiChatServiceImpl implements AiChatService {
     @Value("${google.ai.model}")
     private String model;
 
-    private static final int MAX_HISTORY_MESSAGES = 8;
+    private static final int MAX_HISTORY_MESSAGES = 6;
     /** One fast fallback only — looping 6 models was burning ~1 minute per chat. */
     private static final List<String> MODEL_FALLBACKS = List.of(
         "gemini-3.5-flash-lite"
@@ -55,14 +55,26 @@ public class AiChatServiceImpl implements AiChatService {
 
         try {
             String conversation = buildConversation(request);
-            GenerateContentConfig toolsConfig = buildConfig(true);
-            GenerateContentConfig plainConfig = buildConfig(false);
+            String lastUser = lastUserContent(request);
+            boolean grounded = alreadyGroundedByFrontend(lastUser);
+            boolean sellerScope = isSellerOrManager(lastUser);
+            GenerateContentConfig plainConfig = buildConfig(false, sellerScope);
+            GenerateContentConfig toolsConfig = grounded
+                ? plainConfig
+                : buildConfig(true, sellerScope);
+
+            if (grounded) {
+                log.info("AI skip tools — FE already sent verified catalog/DSS facts");
+            }
 
             long firstCallStart = System.currentTimeMillis();
             GenerateContentResponse response;
             try {
                 response = generateWithModelFallback(conversation, toolsConfig);
             } catch (Exception toolsFailure) {
+                if (grounded || isTimeoutLike(toolsFailure) || isNonRetryableGeminiError(toolsFailure)) {
+                    throw toolsFailure;
+                }
                 log.warn(
                     "Gemini with tools failed ({}), retrying without tools",
                     rootMessage(toolsFailure)
@@ -72,7 +84,7 @@ public class AiChatServiceImpl implements AiChatService {
             long firstCallMs = System.currentTimeMillis() - firstCallStart;
             log.info("AI Gemini #1 completed: {} ms", firstCallMs);
 
-            FunctionCall functionCall = extractFunctionCall(response);
+            FunctionCall functionCall = grounded ? null : extractFunctionCall(response);
             if (functionCall == null) {
                 log.info(
                     "AI completed without tool. Total: {} ms",
@@ -125,7 +137,7 @@ public class AiChatServiceImpl implements AiChatService {
 
             long secondCallStart = System.currentTimeMillis();
             GenerateContentResponse finalResponse =
-                generateWithModelFallback(followUpContents, toolsConfig);
+                generateWithModelFallback(followUpContents, plainConfig);
             long secondCallMs = System.currentTimeMillis() - secondCallStart;
             long totalMs = System.currentTimeMillis() - totalStart;
 
@@ -223,12 +235,12 @@ public class AiChatServiceImpl implements AiChatService {
         }
     }
 
-    private GenerateContentConfig buildConfig(boolean withTools) {
+    private GenerateContentConfig buildConfig(boolean withTools, boolean sellerScope) {
         GenerateContentConfig.Builder builder = GenerateContentConfig.builder()
             .systemInstruction(
                 Content.fromParts(Part.fromText(AiChatPrompts.ECOMMERCE_SYSTEM))
             )
-            .maxOutputTokens(900)
+            .maxOutputTokens(512)
             .thinkingConfig(
                 ThinkingConfig.builder()
                     .includeThoughts(false)
@@ -239,29 +251,56 @@ public class AiChatServiceImpl implements AiChatService {
             builder.tools(
                 List.of(
                     Tool.builder()
-                        .functionDeclarations(
-                            List.of(
-                                ProductToolDefinition.searchProducts(),
-                                ProductToolDefinition.getProductDetail(),
-                                OrderToolDefinition.getMyOrders(),
-                                OrderToolDefinition.getOrderDetail(),
-                                InventoryToolDefinition.getInventory(),
-                                InventoryToolDefinition.getInventorySummary(),
-                                InventoryToolDefinition.getLowStockProducts(),
-                                VoucherToolDefinition.listPublicVouchers(),
-                                VoucherToolDefinition.validateVoucher(),
-                                DssToolDefinition.getDemandForecast(),
-                                DssToolDefinition.getRestockRecommendations(),
-                                DssToolDefinition.getWhatIfDiscountAnalysis(),
-                                DssToolDefinition.getPriceRecommendation(),
-                                DssToolDefinition.getBusinessHealth()
-                            )
-                        )
+                        .functionDeclarations(toolDeclarationsFor(sellerScope))
                         .build()
                 )
             );
         }
         return builder.build();
+    }
+
+    private static List<FunctionDeclaration> toolDeclarationsFor(boolean sellerScope) {
+        if (sellerScope) {
+            return List.of(
+                ProductToolDefinition.searchProducts(),
+                ProductToolDefinition.getProductDetail(),
+                InventoryToolDefinition.getInventory(),
+                InventoryToolDefinition.getInventorySummary(),
+                InventoryToolDefinition.getLowStockProducts(),
+                DssToolDefinition.getDemandForecast(),
+                DssToolDefinition.getRestockRecommendations(),
+                DssToolDefinition.getWhatIfDiscountAnalysis(),
+                DssToolDefinition.getPriceRecommendation(),
+                DssToolDefinition.getBusinessHealth()
+            );
+        }
+        return List.of(
+            ProductToolDefinition.searchProducts(),
+            ProductToolDefinition.getProductDetail(),
+            OrderToolDefinition.getMyOrders(),
+            OrderToolDefinition.getOrderDetail(),
+            VoucherToolDefinition.listPublicVouchers(),
+            VoucherToolDefinition.validateVoucher()
+        );
+    }
+
+    static boolean alreadyGroundedByFrontend(String lastUser) {
+        if (!StringUtils.hasText(lastUser)) {
+            return false;
+        }
+        return lastUser.contains("[CONTEXT SẢN PHẨM/SHOP")
+            || lastUser.contains("PLATFORM_FACTS")
+            || lastUser.contains("VERIFIED FACTS")
+            || lastUser.contains("- DSS:");
+    }
+
+    static boolean isSellerOrManager(String lastUser) {
+        if (!StringUtils.hasText(lastUser)) {
+            return false;
+        }
+        String n = lastUser.toLowerCase();
+        return n.contains("[vai trò sedsp: seller")
+            || n.contains("[vai trò sedsp: manager");
     }
 
     private List<String> modelCandidates() {
@@ -314,8 +353,8 @@ public class AiChatServiceImpl implements AiChatService {
                 String detail = candidate + "=" + rootMessage(ex);
                 failures.add(detail);
                 log.warn("Gemini model {} failed: {}", candidate, rootMessage(ex));
-                // Shared project quota / auth — trying more models only burns the same limit
-                if (isNonRetryableGeminiError(ex)) {
+                // Quota/auth/timeout — extra models only add latency, not recovery
+                if (isNonRetryableGeminiError(ex) || isTimeoutLike(ex)) {
                     break;
                 }
             }
@@ -334,6 +373,15 @@ public class AiChatServiceImpl implements AiChatService {
             || message.contains("403")
             || message.contains("api key")
             || message.contains("permission denied");
+    }
+
+    private static boolean isTimeoutLike(Throwable throwable) {
+        String message = rootMessage(throwable).toLowerCase();
+        return message.contains("timeout")
+            || message.contains("timed out")
+            || message.contains("deadline")
+            || message.contains("cancelled")
+            || message.contains("interrupted");
     }
 
     private static String rootMessage(Throwable throwable) {
