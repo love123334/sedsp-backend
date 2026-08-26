@@ -19,13 +19,14 @@ public final class VoucherToolDefinition {
                 """
                 Get publicly available vouchers on the e-commerce platform.
 
-                Use this tool when the user asks:
-                - what vouchers are available
-                - available promotions
-                - available discount codes
+                MUST call this tool when the user asks about:
+                - vouchers, coupon, mã giảm giá, mã voucher
+                - whether any discount code can be applied right now
+                - available promotions / mã đang áp dụng
                 - vouchers from a specific seller
 
                 Do not invent voucher information.
+                Do not recommend products when the question is about vouchers.
                 """
             )
             .parameters(
