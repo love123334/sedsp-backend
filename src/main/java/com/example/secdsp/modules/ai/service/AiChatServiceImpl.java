@@ -90,7 +90,7 @@ public class AiChatServiceImpl implements AiChatService {
                     "AI completed without tool. Total: {} ms",
                     System.currentTimeMillis() - totalStart
                 );
-                return finalizeGeminiReply(request, buildResponse(response.text()));
+                return finalizeGeminiReply(request, buildResponse(response.text()), totalStart);
             }
 
             String functionName = functionCall.name().orElse("");
@@ -150,7 +150,7 @@ public class AiChatServiceImpl implements AiChatService {
                 secondCallMs
             );
 
-            return finalizeGeminiReply(request, buildResponse(finalResponse.text()));
+            return finalizeGeminiReply(request, buildResponse(finalResponse.text()), totalStart);
 
         } catch (Exception e) {
             log.warn(
@@ -158,7 +158,12 @@ public class AiChatServiceImpl implements AiChatService {
                 System.currentTimeMillis() - totalStart,
                 rootMessage(e)
             );
-            AiChatResponse viaFallback = tryMultiProviderFallback(request);
+            AiChatResponse viaFallback = null;
+            if (System.currentTimeMillis() - totalStart < 11_000) {
+                viaFallback = tryMultiProviderFallback(request);
+            } else {
+                log.warn("Skip DeepSeek/OpenRouter fallback — already past 11s");
+            }
             if (viaFallback != null) {
                 return viaFallback;
             }
@@ -181,12 +186,21 @@ public class AiChatServiceImpl implements AiChatService {
         }
     }
 
-    /** Gemini draft → optional DeepSeek polish with shared catalog facts. */
-    private AiChatResponse finalizeGeminiReply(AiChatRequest request, AiChatResponse gemini) {
+    /** Gemini draft → optional DeepSeek polish if still inside the ~15s budget. */
+    private AiChatResponse finalizeGeminiReply(
+        AiChatRequest request,
+        AiChatResponse gemini,
+        long totalStart
+    ) {
         if (gemini == null || !StringUtils.hasText(gemini.getContent())) {
             return gemini;
         }
         if (deepSeekEcommerceChatService == null || !deepSeekEcommerceChatService.isRefineEnabled()) {
+            return gemini;
+        }
+        long elapsed = System.currentTimeMillis() - totalStart;
+        if (elapsed > 9_000) {
+            log.info("Skip DeepSeek refine — Gemini already {} ms", elapsed);
             return gemini;
         }
         AiChatResponse refined = deepSeekEcommerceChatService.refineGeminiDraft(

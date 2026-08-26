@@ -19,7 +19,7 @@ public class GoogleAiConfig {
             .apiKey(apiKey)
             .httpOptions(
                 HttpOptions.builder()
-                    .timeout(8_000)
+                    .timeout(12_000)
                     .build()
             )
             .build();
