@@ -79,7 +79,7 @@ class DemandTrendInsightTest {
             0.35
         );
 
-        assertEquals("seasonal", insight.get("historyTrend"));
+        assertEquals("stable", insight.get("historyTrend"));
         assertEquals("down", insight.get("forecastTrendDirection"));
         String reason = (String) insight.get("trendDivergenceReason");
         assertTrue(reason != null && reason.contains("cuối tuần đi qua sớm"), reason);
@@ -108,10 +108,10 @@ class DemandTrendInsightTest {
             seasonality
         );
 
-        assertEquals("seasonal", insight.get("historyTrend"));
-        assertEquals("Theo mùa tuần", insight.get("historyTrendLabel"));
-        assertEquals("seasonal", insight.get("forecastTrendDirection"));
-        assertEquals("Theo mùa tuần", insight.get("forecastTrendLabel"));
+        assertEquals("stable", insight.get("historyTrend"));
+        assertEquals("Tương đối ổn định", insight.get("historyTrendLabel"));
+        assertEquals("stable", insight.get("forecastTrendDirection"));
+        assertEquals("Ổn định", insight.get("forecastTrendLabel"));
         assertNull(insight.get("trendDivergenceReason"));
         assertNull(insight.get("trendBreakDate"));
     }
@@ -149,6 +149,8 @@ class DemandTrendInsightTest {
         String rec = String.valueOf(insight.get("trendRecommendation"));
         assertTrue(rec.contains("mức cao"), rec);
         assertTrue(!rec.toLowerCase().contains("đang giảm"), rec);
+        String detail = String.valueOf(insight.get("trendInsightDetail"));
+        assertTrue(!detail.contains("đơn/ngày"), detail);
     }
 
     @Test

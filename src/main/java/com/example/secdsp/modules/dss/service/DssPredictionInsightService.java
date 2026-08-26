@@ -24,7 +24,7 @@ public class DssPredictionInsightService {
     private static final long AI_INSIGHT_TIMEOUT_SECONDS = 5;
 
     private static final String DISCLAIMER =
-        "Phân tích kết hợp dữ liệu shop + mùa vụ TMĐT VN (Tết, 11.11, 12.12…). "
+        "Phân tích dựa trên dữ liệu bán hàng và tồn kho của shop. "
             + "Không phải báo cáo thị trường thời gian thực từ web.";
 
     private final HuggingFaceChatService chatService;
@@ -36,7 +36,7 @@ public class DssPredictionInsightService {
             Bạn là chuyên gia DSS cho seller TMĐT Việt Nam.
             Dựa CHỈ trên số liệu trong phần FACTS, viết tiếng Việt có dấu (120–180 từ):
             - 1 đoạn nhận định xu hướng nhu cầu
-            - 2–3 gạch đầu dòng: tác động ngày lễ/khuyến mãi sắp tới (nếu có trong FACTS)
+            - 2–3 gạch đầu dòng: tồn kho / nhập hàng theo dự báo
             - 1 gạch: rủi ro hoặc điều cần theo dõi
             KHÔNG bịa số, KHÔNG endpoint API, KHÔNG tiếng Anh/Trung xen vào.
             """,
@@ -124,10 +124,10 @@ public class DssPredictionInsightService {
 
     static String ruleBasedDemand(String facts) {
         if (facts == null || facts.isBlank()) {
-            return "Theo dõi biểu đồ bán hàng và điều chỉnh tồn kho trước các đợt sale lớn (11.11, 12.12, Tết).";
+            return "Theo dõi biểu đồ bán hàng và điều chỉnh tồn kho theo nhịp dự báo.";
         }
-        return "Dự báo đã tính xu hướng và hệ số ngày lễ VN. "
-            + "So sánh dự báo có mùa vụ với trung bình phẳng — nếu chênh lớn, chuẩn bị hàng trước sự kiện. "
+        return "Dự báo đã tính xu hướng và mùa vụ theo thứ trong tuần. "
+            + "So sánh đường dự báo với lịch sử bán — nếu chênh lớn, kiểm tra tồn kho. "
             + facts.lines().findFirst().orElse("");
     }
 

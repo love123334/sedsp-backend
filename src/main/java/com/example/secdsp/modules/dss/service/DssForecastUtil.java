@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Dự báo nhu cầu: trung bình có trọng số + xu hướng + mùa vụ (thứ / ngày lễ).
+ * Dự báo nhu cầu: trung bình có trọng số + xu hướng + mùa vụ theo thứ trong tuần.
  */
 public final class DssForecastUtil {
 
@@ -84,9 +84,6 @@ public final class DssForecastUtil {
 
         Map<DayOfWeek, BigDecimal> dowFactors = DssSeasonalityUtil.dayOfWeekFactors(dailyQty);
         LocalDate forecastStart = endDate.plusDays(1);
-        LocalDate forecastEnd = endDate.plusDays(forecastDays);
-        List<DssHolidayCalendar.HolidayWindow> holidays =
-            DssHolidayCalendar.holidaysBetween(forecastStart, forecastEnd);
 
         List<ForecastDayPoint> series = new ArrayList<>();
         BigDecimal seasonalitySum = BigDecimal.ZERO;
@@ -94,24 +91,21 @@ public final class DssForecastUtil {
             LocalDate d = forecastStart.plusDays(i);
             BigDecimal dayQty = DssSeasonalityUtil.dailyForecast(adjustedDaily, d, dowFactors);
             seasonalitySum = seasonalitySum.add(dayQty);
-            DssHolidayCalendar.HolidayWindow hw = DssHolidayCalendar.holidayOn(d);
-            String note = hw == null ? null : hw.label();
-            series.add(new ForecastDayPoint(d, dayQty, note));
+            series.add(new ForecastDayPoint(d, dayQty, null));
         }
 
         BigDecimal seasonalityAdjusted = seasonalitySum.setScale(2, RoundingMode.HALF_UP);
-        BigDecimal holidayFactor = flatPredicted.compareTo(BigDecimal.ZERO) > 0
+        BigDecimal seasonalFactor = flatPredicted.compareTo(BigDecimal.ZERO) > 0
             ? seasonalityAdjusted.divide(flatPredicted, SCALE, RoundingMode.HALF_UP)
             : BigDecimal.ONE;
 
         String methodology = String.format(
             "Trung bình có trọng số %d ngày (%s → %s), xu hướng %s%%, "
-                + "điều chỉnh thứ trong tuần + %d sự kiện lịch trong kỳ dự báo.",
+                + "điều chỉnh theo thứ trong tuần.",
             totalDays,
             startDate,
             endDate,
-            trendFactor.multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_UP),
-            holidays.size()
+            trendFactor.multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_UP)
         );
 
         return new ForecastResult(
@@ -119,13 +113,13 @@ public final class DssForecastUtil {
             trendFactor.setScale(4, RoundingMode.HALF_UP),
             flatPredicted,
             seasonalityAdjusted,
-            holidayFactor.setScale(4, RoundingMode.HALF_UP),
+            seasonalFactor.setScale(4, RoundingMode.HALF_UP),
             methodology,
             startDate,
             endDate,
             forecastDays,
             series,
-            holidays
+            List.of()
         );
     }
 
@@ -142,9 +136,6 @@ public final class DssForecastUtil {
             .setScale(2, RoundingMode.HALF_UP);
 
         LocalDate forecastStart = endDate.plusDays(1);
-        List<DssHolidayCalendar.HolidayWindow> holidays =
-            DssHolidayCalendar.holidaysBetween(forecastStart, endDate.plusDays(forecastDays));
-
         Map<DayOfWeek, BigDecimal> uniform = DssSeasonalityUtil.dayOfWeekFactors(Map.of());
         List<ForecastDayPoint> series = new ArrayList<>();
         BigDecimal seasonalitySum = BigDecimal.ZERO;
@@ -152,32 +143,30 @@ public final class DssForecastUtil {
             LocalDate d = forecastStart.plusDays(i);
             BigDecimal dayQty = DssSeasonalityUtil.dailyForecast(avg, d, uniform);
             seasonalitySum = seasonalitySum.add(dayQty);
-            DssHolidayCalendar.HolidayWindow hw = DssHolidayCalendar.holidayOn(d);
-            series.add(new ForecastDayPoint(d, dayQty, hw == null ? null : hw.label()));
+            series.add(new ForecastDayPoint(d, dayQty, null));
         }
         BigDecimal seasonalityAdjusted = seasonalitySum.setScale(2, RoundingMode.HALF_UP);
-        BigDecimal holidayFactor = predicted.compareTo(BigDecimal.ZERO) > 0
+        BigDecimal seasonalFactor = predicted.compareTo(BigDecimal.ZERO) > 0
             ? seasonalityAdjusted.divide(predicted, SCALE, RoundingMode.HALF_UP)
             : BigDecimal.ONE;
 
         String methodology = String.format(
-            "Trung bình đơn giản: %d SP / %d ngày; bổ sung hệ số ngày lễ (%d sự kiện).",
+            "Trung bình đơn giản: %d SP / %d ngày; điều chỉnh theo thứ trong tuần.",
             totalQuantity,
-            historicalDays,
-            holidays.size()
+            historicalDays
         );
         return new ForecastResult(
             avg,
             BigDecimal.ZERO,
             predicted,
             seasonalityAdjusted,
-            holidayFactor,
+            seasonalFactor,
             methodology,
             startDate,
             endDate,
             forecastDays,
             series,
-            holidays
+            List.of()
         );
     }
 

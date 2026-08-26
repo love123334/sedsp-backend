@@ -8,7 +8,7 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * Mùa vụ theo thứ trong tuần + sự kiện lịch — điều chỉnh dự báo từng ngày tương lai.
+ * Mùa vụ theo thứ trong tuần — điều chỉnh dự báo từng ngày tương lai.
  */
 public final class DssSeasonalityUtil {
 
@@ -63,22 +63,16 @@ public final class DssSeasonalityUtil {
         return factors;
     }
 
-    /** Nhu cầu 1 ngày tương lai = baseDaily × dowFactor × holidayFactor. */
+    /** Nhu cầu 1 ngày tương lai = baseDaily × dowFactor. */
     public static BigDecimal dailyForecast(
         BigDecimal baseDaily,
         LocalDate date,
         Map<DayOfWeek, BigDecimal> dowFactors
     ) {
         BigDecimal dow = dowFactors.getOrDefault(date.getDayOfWeek(), BigDecimal.ONE);
-        BigDecimal holiday = holidayFactor(date);
-        return baseDaily.multiply(dow).multiply(holiday)
+        return baseDaily.multiply(dow)
             .max(BigDecimal.ZERO)
             .setScale(2, RoundingMode.HALF_UP);
-    }
-
-    public static BigDecimal holidayFactor(LocalDate date) {
-        DssHolidayCalendar.HolidayWindow w = DssHolidayCalendar.holidayOn(date);
-        return w == null ? BigDecimal.ONE : w.demandMultiplier();
     }
 
     private static Map<DayOfWeek, BigDecimal> uniformFactors() {

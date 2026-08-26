@@ -7,7 +7,6 @@ import com.example.secdsp.common.util.SecurityUtils;
 import com.example.secdsp.modules.dss.dto.request.GenerateDemandPredictionRequest;
 import com.example.secdsp.modules.dss.dto.response.DemandPredictionResponse;
 import com.example.secdsp.modules.dss.dto.response.DssForecastDayResponse;
-import com.example.secdsp.modules.dss.dto.response.DssHolidayImpactResponse;
 import com.example.secdsp.modules.dss.entity.DemandPrediction;
 import com.example.secdsp.modules.dss.mapper.DemandPredictionMapper;
 import com.example.secdsp.modules.dss.repository.DemandPredictionRepository;
@@ -26,7 +25,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -144,19 +142,15 @@ public class DemandPredictionServiceImpl
             "Dữ liệu lịch sử: " + startDate + " → " + endDate
         );
         response.setForecastPeriodLabel(
-            DssHolidayCalendar.forecastScopeLabel(
-                forecastFrom,
-                forecastTo,
-                forecast.upcomingHolidays().size()
-            )
+            "Phạm vi dự báo: " + forecastFrom + " → " + forecastTo
         );
         response.setMethodology(forecast.methodology());
         response.setTrendFactor(forecast.trendFactor());
         response.setPredictedDemand(forecast.predictedQuantity());
         response.setSeasonalityAdjustedDemand(forecast.seasonalityAdjustedQuantity());
-        response.setHolidayAdjustmentFactor(forecast.holidayAdjustmentFactor());
+        response.setHolidayAdjustmentFactor(BigDecimal.ONE);
         response.setForecastSeries(mapForecastSeries(forecast));
-        response.setUpcomingHolidays(mapHolidays(forecast));
+        response.setUpcomingHolidays(List.of());
         response.setProductContext(productContext);
         response.setPriceChangeImpacts(priceImpacts);
         response.setAiInsight(predictionInsightService.generateDemandInsight(
@@ -191,23 +185,7 @@ public class DemandPredictionServiceImpl
             .map(p -> DssForecastDayResponse.builder()
                 .date(p.date())
                 .predictedQty(p.predictedQty())
-                .holidayNote(p.note())
-                .build())
-            .toList();
-    }
-
-    private static List<DssHolidayImpactResponse> mapHolidays(
-        DssForecastUtil.ForecastResult forecast
-    ) {
-        return forecast.upcomingHolidays().stream()
-            .map(h -> DssHolidayImpactResponse.builder()
-                .code(h.code())
-                .label(h.label())
-                .start(h.start())
-                .end(h.end())
-                .demandMultiplier(h.demandMultiplier())
-                .note(h.note())
-                .priceImpactNote(h.priceImpactNote())
+                .holidayNote(null)
                 .build())
             .toList();
     }
@@ -218,12 +196,6 @@ public class DemandPredictionServiceImpl
         com.example.secdsp.modules.dss.dto.response.DssProductContextResponse ctx,
         List<com.example.secdsp.modules.dss.dto.response.DssPriceChangeImpactResponse> impacts
     ) {
-        String holidays = forecast.upcomingHolidays().stream()
-            .map(h -> h.label() + " (×" + h.demandMultiplier() + ")")
-            .collect(Collectors.joining(", "));
-        if (holidays.isBlank()) {
-            holidays = "không có sự kiện lớn trong kỳ dự báo";
-        }
         String priceNote = impacts.isEmpty()
             ? "Chưa chỉnh giá trong kỳ."
             : impacts.get(impacts.size() - 1).getSummary();
@@ -231,21 +203,18 @@ public class DemandPredictionServiceImpl
         return String.format(
             """
             Sản phẩm: %s
-            TB/ngày: %s; dự báo phẳng %s SP; có mùa vụ %s SP (hệ số lễ ×%s)
+            TB/ngày: %s; dự báo %s SP; có mùa vụ theo thứ %s SP
             Xu hướng: %s%%
             Ngữ cảnh shop: %s
             Chỉnh giá gần nhất: %s
-            Sự kiện sắp tới: %s
             """,
             product.name(),
             forecast.averageDailyDemand(),
             forecast.predictedQuantity(),
             forecast.seasonalityAdjustedQuantity(),
-            forecast.holidayAdjustmentFactor(),
             forecast.trendFactor().multiply(BigDecimal.valueOf(100)),
             ctx.getPerformanceSummary(),
-            priceNote,
-            holidays
+            priceNote
         );
     }
 

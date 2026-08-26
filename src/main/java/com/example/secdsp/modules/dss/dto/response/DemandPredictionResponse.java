@@ -27,7 +27,7 @@ public class DemandPredictionResponse {
 
     BigDecimal predictedDemand;
 
-    /** Dự báo có điều chỉnh thứ + ngày lễ */
+    /** Dự báo có điều chỉnh thứ trong tuần */
     BigDecimal seasonalityAdjustedDemand;
 
     BigDecimal holidayAdjustmentFactor;

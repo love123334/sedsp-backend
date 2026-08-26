@@ -5,7 +5,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -166,13 +165,8 @@ public final class DemandTrendInsight {
         snapshot.put("trendDivergenceReason", reason);
         snapshot.put("trendCombined", combinedCode(combined));
         snapshot.put("trendInsightLabel", combinedLabel(combined));
-        snapshot.put("trendInsightDetail", insightDetail(
-            combined,
-            earlierLevel,
-            recentLevel,
-            forecast
-        ));
-        snapshot.put("trendRecommendation", recommendation(combined, recentLevel, forecast));
+        snapshot.put("trendInsightDetail", insightDetail(combined));
+        snapshot.put("trendRecommendation", recommendation(combined));
         return snapshot;
     }
 
@@ -338,80 +332,53 @@ public final class DemandTrendInsight {
         return labelVi(direction);
     }
 
-    static String insightDetail(
-        Combined combined,
-        double earlierLevel,
-        double recentLevel,
-        List<Double> forecast
-    ) {
-        double forecastMean = averageNumbers(forecast);
-        String earlier = formatQty(earlierLevel);
-        String recent = formatQty(recentLevel);
-        String forecastQty = formatQty(forecastMean);
+    static String insightDetail(Combined combined) {
         return switch (combined) {
             case UP_TO_HIGH_STABLE, UP_TO_STABLE ->
-                "Nhu cầu tăng rõ trong giai đoạn gần đây, từ khoảng " + earlier
-                    + " lên " + recent + " đơn/ngày. Dự báo duy trì quanh "
-                    + forecastQty + " đơn/ngày, dù có dao động nhẹ.";
+                "Nhu cầu tăng rõ trong giai đoạn gần đây và dự báo duy trì ở mức cao, dù có dao động nhẹ.";
             case CONTINUE_UP ->
-                "Nhu cầu vừa tăng (khoảng " + earlier + " → " + recent
-                    + " đơn/ngày) và dự báo tiếp tục đi lên.";
+                "Nhu cầu vừa tăng và dự báo tiếp tục đi lên.";
             case UP_THEN_COOL ->
-                "Nhu cầu gần đây đã tăng lên khoảng " + recent
-                    + " đơn/ngày, nhưng đường dự báo đang hạ dần so với mức đó.";
+                "Nhu cầu gần đây đã tăng, nhưng đường dự báo đang hạ dần so với mức đó.";
             case SEASONAL ->
                 "Nhu cầu lặp nhịp theo tuần; dự báo giữ pattern đó chứ không đổi hướng dài hạn.";
             case RECOVERING ->
                 "Lịch sử đang giảm nhưng dự báo đảo chiều tăng — tín hiệu phục hồi.";
             case CONTINUE_DOWN ->
-                "Nhu cầu giảm từ khoảng " + earlier + " xuống " + recent
-                    + " đơn/ngày và dự báo tiếp tục yếu.";
+                "Nhu cầu đang giảm và dự báo tiếp tục yếu.";
             case DOWN_TO_STABLE ->
-                "Nhu cầu đã giảm rồi dự báo giữ quanh " + forecastQty + " đơn/ngày.";
+                "Nhu cầu đã giảm rồi dự báo giữ ổn định ở mức mới.";
             case MAY_RISE ->
-                "Lịch sử tương đối ổn định, dự báo nghiêng tăng quanh " + forecastQty + " đơn/ngày.";
+                "Lịch sử tương đối ổn định, dự báo nghiêng tăng.";
             case MAY_FALL ->
                 "Lịch sử tương đối ổn định, nhưng kỳ dự báo nghiêng giảm.";
             case STABLE ->
-                "Nhu cầu và dự báo đều quanh " + forecastQty + " đơn/ngày.";
+                "Nhu cầu và dự báo đều đi ngang, không đổi hướng dài hạn.";
         };
     }
 
-    static String recommendation(Combined combined, double recentLevel, List<Double> forecast) {
-        String qty = formatQty(recentLevel);
-        if (forecast != null && !forecast.isEmpty()) {
-            qty = formatQty(averageNumbers(forecast));
-        }
+    static String recommendation(Combined combined) {
         return switch (combined) {
             case UP_TO_HIGH_STABLE, UP_TO_STABLE ->
-                "Nhu cầu gần đây đang tăng mạnh và dự báo duy trì ở mức cao khoảng "
-                    + qty
-                    + " đơn/ngày. Nên giữ tồn kho cao hơn giai đoạn trước và theo dõi xem mức này có đứng vững sau 2–4 tuần.";
+                "Nhu cầu gần đây đang tăng mạnh và dự báo duy trì ở mức cao. Nên giữ tồn kho cao hơn giai đoạn trước và theo dõi xem mức này có đứng vững sau 2–4 tuần.";
             case CONTINUE_UP ->
-                "Dự báo tiếp tục tăng — chủ động nhập thêm theo nhịp ~"
-                    + qty + " đơn/ngày, tránh hết hàng giữa kỳ.";
+                "Dự báo tiếp tục tăng — chủ động nhập thêm, tránh hết hàng giữa kỳ.";
             case UP_THEN_COOL ->
-                "Đã tăng nhưng có dấu hiệu hạ nhiệt. Giữ tồn đủ cho ~"
-                    + qty + " đơn/ngày, chưa tăng nhập mạnh thêm.";
+                "Đã tăng nhưng có dấu hiệu hạ nhiệt. Giữ tồn đủ cho nhịp hiện tại, chưa tăng nhập mạnh thêm.";
             case SEASONAL ->
-                "Chuẩn bị tồn theo nhịp tuần (cuối tuần thường cao hơn). Trung bình kỳ tới khoảng "
-                    + qty + " đơn/ngày.";
+                "Chuẩn bị tồn theo nhịp tuần (cuối tuần thường cao hơn).";
             case RECOVERING ->
-                "Có tín hiệu phục hồi. Tăng tồn nhẹ theo dự báo ~"
-                    + qty + " đơn/ngày và theo dõi 1–2 tuần.";
+                "Có tín hiệu phục hồi. Tăng tồn nhẹ theo dự báo và theo dõi 1–2 tuần.";
             case CONTINUE_DOWN ->
-                "Nhu cầu giảm rõ — hạ tồn, tránh nhập dày; kỳ tới khoảng "
-                    + qty + " đơn/ngày.";
+                "Nhu cầu giảm rõ — hạ tồn, tránh nhập dày.";
             case DOWN_TO_STABLE ->
-                "Đã giảm rồi đi ngang quanh " + qty
-                    + " đơn/ngày. Điều chỉnh tồn về mức mới, chưa cắt sâu thêm.";
+                "Đã giảm rồi đi ngang. Điều chỉnh tồn về mức mới, chưa cắt sâu thêm.";
             case MAY_RISE ->
-                "Có khả năng tăng. Sẵn sàng tồn đệm quanh " + qty + " đơn/ngày.";
+                "Có khả năng tăng. Sẵn sàng tồn đệm vừa phải.";
             case MAY_FALL ->
                 "Có khả năng giảm. Giữ tồn vừa, ưu tiên xả chậm nếu bán chậm hơn kỳ trước.";
             case STABLE ->
-                "Nhu cầu ổn định quanh " + qty
-                    + " đơn/ngày. Duy trì tồn xoay vòng, tránh nhập đột biến.";
+                "Nhu cầu ổn định. Duy trì tồn xoay vòng, tránh nhập đột biến.";
         };
     }
 
@@ -472,10 +439,7 @@ public final class DemandTrendInsight {
     }
 
     static Direction withSeasonalLabel(Direction direction, double seasonalityStrength) {
-        if (direction == Direction.STABLE && seasonalityStrength >= SEASONAL_LABEL_THRESHOLD) {
-            return Direction.SEASONAL;
-        }
-        return direction;
+        return direction == Direction.SEASONAL ? Direction.STABLE : direction;
     }
 
     static Direction stripSeasonal(Direction direction) {
@@ -581,17 +545,6 @@ public final class DemandTrendInsight {
             return 0.0;
         }
         return ((n * sumXY) - (sumX * sumY)) / denominator;
-    }
-
-    private static String formatQty(double value) {
-        if (!Double.isFinite(value)) {
-            return "0";
-        }
-        double rounded = Math.round(value * 10.0) / 10.0;
-        if (Math.abs(rounded - Math.round(rounded)) < 0.05) {
-            return String.format(Locale.US, "%d", Math.round(rounded));
-        }
-        return String.format(Locale.US, "%.1f", rounded);
     }
 
     private static List<Long> tail(List<Long> series, int window) {

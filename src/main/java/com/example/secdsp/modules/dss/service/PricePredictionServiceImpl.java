@@ -10,7 +10,6 @@ import com.example.secdsp.modules.dss.dto.response.DssProfitBreakdownResponse;
 import com.example.secdsp.modules.dss.dto.request.CustomPriceScenarioRequest;
 import com.example.secdsp.modules.dss.dto.request.GeneratePricePredictionRequest;
 import com.example.secdsp.modules.dss.dto.response.CustomPriceScenarioResponse;
-import com.example.secdsp.modules.dss.dto.response.DssHolidayImpactResponse;
 import com.example.secdsp.modules.dss.dto.response.DssPriceChangeImpactResponse;
 import com.example.secdsp.modules.dss.dto.response.DssProductContextResponse;
 import com.example.secdsp.modules.dss.dto.response.PricePredictionResponse;
@@ -186,26 +185,13 @@ public class PricePredictionServiceImpl
             );
         LocalDate forecastStart = request.getToDate().plusDays(1);
         LocalDate forecastEnd = forecastStart.plusDays(forecastDays - 1L);
-        List<DssHolidayImpactResponse> upcomingHolidays =
-            DssHolidayCalendar.holidaysBetween(forecastStart, forecastEnd).stream()
-                .map(h -> DssHolidayImpactResponse.builder()
-                    .code(h.code())
-                    .label(h.label())
-                    .start(h.start())
-                    .end(h.end())
-                    .demandMultiplier(h.demandMultiplier())
-                    .note(h.note())
-                    .priceImpactNote(h.priceImpactNote())
-                    .build())
-                .toList();
 
         String priceFacts = buildPriceFactsBrief(
             product,
             averageElasticity,
             bestScenario,
             productContext,
-            priceChangeImpacts,
-            upcomingHolidays
+            priceChangeImpacts
         );
 
         return PricePredictionResponse.builder()
@@ -227,11 +213,7 @@ public class PricePredictionServiceImpl
                     + request.getToDate()
             )
             .forecastPeriodLabel(
-                DssHolidayCalendar.forecastScopeLabel(
-                    forecastStart,
-                    forecastEnd,
-                    upcomingHolidays.size()
-                )
+                "Phạm vi dự báo: " + forecastStart + " → " + forecastEnd
             )
             .forecastFrom(forecastStart)
             .forecastTo(forecastEnd)
@@ -241,7 +223,7 @@ public class PricePredictionServiceImpl
             .currentSituationBreakdown(currentBreakdown)
             .productContext(productContext)
             .priceChangeImpacts(priceChangeImpacts)
-            .upcomingHolidays(upcomingHolidays)
+            .upcomingHolidays(List.of())
             .aiInsight(predictionInsightService.generatePriceInsight(priceFacts))
             .build();
     }
@@ -251,13 +233,8 @@ public class PricePredictionServiceImpl
         BigDecimal elasticity,
         PriceScenarioResponse best,
         DssProductContextResponse ctx,
-        List<DssPriceChangeImpactResponse> impacts,
-        List<DssHolidayImpactResponse> holidays
+        List<DssPriceChangeImpactResponse> impacts
     ) {
-        String holidayStr = holidays.stream()
-            .map(h -> h.getLabel())
-            .reduce((a, b) -> a + ", " + b)
-            .orElse("không có sự kiện lớn");
         String impactStr = impacts.isEmpty()
             ? "Chưa có lần chỉnh giá trong kỳ."
             : impacts.get(impacts.size() - 1).getSummary();
@@ -267,7 +244,6 @@ public class PricePredictionServiceImpl
             Kịch bản đề xuất: %s%% → giá %s, lợi nhuận kỳ vọng %s
             %s
             Chỉnh giá: %s
-            Sự kiện TMĐT sắp tới: %s
             """,
             product.name(),
             product.price(),
@@ -276,8 +252,7 @@ public class PricePredictionServiceImpl
             best.getNewPrice(),
             best.getExpectedProfit(),
             ctx.getPerformanceSummary(),
-            impactStr,
-            holidayStr
+            impactStr
         );
     }
 
